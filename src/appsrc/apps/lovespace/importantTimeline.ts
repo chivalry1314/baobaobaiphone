@@ -1,6 +1,6 @@
 import type { AppMemoryRecord, AppMemoryRole } from '../../../core/appMemory';
 import { queryMemoryCenterRecords } from '../../../core/appMemoryCenter';
-import { getGlobalSettingsSnapshot } from '@mimisOS/sdk';
+import { getGlobalSettingsSnapshot } from '@baobaobaiOS/sdk';
 import { parseDateInput } from './utils';
 const MODEL_BATCH_SIZE = 24;
 const MIN_IMPORTANCE_SCORE = 60;

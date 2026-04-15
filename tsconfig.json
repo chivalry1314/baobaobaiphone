@@ -19,7 +19,7 @@
       "@/*": [
         "./*"
       ],
-      "@mimisOS/sdk": [
+      "@baobaobaiOS/sdk": [
         "./src/core/sdk/index.ts"
       ]
     },

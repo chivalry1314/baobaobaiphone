@@ -1,4 +1,4 @@
-﻿import { getGlobalSettingsSnapshot } from '@mimisOS/sdk';
+import { getGlobalSettingsSnapshot } from '@baobaobaiOS/sdk';
 import {
   appendShoppingOrderToStorage,
   readShoppingAddressesFromStorage,

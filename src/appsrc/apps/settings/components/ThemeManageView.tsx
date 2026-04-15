@@ -5,7 +5,7 @@ import {
   Image as ImageIcon,
   Check,
 } from "lucide-react";
-import { useGlobalSettingsStore } from "@mimisOS/sdk";
+import { useGlobalSettingsStore } from "@baobaobaiOS/sdk";
 
 // ==================== 类型定义 ====================
 

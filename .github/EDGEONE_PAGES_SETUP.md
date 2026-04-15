@@ -1,0 +1,39 @@
+# EdgeOne Pages via GitHub Actions
+
+This repository includes:
+
+- `.github/workflows/edgeone-pages-production.yml`
+- `.github/workflows/edgeone-pages-preview.yml`
+
+## 1. Required GitHub Secret
+
+Create one of these repository secrets:
+
+- `EDGEONE_API_TOKEN`: API token from EdgeOne Pages (preferred).
+- `EDGEONE_TOKEN`: compatible fallback name.
+
+## 2. Optional GitHub Variables
+
+Create repository variables (Settings -> Secrets and variables -> Actions -> Variables):
+
+- `EDGEONE_PROJECT_NAME`: EdgeOne project name for production deploy.
+- `EDGEONE_PREVIEW_PROJECT_NAME`: EdgeOne project name for preview deploy.
+
+If variables are not set, workflows default to repository name.
+
+## 3. Trigger Rules
+
+- Production workflow:
+  - triggers on push to `main`
+  - can be run manually (`workflow_dispatch`)
+- Preview workflow:
+  - triggers on PR open/sync/reopen to `main` or `develop`
+
+## 4. Security Note
+
+Preview workflow uses `pull_request_target` so it can comment preview links back to PRs.
+To avoid secret exposure, fork PRs are skipped by default.
+
+## 5. Build Output
+
+Current workflows deploy `./dist`. Make sure the build command outputs static files there.

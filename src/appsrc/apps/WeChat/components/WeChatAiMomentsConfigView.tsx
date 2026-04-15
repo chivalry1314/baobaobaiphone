@@ -1,6 +1,6 @@
-﻿import React, { useState } from 'react';
+import React, { useState } from 'react';
 import { ChevronLeft, Image as ImageIcon, Minus, Plus } from 'lucide-react';
-import { useGlobalSettingsStore } from '@mimisOS/sdk';
+import { useGlobalSettingsStore } from '@baobaobaiOS/sdk';
 import { useWeChatStore } from '../store';
 import type { WeChatAiMomentsConfigViewProps } from '../types';
 import { pickModelId } from './moments/momentsUtils';

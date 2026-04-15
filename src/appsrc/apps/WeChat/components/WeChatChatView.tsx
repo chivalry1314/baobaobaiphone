@@ -3,7 +3,7 @@ import React, { useEffect, useMemo, useRef, useState } from 'react';
 import { motion } from 'motion/react';
 import { useVirtualizer } from '@tanstack/react-virtual';
 import { useWeChatStore } from '../store';
-import { useGlobalSettingsStore, useGlobalWorldBookStore } from '@mimisOS/sdk';
+import { useGlobalSettingsStore, useGlobalWorldBookStore } from '@baobaobaiOS/sdk';
 import type { CSSProperties } from 'react';
 import type { WeChatChatViewProps, WeChatMessage } from '../types';
 import { useWeChatCharactersFromContacts } from '../contactAdapter';

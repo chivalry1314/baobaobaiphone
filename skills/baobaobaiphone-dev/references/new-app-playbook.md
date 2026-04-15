@@ -7,7 +7,7 @@ Create a local baobaobaiphone app that is auto-discovered by registry and follow
 Run from repo root:
 
 ```powershell
-powershell -ExecutionPolicy Bypass -File skills/miniphone-dev/scripts/new-baobaobaiphone-app.ps1 -AppId my-app -Name "My App" -IncludeStore
+powershell -ExecutionPolicy Bypass -File skills/baobaobaiphone-dev/scripts/new-baobaobaiphone-app.ps1 -AppId my-app -Name "My App" -IncludeStore
 ```
 
 Optional flags:

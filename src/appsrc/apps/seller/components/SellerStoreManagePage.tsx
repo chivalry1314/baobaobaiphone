@@ -40,7 +40,7 @@ import {
   SELLER_MESSAGE_UPDATED_EVENT,
   type SellerInboxMessage,
 } from '../../../shared/business/commerce/messageBridge';
-import { getGlobalSettingsSnapshot } from '@mimisOS/sdk';
+import { getGlobalSettingsSnapshot } from '@baobaobaiOS/sdk';
 import styles from '../SellerApp.module.css';
 
 type SellerStoreManagePageProps = {

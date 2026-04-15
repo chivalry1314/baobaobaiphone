@@ -1,5 +1,5 @@
 ---
-name: miniphone-dev
+name: baobaobaiphone-dev
 description: Build and maintain the baobaobaiphone React/Vite app ecosystem. Use when adding or updating apps in src/appsrc/apps, wiring AppManifest and registration behavior, integrating app memory modules, extending app market runtime HTML apps, or troubleshooting baobaobaiphone app launch, settings, and model API flows.
 ---
 
@@ -10,7 +10,7 @@ Implement features in baobaobaiphone by following existing architecture and conv
 
 ## Fast Path
 1. From repo root, scaffold a new app when the request is "create a new baobaobaiphone app":
-`powershell -ExecutionPolicy Bypass -File skills/miniphone-dev/scripts/new-baobaobaiphone-app.ps1 -AppId my-app -Name "My App" -IncludeStore`
+`powershell -ExecutionPolicy Bypass -File skills/baobaobaiphone-dev/scripts/new-baobaobaiphone-app.ps1 -AppId my-app -Name "My App" -IncludeStore`
 2. Open generated files under `src/appsrc/apps/<appId>/` and apply requested feature-specific edits.
 3. Run `npm run lint` and report results.
 4. Read references before broad edits:
@@ -64,7 +64,7 @@ Implement features in baobaobaiphone by following existing architecture and conv
 4. Keep summary/source labels stable; Memory Center uses them for filtering and display.
 
 ## Model/API Integration Rules
-1. Read API settings from `useGlobalSettingsStore((state) => state.settings)` or `getGlobalSettingsSnapshot()` via `@mimisOS/sdk`.
+1. Read API settings from `useGlobalSettingsStore((state) => state.settings)` or `getGlobalSettingsSnapshot()` via `@baobaobaiOS/sdk`.
 2. Build OpenAI-compatible requests against configured `baseUrl` and `apiKey`.
 3. Keep endpoint usage consistent with existing code paths:
 - `/models`

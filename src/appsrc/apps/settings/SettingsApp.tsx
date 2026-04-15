@@ -1,8 +1,8 @@
-﻿import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect } from 'react';
 import { motion, AnimatePresence } from 'motion/react';
 import { ChevronLeft, ChevronRight, Key, Shield, Info, Bell, Moon, Sparkles } from 'lucide-react';
 import { useSettingsStore } from './store';
-import { useGlobalDesktopStore } from '@mimisOS/sdk';
+import { useGlobalDesktopStore } from '@baobaobaiOS/sdk';
 import { APP_OPEN_MOTION, APP_CLOSE_MOTION } from '../../../core/appOpenMotion';
 import { BeautifyView, ThemeManageView, IconManageView, FontManageView, WidgetManageView, WidgetEditorView, DesktopLayoutView, DesktopEditModeView, ApiSettingsView, PushNotificationView } from './components';
 

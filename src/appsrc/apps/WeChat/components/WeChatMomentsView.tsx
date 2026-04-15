@@ -1,7 +1,7 @@
 import React, { useEffect, useMemo, useRef, useState } from 'react';
 import { motion } from 'motion/react';
 import { Camera, ChevronLeft, RefreshCw, User as UserIcon } from 'lucide-react';
-import { useGlobalSettingsStore } from '@mimisOS/sdk';
+import { useGlobalSettingsStore } from '@baobaobaiOS/sdk';
 import { useWeChatStore } from '../store';
 import { useWeChatCharactersFromContacts } from '../contactAdapter';
 import type { WeChatMomentsViewProps } from '../types';

@@ -1,4 +1,4 @@
-﻿import React, { useEffect, useMemo, useRef, useState } from 'react';
+import React, { useEffect, useMemo, useRef, useState } from 'react';
 import { motion } from 'motion/react';
 import { useVirtualizer } from '@tanstack/react-virtual';
 import { Brain, ChevronLeft, Eraser, RefreshCw, Trash2, X } from 'lucide-react';
@@ -10,7 +10,7 @@ import {
   type AppMemorySpace,
 } from '../../../core/appMemory';
 import { useAppMemoryCenterStore, type AppAutoSummaryProgress } from '../../../core/appMemoryCenter';
-import { useGlobalSettingsStore } from '@mimisOS/sdk';
+import { useGlobalSettingsStore } from '@baobaobaiOS/sdk';
 import { getRegisteredAppMemoryModules } from '../../../core/appMemoryRegistry';
 import { APP_CLOSE_MOTION, APP_OPEN_MOTION } from '../../../core/appOpenMotion';
 import { getAppById } from '../../../core/registry';

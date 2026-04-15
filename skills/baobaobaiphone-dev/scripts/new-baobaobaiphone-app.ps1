@@ -1,4 +1,4 @@
-﻿[CmdletBinding()]
+[CmdletBinding()]
 param(
   [Parameter(Mandatory = $true)]
   [string]$AppId,
@@ -181,7 +181,7 @@ $storeUiBlock
 "@
 
 $indexContent = @"
-import type { AppManifest } from '@mimisOS/sdk';
+import type { AppManifest } from '@baobaobaiOS/sdk';
 import { $appComponentName } from './$appComponentName';
 
 const ${manifestVarName}: AppManifest = {

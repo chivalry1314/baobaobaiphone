@@ -1,4 +1,4 @@
-﻿# MimisPhone Apps 代码生成 Prompt（面向 AI）
+# BaobaobaiPhone Apps 代码生成 Prompt（面向 AI）
 
 你是该仓库的资深前端工程师。请基于以下规则完成任务，输出并修改高质量代码。
 
@@ -88,7 +88,7 @@ src/appsrc/apps/<appId>/
 2. 导入顺序：
 - React/运行时
 - 三方库
-- core 或 `@mimisOS/sdk`
+- core 或 `@baobaobaiOS/sdk`
 - 同 app 组件
 - 同 app 类型/工具/store
 - 样式导入

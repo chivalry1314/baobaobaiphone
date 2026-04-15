@@ -1,6 +1,6 @@
 import type { ElementType } from 'react';
 import * as LucideIcons from 'lucide-react';
-import type { AppManifest } from '@mimisOS/sdk';
+import type { AppManifest } from '@baobaobaiOS/sdk';
 import type { StorageCategory } from './types';
 
 export const STORAGE_CAPACITY_BYTES = 300 * 1024 * 1024 * 1024;

@@ -41,7 +41,7 @@ export const defaultStores: CommerceStore[] = [
     name: '甜品店',
     slogan: '甜品小食 · 加入购物车',
     theme: 'linear-gradient(135deg, #fb7185, #f59e0b)',
-    signboard: 'Mimi 甜品店',
+    signboard: 'Baobaobai 甜品店',
     decoration: '?',
     decorationConfig: {
       productOrder: [],
@@ -67,7 +67,7 @@ export const defaultStores: CommerceStore[] = [
     name: '鲜花坊',
     slogan: '花束心意 · 同城配送',
     theme: 'linear-gradient(135deg, #60a5fa, #34d399)',
-    signboard: 'Mimi 鲜花坊',
+    signboard: 'Baobaobai 鲜花坊',
     decoration: '?',
     decorationConfig: {
       productOrder: [],
@@ -93,7 +93,7 @@ export const defaultStores: CommerceStore[] = [
     name: '淘票票',
     slogan: '选片购票 · 电子票券',
     theme: 'linear-gradient(135deg, #a78bfa, #fb7185)',
-    signboard: 'Mimi 淘票票',
+    signboard: 'Baobaobai 淘票票',
     decoration: '?',
     decorationConfig: {
       productOrder: [],
@@ -252,7 +252,7 @@ export const normalizeStore = (input: Partial<CommerceStore>, index: number): Co
     theme: input.theme?.trim() || fallback.theme || '',
     logo: input.logo?.trim() || '',
     cover: input.cover?.trim() || '',
-    signboard: normalizedSignboard || `Mimi ${normalizedName || fallback.name}`,
+    signboard: normalizedSignboard || `Baobaobai ${normalizedName || fallback.name}`,
     decoration: normalizedDecoration || fallback.decoration || '?',
     decorationConfig: normalizedDecorationConfig,
     visible: input.visible !== false,
@@ -314,7 +314,7 @@ export const createStoreDraft = (
     slogan: fallback.slogan,
     theme: fallback.theme,
     cover: '',
-    signboard: fallback.signboard || `Mimi ${fallback.name}`,
+    signboard: fallback.signboard || `Baobaobai ${fallback.name}`,
     decoration: fallback.decoration || '?',
     decorationConfig: {
       productOrder: [],

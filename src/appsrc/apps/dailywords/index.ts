@@ -1,4 +1,4 @@
-﻿import type { AppManifest } from '@mimisOS/sdk';
+import type { AppManifest } from '@baobaobaiOS/sdk';
 import { DailyWordsApp } from './DailyWordsApp';
 import { emitCommerceRoleChanged } from '../../shared/business/commerce/roleContext';
 import { registerDailyScriptActionExecutor } from '../../shared/business/dailyscript/actionBridge';

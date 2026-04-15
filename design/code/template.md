@@ -83,7 +83,7 @@ src/appsrc/apps/<appId>/
 4. Hook 命名：`useXxx`。
 5. 回调命名：props 用 `onXxx`，内部处理用 `handleXxx`。
 6. 导入顺序：React/运行时 -> 第三方 -> core/sdk -> 同 app -> 样式。
-7. App 代码访问系统能力优先通过 `@mimisOS/sdk`（如 `useGlobalSettingsStore`、`useGlobalDesktopStore`、`useGlobalWorldBookStore`、`getGlobalSettingsSnapshot`）。
+7. App 代码访问系统能力优先通过 `@baobaobaiOS/sdk`（如 `useGlobalSettingsStore`、`useGlobalDesktopStore`、`useGlobalWorldBookStore`、`getGlobalSettingsSnapshot`）。
 
 ---
 
@@ -170,7 +170,7 @@ src/appsrc/apps/<appId>/
 ## 11. 新建 App 示例
 
 ```ts
-import type { AppManifest } from '@mimisOS/sdk';
+import type { AppManifest } from '@baobaobaiOS/sdk';
 import { DemoApp } from './DemoApp';
 
 const demoManifest: AppManifest = {

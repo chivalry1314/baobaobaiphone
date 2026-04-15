@@ -1,4 +1,4 @@
-import { useGlobalSettingsStore } from '@mimisOS/sdk';
+import { useGlobalSettingsStore } from '@baobaobaiOS/sdk';
 import { ChevronLeft } from 'lucide-react';
 import { motion } from 'motion/react';
 import React, { useMemo, useState } from 'react';

@@ -1,4 +1,4 @@
-import type { AppManifest } from '@mimisOS/sdk';
+import type { AppManifest } from '@baobaobaiOS/sdk';
 import { WarmTrackApp } from './WarmTrackApp';
 
 const warmTrackManifest: AppManifest = {

@@ -9,7 +9,7 @@ import {
   Trash2
 } from 'lucide-react';
 import { localApps } from '../../../../core/registry';
-import { useGlobalSettingsStore } from '@mimisOS/sdk';
+import { useGlobalSettingsStore } from '@baobaobaiOS/sdk';
 import { useInstalledAppIds } from '../../appmarket/selectors';
 import * as LucideIcons from 'lucide-react';
 

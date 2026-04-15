@@ -1,4 +1,4 @@
-﻿import type { AppManifest } from '@mimisOS/sdk';
+import type { AppManifest } from '@baobaobaiOS/sdk';
 import { ShoppingApp } from './ShoppingApp';
 
 const shoppingManifest: AppManifest = {

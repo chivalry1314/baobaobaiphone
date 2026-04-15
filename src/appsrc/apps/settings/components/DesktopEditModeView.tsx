@@ -1,7 +1,7 @@
 import React, { useMemo, useRef, useState, useEffect } from 'react';
 import { motion, AnimatePresence } from 'motion/react';
-import { useGlobalDesktopStore } from '@mimisOS/sdk';
-import type { DesktopItem } from '@mimisOS/sdk';
+import { useGlobalDesktopStore } from '@baobaobaiOS/sdk';
+import type { DesktopItem } from '@baobaobaiOS/sdk';
 import { localApps } from '../../../../core/registry';
 import { useAppMarketInstallSnapshot } from '../../appmarket/selectors';
 import { getInstalledRuntimeMarketApps } from '../../appmarket/runtime';

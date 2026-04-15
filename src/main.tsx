@@ -7,9 +7,9 @@ import { initializeSystemScheduler } from './core/systemScheduler';
 import { initializeBuiltInWidgets } from './core/widgets';
 
 if (typeof window !== 'undefined') {
-  const win = window as Window & { __MINIPHONE_RO_WARN_FILTER__?: boolean };
-  if (!win.__MINIPHONE_RO_WARN_FILTER__) {
-    win.__MINIPHONE_RO_WARN_FILTER__ = true;
+  const win = window as Window & { __BAOBAOBAIPHONE_RO_WARN_FILTER__?: boolean };
+  if (!win.__BAOBAOBAIPHONE_RO_WARN_FILTER__) {
+    win.__BAOBAOBAIPHONE_RO_WARN_FILTER__ = true;
     window.addEventListener('error', (event) => {
       if (
         typeof event.message === 'string' &&

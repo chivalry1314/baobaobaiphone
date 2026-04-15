@@ -1,4 +1,4 @@
-import type { AppManifest } from '@mimisOS/sdk';
+import type { AppManifest } from '@baobaobaiOS/sdk';
 import { getMyCardsSnapshotBridge } from '../../shared/business/contacts/myCardsSnapshotBridge';
 import { getContactsSnapshot } from '../../shared/business/contacts/snapshotBridge';
 import { emitCommerceRoleChanged } from '../../shared/business/commerce/roleContext';

@@ -1,4 +1,4 @@
-﻿import type { AppManifest } from '@mimisOS/sdk';
+import type { AppManifest } from '@baobaobaiOS/sdk';
 import { WeatherApp } from './WeatherApp';
 
 const weatherManifest: AppManifest = {

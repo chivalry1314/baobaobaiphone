@@ -43,7 +43,7 @@ export default defineConfig(({mode}) => {
     resolve: {
       alias: {
         '@': path.resolve(__dirname, '.'),
-        '@mimisOS/sdk': path.resolve(__dirname, './src/core/sdk'),
+        '@baobaobaiOS/sdk': path.resolve(__dirname, './src/core/sdk'),
       },
     },
     server: {

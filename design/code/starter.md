@@ -1,4 +1,4 @@
-# MimisPhone 开发者入门（当前框架版）
+# BaobaobaiPhone 开发者入门（当前框架版）
 
 本文是基于当前仓库结构的入门说明，重点回答「代码应该写在哪里、怎么接入、怎么避免破坏边界」。
 
@@ -11,7 +11,7 @@
 - `src/components/**`：系统通用组件。
 - `src/appsrc/apps/**`：业务 App 主目录（团队主要开发区）。
 - `src/appsrc/shared/business/**`：跨 app 共享业务域。
-- `skills/miniphone-dev/**`：本仓库内的 App 开发技能文档和脚手架脚本。
+- `skills/baobaobaiphone-dev/**`：本仓库内的 App 开发技能文档和脚手架脚本。
 
 注意：历史文档中的 `src/apps/**` 路径已废弃，当前统一使用 `src/appsrc/apps/**`。
 
@@ -22,7 +22,7 @@
 ### 2.1 使用脚手架（推荐）
 
 ```powershell
-powershell -ExecutionPolicy Bypass -File skills/miniphone-dev/scripts/new-baobaobaiphone-app.ps1 -AppId my-app -Name "My App" -IncludeStore
+powershell -ExecutionPolicy Bypass -File skills/baobaobaiphone-dev/scripts/new-baobaobaiphone-app.ps1 -AppId my-app -Name "My App" -IncludeStore
 ```
 
 可选参数：
@@ -96,5 +96,5 @@ src/appsrc/apps/<appId>/
 
 ---
 
-建议与 `design/code/template.md`、`design/code/memory.md`、`skills/miniphone-dev/SKILL.md` 配套阅读。
+建议与 `design/code/template.md`、`design/code/memory.md`、`skills/baobaobaiphone-dev/SKILL.md` 配套阅读。
 

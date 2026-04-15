@@ -3,8 +3,8 @@ import { AnimatePresence, motion } from 'motion/react';
 import { AlertTriangle } from 'lucide-react';
 
 import { APP_CLOSE_MOTION, APP_OPEN_MOTION } from '../../../core/appOpenMotion';
-import { useGlobalDesktopStore } from '@mimisOS/sdk';
-import type { DesktopItem } from '@mimisOS/sdk';
+import { useGlobalDesktopStore } from '@baobaobaiOS/sdk';
+import type { DesktopItem } from '@baobaobaiOS/sdk';
 import { getRegisteredApps } from '../../../core/registry';
 import { isSystemAppId } from '../../../core/systemApps';
 

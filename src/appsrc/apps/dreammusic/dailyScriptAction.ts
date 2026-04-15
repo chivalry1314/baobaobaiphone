@@ -1,4 +1,4 @@
-import { getGlobalSettingsSnapshot } from '@mimisOS/sdk';
+import { getGlobalSettingsSnapshot } from '@baobaobaiOS/sdk';
 import { getContactsSnapshot } from '../../shared/business/contacts/snapshotBridge';
 import { registerDailyScriptActionExecutor } from '../../shared/business/dailyscript/actionBridge';
 import { parseContactRoleId } from '../../shared/business/roleIdentity';

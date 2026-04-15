@@ -1,0 +1,116 @@
+name: EdgeOne Pages Preview
+
+on:
+  pull_request_target:
+    types:
+      - opened
+      - synchronize
+      - reopened
+    branches:
+      - main
+      - develop
+
+permissions:
+  contents: read
+  pull-requests: write
+
+concurrency:
+  group: edgeone-pages-preview-${{ github.event.pull_request.number }}
+  cancel-in-progress: true
+
+jobs:
+  preview:
+    # Avoid exposing secrets to fork PRs.
+    if: ${{ github.event.pull_request.head.repo.full_name == github.repository }}
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    env:
+      EDGEONE_API_TOKEN: ${{ secrets.EDGEONE_API_TOKEN }}
+      EDGEONE_TOKEN: ${{ secrets.EDGEONE_TOKEN }}
+      EDGEONE_PROJECT_NAME: ${{ vars.EDGEONE_PROJECT_NAME }}
+      EDGEONE_PREVIEW_PROJECT_NAME: ${{ vars.EDGEONE_PREVIEW_PROJECT_NAME }}
+    steps:
+      - name: Checkout PR head
+        uses: actions/checkout@v4
+        with:
+          ref: ${{ github.event.pull_request.head.sha }}
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: 22.11.0
+          cache: npm
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Build
+        run: npm run build
+
+      - name: Deploy to EdgeOne Pages (preview)
+        id: deploy
+        shell: bash
+        run: |
+          set -euo pipefail
+
+          TOKEN="${EDGEONE_API_TOKEN:-${EDGEONE_TOKEN:-}}"
+          if [ -z "${TOKEN}" ]; then
+            echo "::error::Missing secret EDGEONE_API_TOKEN or EDGEONE_TOKEN"
+            exit 1
+          fi
+
+          PROJECT_NAME="${EDGEONE_PREVIEW_PROJECT_NAME:-${EDGEONE_PROJECT_NAME:-${GITHUB_REPOSITORY##*/}}}"
+          if [ -z "${PROJECT_NAME}" ]; then
+            echo "::error::Project name is empty. Set EDGEONE_PREVIEW_PROJECT_NAME or EDGEONE_PROJECT_NAME."
+            exit 1
+          fi
+
+          DEPLOY_OUTPUT="$(npx --yes edgeone pages deploy ./dist -n "${PROJECT_NAME}" -t "${TOKEN}" -e preview)"
+          echo "${DEPLOY_OUTPUT}"
+
+          DEPLOY_URL="$(echo "${DEPLOY_OUTPUT}" | sed -n 's/^.*EDGEONE_DEPLOY_URL: //p' | tail -n 1)"
+          PROJECT_ID="$(echo "${DEPLOY_OUTPUT}" | sed -n 's/^.*EDGEONE_PROJECT_ID: //p' | tail -n 1)"
+
+          if [ -n "${DEPLOY_URL}" ]; then
+            echo "deploy_url=${DEPLOY_URL}" >> "${GITHUB_OUTPUT}"
+          fi
+          if [ -n "${PROJECT_ID}" ]; then
+            echo "project_id=${PROJECT_ID}" >> "${GITHUB_OUTPUT}"
+          fi
+          echo "project_name=${PROJECT_NAME}" >> "${GITHUB_OUTPUT}"
+
+      - name: Find existing PR comment
+        if: ${{ steps.deploy.outputs.deploy_url != '' }}
+        id: find_comment
+        uses: peter-evans/find-comment@v3
+        with:
+          issue-number: ${{ github.event.pull_request.number }}
+          comment-author: github-actions[bot]
+          body-includes: EdgeOne Preview URL
+
+      - name: Create or update PR comment
+        if: ${{ steps.deploy.outputs.deploy_url != '' }}
+        uses: peter-evans/create-or-update-comment@v4
+        with:
+          issue-number: ${{ github.event.pull_request.number }}
+          comment-id: ${{ steps.find_comment.outputs.comment-id }}
+          edit-mode: replace
+          body: |
+            ### EdgeOne Preview URL
+            - Project: `${{ steps.deploy.outputs.project_name }}`
+            - Project ID: `${{ steps.deploy.outputs.project_id }}`
+            - Preview: ${{ steps.deploy.outputs.deploy_url }}
+            - Branch: `${{ github.event.pull_request.head.ref }}`
+            - Commit: `${{ github.event.pull_request.head.sha }}`
+
+      - name: Write deployment summary
+        if: ${{ steps.deploy.outputs.deploy_url != '' }}
+        run: |
+          {
+            echo "## EdgeOne Pages Preview Deployment"
+            echo ""
+            echo "- Project: \`${{ steps.deploy.outputs.project_name }}\`"
+            echo "- Project ID: \`${{ steps.deploy.outputs.project_id }}\`"
+            echo "- URL: ${{ steps.deploy.outputs.deploy_url }}"
+            echo "- Commit: \`${{ github.event.pull_request.head.sha }}\`"
+          } >> "${GITHUB_STEP_SUMMARY}"

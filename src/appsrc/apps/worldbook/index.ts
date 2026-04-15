@@ -1,4 +1,4 @@
-import type { AppManifest } from '@mimisOS/sdk';
+import type { AppManifest } from '@baobaobaiOS/sdk';
 import { WorldBookApp } from './WorldBookApp';
 import { useWorldBookCoreStore } from './data/coreStore';
 import { registerGlobalWorldBookStoreHook } from '../../../core/sdk/storeHooks';

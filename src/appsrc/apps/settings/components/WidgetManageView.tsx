@@ -2,7 +2,7 @@
 import React from 'react';
 import { motion, AnimatePresence } from 'motion/react';
 import { Image as ImageIcon } from 'lucide-react';
-import { useGlobalDesktopStore } from '@mimisOS/sdk';
+import { useGlobalDesktopStore } from '@baobaobaiOS/sdk';
 
 // ==================== 类型定义 ====================
 

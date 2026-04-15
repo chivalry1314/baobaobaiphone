@@ -2,7 +2,7 @@ import React, { useEffect, useMemo, useRef, useState } from 'react';
 import { AnimatePresence, motion } from 'motion/react';
 import { AlertTriangle } from 'lucide-react';
 import { APP_CLOSE_MOTION, APP_OPEN_MOTION } from '../../../core/appOpenMotion';
-import { useGlobalSettingsStore, useGlobalWorldBookStore } from '@mimisOS/sdk';
+import { useGlobalSettingsStore, useGlobalWorldBookStore } from '@baobaobaiOS/sdk';
 import { isVoiceProviderConfigured, synthesizeVoice } from '../WeChat/voice';
 import { FONT_STACK, TEXT } from './constants';
 import {

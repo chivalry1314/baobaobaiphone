@@ -7,7 +7,7 @@ import {
   AlertCircle,
   ChevronRight
 } from 'lucide-react';
-import { useGlobalDesktopStore } from '@mimisOS/sdk';
+import { useGlobalDesktopStore } from '@baobaobaiOS/sdk';
 
 // ==================== 类型与接口定义 ====================
 

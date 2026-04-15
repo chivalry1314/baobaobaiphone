@@ -1,4 +1,4 @@
-import type { GlobalSettings } from '@mimisOS/sdk';
+import type { GlobalSettings } from '@baobaobaiOS/sdk';
 import { DEFAULT_ACTIVE_ROLE_ID } from '../../shared/business/roleIdentity';
 import type { DailyScriptActionType } from '../../shared/business/dailyscript/actionBridge';
 import { normalizeActionType, normalizePayloadByActionType } from './store/normalizers';
