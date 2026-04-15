@@ -24,10 +24,15 @@ If variables are not set, workflows default to repository name.
 ## 3. Trigger Rules
 
 - Production workflow:
-  - triggers on push to `main`
-  - can be run manually (`workflow_dispatch`)
+  - manual only (`workflow_dispatch`)
 - Preview workflow:
   - triggers on PR open/sync/reopen to `main` or `develop`
+
+Current recommended deployment chain in this repo:
+
+- `main`: deployed by EdgeOne Git auto trigger.
+- `develop`: EdgeOne Git auto trigger disabled.
+- GitHub production workflow kept as a manual fallback.
 
 ## 4. Security Note
 
