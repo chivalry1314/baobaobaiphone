@@ -1,11 +1,13 @@
 name: EdgeOne Pages Preview
 
 on:
-  pull_request_target:
+  pull_request:
     types:
       - opened
       - synchronize
       - reopened
+      - edited
+      - ready_for_review
     branches:
       - main
       - develop

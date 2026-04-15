@@ -36,7 +36,7 @@ Current recommended deployment chain in this repo:
 
 ## 4. Security Note
 
-Preview workflow uses `pull_request_target` so it can comment preview links back to PRs.
+Preview workflow uses `pull_request` so it can trigger normally on PRs targeting `main`/`develop` and comment preview links back to same-repo PRs.
 To avoid secret exposure, fork PRs are skipped by default.
 
 ## 5. Build Output
