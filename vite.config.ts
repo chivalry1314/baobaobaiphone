@@ -7,6 +7,9 @@ import { viteSingleFile } from "vite-plugin-singlefile";
 
 export default defineConfig(({mode}) => {
   const env = loadEnv(mode, '.', '');
+  const packageJsonPath = path.resolve(__dirname, 'package.json');
+  const packageVersion =
+    (JSON.parse(fs.readFileSync(packageJsonPath, 'utf8')) as { version?: string }).version || '0.0.0';
   const serviceWorkerPath = path.resolve(__dirname, 'public/service-worker.js');
   return {
     plugins: [
@@ -39,6 +42,7 @@ export default defineConfig(({mode}) => {
     },
     define: {
       'process.env.GEMINI_API_KEY': JSON.stringify(env.GEMINI_API_KEY),
+      __APP_VERSION__: JSON.stringify(packageVersion),
     },
     resolve: {
       alias: {

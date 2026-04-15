@@ -6,6 +6,7 @@ import { AppIcon } from './components/AppIcon';
 import { HtmlRuntimeApp } from './components/HtmlRuntimeApp';
 import { Widget } from './components/Widget';
 import { LockScreen } from './components/LockScreen';
+import { SystemBootScreen } from './components/SystemBootScreen';
 import { getAppComponent, localApps } from './core/registry';
 import { getWidgetById } from './core/widgetRegistry';
 import type { DesktopItem } from './core/stores/types';
@@ -258,6 +259,7 @@ const clearPendingPushLaunch = (): void => {
 };
 
 export default function App() {
+  const [isBooting, setIsBooting] = useState(true);
   const [isLocked, setIsLocked] = useState(false);
   const [activeAppId, setActiveAppId] = useState<string | null>(null);
   const [activeAppParams, setActiveAppParams] = useState<Record<string, unknown> | undefined>(undefined);
@@ -313,6 +315,20 @@ export default function App() {
       unsubscribeMarket();
     };
   }, []);
+
+  useEffect(() => {
+    if (!storesHydrated) {
+      return;
+    }
+
+    const timer = window.setTimeout(() => {
+      setIsBooting(false);
+    }, 1200);
+
+    return () => {
+      window.clearTimeout(timer);
+    };
+  }, [storesHydrated]);
 
   useEffect(() => {
     const doc = document as FullscreenDocument;
@@ -752,6 +768,8 @@ export default function App() {
       className="relative w-full bg-white overflow-hidden flex flex-col"
       style={{ height: 'var(--app-dvh, 100dvh)' }}
     >
+      <AnimatePresence>{isBooting && <SystemBootScreen version={__APP_VERSION__} />}</AnimatePresence>
+
       <AnimatePresence>
         {isLocked && <LockScreen onUnlock={() => setIsLocked(false)} />}
       </AnimatePresence>
