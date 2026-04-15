@@ -9,6 +9,7 @@ This repository includes:
 
 Create one of these repository secrets:
 
+
 - `EDGEONE_API_TOKEN`: API token from EdgeOne Pages (preferred).
 - `EDGEONE_TOKEN`: compatible fallback name.
 
