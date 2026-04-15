@@ -1,0 +1,10 @@
+export { AddContactPage } from './AddContactPage';
+export { ContactsBottomTabs } from './ContactsBottomTabs';
+export { ContactsListView } from './ContactsListView';
+export { ContactsTopBar } from './ContactsTopBar';
+export { ContactDetailPage } from './ContactDetailPage';
+export { FavoritesView } from './FavoritesView';
+export { PhoneRecordsView } from './PhoneRecordsView';
+export { PhoneCallView } from './PhoneCallView';
+export { MyCardsPage } from './MyCardsPage';
+export { AddMyCardPage } from './AddMyCardPage';

@@ -1,0 +1,4 @@
+interface:
+  display_name: "MimiPhone Dev"
+  short_description: "Build MimiPhone apps and memory modules"
+  default_prompt: "Use this skill to add or update MimiPhone apps following local architecture and conventions."

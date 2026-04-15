@@ -1,0 +1,17 @@
+{
+  "version": "0.2.0",
+  "configurations": [
+    {
+      "type": "chrome",
+      "request": "launch",
+      "name": "调试购物应用（CRA）",
+      "url": "http://localhost:3000", // CRA 默认端口
+      "webRoot": "${workspaceFolder}/src",
+      "sourceMaps": true,
+      "preLaunchTask": "npm: start",
+      "env": {
+        "BROWSER": "none" // 禁止 CRA 自动打开浏览器，由调试器控制
+      }
+    }
+  ]
+}

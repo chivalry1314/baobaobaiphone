@@ -1,0 +1,90 @@
+@import "tailwindcss";
+
+:root {
+  --app-dvh: 100dvh;
+}
+
+/* ============================================
+   系统级 CSS 变量（系统环境层）
+   ============================================ */
+@theme {
+  --font-sans: "Inter", ui-sans-serif, system-ui, sans-serif;
+
+  /* 系统主题色 */
+  --color-system-bg: #8fb6c7;
+  --color-glass-bg: rgb(255 255 255 / 0.2);
+  --color-glass-border: rgb(255 255 255 / 0.3);
+  --color-glass-icon: rgb(255 255 255 / 0.25);
+}
+
+/* ============================================
+   基础重置（系统环境层）
+   ============================================ */
+html, body, #root {
+  @apply h-full w-full m-0 p-0;
+}
+
+body {
+  @apply bg-[#8fb6c7] text-white overflow-hidden antialiased;
+  font-family: var(--font-sans);
+  /* 禁止移动端默认的双击放大 */
+  touch-action: manipulation;
+  -webkit-tap-highlight-color: transparent;
+  /* 禁止选中文本 */
+  -webkit-user-select: none;
+  user-select: none;
+}
+
+/* 隐藏滚动条 */
+::-webkit-scrollbar {
+  display: none;
+}
+* {
+  -ms-overflow-style: none;
+  scrollbar-width: none;
+}
+
+/* ============================================
+   系统级工具类（系统环境层）
+   ============================================ */
+@layer utilities {
+  /* 毛玻璃效果 - 系统级UI组件基类 */
+  .glass {
+    @apply bg-white/20 backdrop-blur-2xl border border-white/30 shadow-[0_8px_32px_0_rgba(31,38,135,0.15)];
+  }
+  .glass-icon {
+    @apply bg-white/25 backdrop-blur-xl border border-white/40 shadow-sm;
+  }
+  .glass-dark {
+    @apply bg-black/20 backdrop-blur-3xl border border-white/10 shadow-2xl;
+  }
+
+  /* iOS 风格阴影 - 系统级 */
+  .ios-shadow {
+    box-shadow: 0 4px 12px rgba(0, 0, 0, 0.1);
+  }
+
+  /* 浮动动画 - 系统级 */
+  @keyframes float {
+    0% { transform: translateY(0px); }
+    50% { transform: translateY(-5px); }
+    100% { transform: translateY(0px); }
+  }
+  .animate-float {
+    animation: float 3s ease-in-out infinite;
+  }
+
+  /* 安全区适配 - 系统级 */
+  .safe-area-top {
+    padding-top: env(safe-area-inset-top, 0);
+  }
+  .safe-area-bottom {
+    padding-bottom: env(safe-area-inset-bottom, 0);
+  }
+  .safe-area-left {
+    padding-left: env(safe-area-inset-left, 0);
+  }
+  .safe-area-right {
+    padding-right: env(safe-area-inset-right, 0);
+  }
+}

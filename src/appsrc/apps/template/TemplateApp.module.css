@@ -1,0 +1,141 @@
+/**
+ * CSS Modules 示例
+ *
+ * 使用场景：
+ * - 复杂动画关键帧
+ * - 特殊的背景图定位
+ * - 需要明确作用域的复杂样式
+ *
+ * 特点：
+ * - 构建工具会自动添加唯一哈希后缀
+ * - 即使不同应用使用相同类名也不会冲突
+ * - 彻底实现物理与作用域双重隔离
+ */
+
+/* 复杂动态卡片 - 温柔云朵风格 */
+.complexCard {
+  background: linear-gradient(145deg, rgba(255, 255, 255, 0.9) 0%, rgba(255, 255, 255, 0.5) 100%);
+  backdrop-filter: blur(20px);
+  border: 1px solid rgba(255, 255, 255, 1);
+  border-radius: 24px;
+  padding: 20px;
+  display: flex;
+  align-items: flex-start;
+  gap: 16px;
+  position: relative;
+  overflow: hidden;
+  box-shadow: 0 10px 40px -10px rgba(0, 0, 0, 0.05); /* 极淡的阴影 */
+}
+
+/* 柔和的呼吸光晕背景 */
+.complexCard::before {
+  content: '';
+  position: absolute;
+  top: -50%;
+  left: -50%;
+  width: 200%;
+  height: 200%;
+  background: radial-gradient(circle at center, rgba(254, 205, 211, 0.4) 0%, transparent 60%);
+  animation: gentleBreathe 6s ease-in-out infinite alternate;
+  pointer-events: none;
+}
+
+@keyframes gentleBreathe {
+  0% { transform: scale(0.8); opacity: 0.5; }
+  100% { transform: scale(1.1); opacity: 1; }
+}
+
+/* 图标漂浮动画 */
+.starIcon {
+  color: #f59e0b; 
+  fill: #fcd34d; 
+  position: relative;
+  z-index: 1;
+  animation: floatIcon 4s ease-in-out infinite;
+}
+
+@keyframes floatIcon {
+  0%, 100% { transform: translateY(0) scale(1); }
+  50% { transform: translateY(-4px) scale(1.02); }
+}
+
+.cardContent {
+  flex: 1;
+  position: relative;
+  z-index: 1;
+}
+
+.cardTitle {
+  color: #334155; 
+  font-size: 17px;
+  font-weight: 600;
+  margin: 0 0 6px 0;
+  letter-spacing: 0.5px;
+}
+
+.cardDesc {
+  color: #64748b; 
+  font-size: 13px;
+  margin: 0;
+  line-height: 1.6;
+}
+
+.badge {
+  display: inline-block;
+  margin-top: 14px;
+  padding: 4px 12px;
+  background: rgba(254, 226, 226, 0.8); 
+  border: 1px solid #fecaca; 
+  border-radius: 12px;
+  color: #ef4444; 
+  font-size: 12px;
+  font-weight: 500;
+}
+
+/* 高阶自定义按钮 - 奶油渐变风 */
+.customButton {
+  background: linear-gradient(135deg, #fda4af 0%, #f9a8d4 100%); /* 温柔的粉色渐变 */
+  border: 1px solid rgba(255,255,255,0.6);
+  border-radius: 16px;
+  padding: 12px 16px;
+  color: white;
+  font-size: 15px;
+  font-weight: 600;
+  cursor: pointer;
+  position: relative;
+  overflow: hidden;
+  transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  width: 100%;
+  box-shadow: 0 4px 15px rgba(244, 114, 182, 0.2);
+}
+
+.customButton:hover {
+  transform: translateY(-2px);
+  box-shadow: 0 8px 20px rgba(244, 114, 182, 0.3);
+  border-color: rgba(255,255,255,1);
+}
+
+.customButton:active {
+  transform: translateY(1px);
+  box-shadow: 0 2px 10px rgba(244, 114, 182, 0.2);
+}
+
+/* 柔和白光扫过效果 */
+.customButton::before {
+  content: '';
+  position: absolute;
+  top: 0;
+  left: -100%;
+  width: 50%;
+  height: 100%;
+  background: linear-gradient(90deg, transparent, rgba(255,255,255,0.4), transparent);
+  transform: skewX(-20deg);
+  transition: 0.6s ease;
+}
+
+.customButton:hover::before {
+  left: 150%;
+}
