@@ -1,4 +1,4 @@
-﻿import type { AppManifest } from '@mimisOS/sdk';
+import type { AppManifest } from '@mimisOS/sdk';
 import type { MarketTab } from './uiTypes';
 import type { OnlineMarketApp } from './types';
 
@@ -52,7 +52,7 @@ export const TAB_LABELS: Record<MarketTab, string> = {
   developer: TEXT.developer,
 };
 
-const DEFAULT_AUTHOR = 'MimiPhone';
+const DEFAULT_AUTHOR = 'baobaobaiphone';
 const DEFAULT_VERSION = '1.0.0';
 const DEFAULT_SIZE = '内置应用';
 const DEFAULT_ICON = '📱';

@@ -1,8 +1,8 @@
-﻿# `/src` 代码规范（基于 2026-04-08 当前框架）
+# `/src` 代码规范（基于 2026-04-08 当前框架）
 
 版本：`v1.1`
 适用范围：`/src`、`/scripts/check-boundaries.mjs`
-目标：统一 MimiPhone 的目录边界、App 接入方式、store 持久化、记忆系统接入和质量门禁。
+目标：统一 baobaobaiphone 的目录边界、App 接入方式、store 持久化、记忆系统接入和质量门禁。
 
 ---
 

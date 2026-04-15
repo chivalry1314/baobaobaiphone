@@ -1,4 +1,4 @@
-﻿# MimiPhone Architecture Map
+# baobaobaiphone Architecture Map
 
 ## Core Shell
 - `src/App.tsx`: phone shell, desktop grid, active app rendering, runtime app mounting.

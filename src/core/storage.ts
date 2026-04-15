@@ -11,8 +11,8 @@ import {
 
 export const createAppStorageKey = (appId: string) => `${appId}-storage`;
 
-export const CORE_OS_DB_NAME = 'mimiphone.core.os.v1';
-const APP_DB_PREFIX = 'mimiphone.app';
+export const CORE_OS_DB_NAME = 'baobaobaiphone.core.os.v1';
+const APP_DB_PREFIX = 'baobaobaiphone.app';
 const DB_SCHEMA_VERSION = 'v1';
 
 const idbStoreCache = new Map<string, IdbStore>();

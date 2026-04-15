@@ -1,9 +1,9 @@
 import type { GlobalSettings } from '../sdk/types';
 
-const PUSH_USER_STORAGE_KEY = 'mimiphone.push.userId';
-const PUSH_DEVICE_STORAGE_KEY = 'mimiphone.push.deviceId';
+const PUSH_USER_STORAGE_KEY = 'baobaobaiphone.push.userId';
+const PUSH_DEVICE_STORAGE_KEY = 'baobaobaiphone.push.deviceId';
 
-export const PUSH_OPEN_APP_MESSAGE_TYPE = 'mimiphone:open-app';
+export const PUSH_OPEN_APP_MESSAGE_TYPE = 'baobaobaiphone:open-app';
 
 export type PushPermissionState = NotificationPermission | 'unsupported';
 
@@ -376,7 +376,7 @@ const upsertSubscription = async (
     body: JSON.stringify({
       userId: identity.userId,
       deviceId: identity.deviceId,
-      appId: 'mimiphone',
+      appId: 'baobaobaiphone',
       subscription,
     }),
   });
@@ -509,7 +509,7 @@ export const sendWebPushTest = async (
     },
     body: JSON.stringify({
       userId: identity.userId,
-      title: 'MimiPhone Web Push',
+      title: 'baobaobaiphone Web Push',
       body: 'This is a background push test notification.',
       appId: 'settings',
       params: {

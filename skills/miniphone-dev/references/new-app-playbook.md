@@ -1,13 +1,13 @@
-﻿# New App Playbook
+# New App Playbook
 
 ## Goal
-Create a local MimiPhone app that is auto-discovered by registry and follows existing conventions.
+Create a local baobaobaiphone app that is auto-discovered by registry and follows existing conventions.
 
 ## Fastest Command
 Run from repo root:
 
 ```powershell
-powershell -ExecutionPolicy Bypass -File skills/miniphone-dev/scripts/new-mimiphone-app.ps1 -AppId my-app -Name "My App" -IncludeStore
+powershell -ExecutionPolicy Bypass -File skills/miniphone-dev/scripts/new-baobaobaiphone-app.ps1 -AppId my-app -Name "My App" -IncludeStore
 ```
 
 Optional flags:

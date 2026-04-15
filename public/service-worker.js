@@ -1,4 +1,4 @@
-const PUSH_OPEN_APP_MESSAGE_TYPE = 'mimiphone:open-app';
+const PUSH_OPEN_APP_MESSAGE_TYPE = 'baobaobaiphone:open-app';
 
 const isRecord = (value) => typeof value === 'object' && value !== null && !Array.isArray(value);
 
@@ -60,7 +60,7 @@ self.addEventListener('activate', (event) => {
 
 self.addEventListener('push', (event) => {
   const payload = parsePushPayload(event);
-  const title = asString(payload.title) || 'MimiPhone';
+  const title = asString(payload.title) || 'baobaobaiphone';
   const body = asString(payload.body) || '';
   const data = isRecord(payload.data) ? payload.data : {};
 

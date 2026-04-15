@@ -1,16 +1,16 @@
-﻿---
+---
 name: miniphone-dev
-description: Build and maintain the MimiPhone React/Vite app ecosystem. Use when adding or updating apps in src/appsrc/apps, wiring AppManifest and registration behavior, integrating app memory modules, extending app market runtime HTML apps, or troubleshooting MimiPhone app launch, settings, and model API flows.
+description: Build and maintain the baobaobaiphone React/Vite app ecosystem. Use when adding or updating apps in src/appsrc/apps, wiring AppManifest and registration behavior, integrating app memory modules, extending app market runtime HTML apps, or troubleshooting baobaobaiphone app launch, settings, and model API flows.
 ---
 
-# MimiPhone Dev
+# baobaobaiphone Dev
 
 ## Overview
-Implement features in MimiPhone by following existing architecture and conventions instead of introducing new frameworks or parallel patterns.
+Implement features in baobaobaiphone by following existing architecture and conventions instead of introducing new frameworks or parallel patterns.
 
 ## Fast Path
-1. From repo root, scaffold a new app when the request is "create a new MimiPhone app":
-`powershell -ExecutionPolicy Bypass -File skills/miniphone-dev/scripts/new-mimiphone-app.ps1 -AppId my-app -Name "My App" -IncludeStore`
+1. From repo root, scaffold a new app when the request is "create a new baobaobaiphone app":
+`powershell -ExecutionPolicy Bypass -File skills/miniphone-dev/scripts/new-baobaobaiphone-app.ps1 -AppId my-app -Name "My App" -IncludeStore`
 2. Open generated files under `src/appsrc/apps/<appId>/` and apply requested feature-specific edits.
 3. Run `npm run lint` and report results.
 4. Read references before broad edits:
@@ -31,7 +31,7 @@ Implement features in MimiPhone by following existing architecture and conventio
 2. Keep manifest minimal and consistent:
 - Required: `id`, `name`, `icon`, `component`.
 - Optional: `description`, `version`, `market`, `permissions`, `isSystem`.
-3. Prefer `scripts/new-mimiphone-app.ps1` for first-pass scaffolding, then refine manually.
+3. Prefer `scripts/new-baobaobaiphone-app.ps1` for first-pass scaffolding, then refine manually.
 4. Add UI entry component (`<AppName>App.tsx`) and app-local state only if needed.
 5. For persistent app state, prefer `createAppPersistOptions({ appId: '<appId>' })` from `src/core/persistOptions`.
 6. For role-scoped state (WeChat/WarmTrack pattern), prefer app-local repository + dedicated IDB object store (for example `role_states`) keyed by `roleId`, instead of prefixing keys in one store.

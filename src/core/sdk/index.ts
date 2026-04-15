@@ -1,5 +1,5 @@
 /**
- * MimiPhone OS SDK
+ * baobaobaiphone OS SDK
  * 虚拟手机系统的核心开发套件。
  * 使用方式：
  * import { SystemAPI, useSystemStore } from '@mimisOS/sdk';

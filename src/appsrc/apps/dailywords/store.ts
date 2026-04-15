@@ -10,7 +10,7 @@ import type {
   DailyWordsStore,
 } from './types';
 
-const DAILY_WORDS_DB_NAME = 'mimiphone.app.dailywords.v1';
+const DAILY_WORDS_DB_NAME = 'baobaobaiphone.app.dailywords.v1';
 const DAILY_WORDS_ROLE_STATE_STORE = 'role_states';
 const DAILY_WORDS_MEMORY_SESSION_PREFIX = 'dailywords-entry';
 const DAILY_WORDS_MEMORY_SOURCE_PREFIX = 'dailywords-entry';

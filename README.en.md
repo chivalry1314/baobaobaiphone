@@ -1,6 +1,6 @@
-﻿# MimiPhone
+# BaobaobaiPhone
 
-MimiPhone is a mobile desktop-style web app container built with React + Vite.
+baobaobaiphone is a mobile desktop-style web app container built with React + Vite.
 It organizes features as "system desktop + multiple apps", and supports local app auto-registration, runtime HTML apps from App Market, system scheduled tasks, Memory Center, Web Push, and multiple AI integrations.
 
 ## Overview

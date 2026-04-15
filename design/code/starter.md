@@ -1,4 +1,4 @@
-﻿# MimisPhone 开发者入门（当前框架版）
+# MimisPhone 开发者入门（当前框架版）
 
 本文是基于当前仓库结构的入门说明，重点回答「代码应该写在哪里、怎么接入、怎么避免破坏边界」。
 
@@ -22,7 +22,7 @@
 ### 2.1 使用脚手架（推荐）
 
 ```powershell
-powershell -ExecutionPolicy Bypass -File skills/miniphone-dev/scripts/new-mimiphone-app.ps1 -AppId my-app -Name "My App" -IncludeStore
+powershell -ExecutionPolicy Bypass -File skills/miniphone-dev/scripts/new-baobaobaiphone-app.ps1 -AppId my-app -Name "My App" -IncludeStore
 ```
 
 可选参数：
