@@ -30,7 +30,6 @@ import {
   resolveShoppingHomeStoreTypeTabs,
 } from '../../../shared/business/commerce/domain/storeTypeTabs';
 import { fallbackStoreMeta } from '../utils';
-import { useWeChatStore } from '../../WeChat/store';
 import {
   appendSellerInboxChatMessage,
   clearSellerInboxMessages,
@@ -218,11 +217,9 @@ export const SellerStoreManagePage: React.FC<SellerStoreManagePageProps> = ({
   const [verifyCodeCountdown, setVerifyCodeCountdown] = React.useState(0);
   const [reportPurchaseExpense, setReportPurchaseExpense] = React.useState(0);
   const [isRechargeVisible, setIsRechargeVisible] = React.useState(false);
-  const [rechargePaymentMethod, setRechargePaymentMethod] = React.useState<'wechat'>('wechat');
   const [rechargeAmount, setRechargeAmount] = React.useState('');
   const [rechargeError, setRechargeError] = React.useState('');
   const [isSubmittingRecharge, setIsSubmittingRecharge] = React.useState(false);
-  const [wechatBalance, setWechatBalance] = React.useState(0);
   const [messageView, setMessageView] = React.useState<'none' | 'list' | 'chat'>('none');
   const [messageTopTab, setMessageTopTab] = React.useState<'reception' | 'notice'>('reception');
   const [inboxMessages, setInboxMessages] = React.useState<SellerInboxMessage[]>([]);
@@ -237,32 +234,18 @@ export const SellerStoreManagePage: React.FC<SellerStoreManagePageProps> = ({
   const verifyToastTimeoutRef = React.useRef<number | null>(null);
   const verifyCountdownIntervalRef = React.useRef<number | null>(null);
 
-  const syncWechatBalance = React.useCallback(() => {
-    const wechatStore = useWeChatStore.getState();
-    if (typeof wechatStore.syncWeChatRoleContext === 'function') {
-      wechatStore.syncWeChatRoleContext();
-    }
-    const balance = Number(wechatStore.wechatUserProfile.balance || 0);
-    const next = Number.isFinite(balance) ? Number(balance.toFixed(2)) : 0;
-    setWechatBalance(next);
-    return next;
-  }, []);
-
   const openRechargeDialog = React.useCallback(() => {
     rechargeOpenedAtRef.current = Date.now();
-    setRechargePaymentMethod('wechat');
     setRechargeAmount('');
     setRechargeError('');
     setIsRechargeVisible(true);
-    syncWechatBalance();
-  }, [syncWechatBalance]);
+  }, []);
 
   const closeRechargeDialog = React.useCallback(() => {
     if (isSubmittingRecharge) return;
     setIsRechargeVisible(false);
     setRechargeError('');
     setRechargeAmount('');
-    setRechargePaymentMethod('wechat');
   }, [isSubmittingRecharge]);
 
   const list = React.useMemo<StoreRevenue[]>(() => {
@@ -684,36 +667,19 @@ export const SellerStoreManagePage: React.FC<SellerStoreManagePageProps> = ({
       setRechargeError('请输入正确的充值金额');
       return;
     }
-    if (rechargePaymentMethod !== 'wechat') {
-      setRechargeError('请选择微信支付');
-      return;
-    }
     const normalizedAmount = Number(amount.toFixed(2));
-    const wechatStore = useWeChatStore.getState();
-    if (typeof wechatStore.syncWeChatRoleContext === 'function') {
-      wechatStore.syncWeChatRoleContext();
-    }
-    const currentWechatBalance = Number(wechatStore.wechatUserProfile.balance || 0);
-    if (!Number.isFinite(currentWechatBalance) || currentWechatBalance < normalizedAmount) {
-      setRechargeError(
-        `微信余额不足，当前余额 ${formatMoney(Number.isFinite(currentWechatBalance) ? currentWechatBalance : 0)}`
-      );
-      return;
-    }
     setIsSubmittingRecharge(true);
     try {
-      wechatStore.withdrawWeChatBalance(normalizedAmount, { title: '商家充值' });
       const finance = await topUpSellerFinance(normalizedAmount);
       onAssetBalanceChange(finance.assetBalance);
       setRechargeAmount('');
       setRechargeError('');
       setIsRechargeVisible(false);
-      syncWechatBalance();
       if (typeof window !== 'undefined') window.alert(`充值成功，当前资产 ${formatMoney(finance.assetBalance)}`);
     } finally {
       setIsSubmittingRecharge(false);
     }
-  }, [onAssetBalanceChange, rechargeAmount, rechargePaymentMethod, syncWechatBalance]);
+  }, [onAssetBalanceChange, rechargeAmount]);
 
   React.useEffect(() => {
     const syncInbox = async () => {
@@ -1449,19 +1415,6 @@ export const SellerStoreManagePage: React.FC<SellerStoreManagePageProps> = ({
             onPointerDown={(event) => event.stopPropagation()}
           >
             <h3>资产充值</h3>
-            <div className={styles.storeRechargeMethodRow}>
-              <span>支付方式</span>
-              <button
-                type="button"
-                className={styles.storeRechargeMethodButton}
-                onClick={() => setRechargePaymentMethod('wechat')}
-              >
-                微信支付
-              </button>
-            </div>
-            <div className={styles.storeRechargeWechatBalance}>
-              微信余额：<strong>{formatMoney(wechatBalance)}</strong>
-            </div>
             <label className={styles.storeRechargeInput}>
               充值金额
               <input
