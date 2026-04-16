@@ -44,3 +44,4 @@ To avoid secret exposure, fork PRs are skipped by default.
 ## 5. Build Output
 
 Current workflows deploy `./dist`. Make sure the build command outputs static files there.
+
