@@ -3,8 +3,11 @@
   position: absolute;
   inset: 0;
   z-index: 50;
+  height: 100%;
   display: flex;
   flex-direction: column;
+  overflow: hidden;
+  overscroll-behavior: none;
   background: #fff;
   font-family: ui-sans-serif, system-ui, -apple-system, Segoe UI, Roboto, Arial, sans-serif;
   color: #334155;
@@ -60,6 +63,8 @@
 .content {
   flex: 1;
   overflow: auto;
+  overscroll-behavior-y: contain;
+  -webkit-overflow-scrolling: touch;
   padding: 10px 12px calc(var(--tab-h) + 8px);
 }
 
@@ -1056,7 +1061,7 @@
   border-radius: 14px;
   border: 1px solid rgba(148, 163, 184, 0.45);
   background: rgba(255, 255, 255, 0.95);
-  font-size: 14px;
+  font-size: 16px;
   color: #0f172a;
   outline: none;
 }
@@ -1066,7 +1071,7 @@
   border-radius: 14px;
   border: 1px solid rgba(148, 163, 184, 0.45);
   background: rgba(255, 255, 255, 0.95);
-  font-size: 14px;
+  font-size: 16px;
   color: #0f172a;
   outline: none;
 }
@@ -2303,7 +2308,7 @@
   border: none;
   background: transparent;
   color: #2a2f36;
-  font-size: 14px;
+  font-size: 16px;
   outline: none;
 }
 

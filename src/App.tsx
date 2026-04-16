@@ -367,22 +367,41 @@ export default function App() {
   }, []);
 
   useEffect(() => {
+    const KEYBOARD_HEIGHT_THRESHOLD = 120;
+    let stableViewportHeight = Math.round(window.visualViewport?.height ?? window.innerHeight);
+
+    const isEditableElementFocused = () => {
+      const active = document.activeElement as HTMLElement | null;
+      if (!active) return false;
+      if (active instanceof HTMLTextAreaElement) return !active.readOnly && !active.disabled;
+      if (active instanceof HTMLInputElement) {
+        if (active.readOnly || active.disabled) return false;
+        const type = (active.type || 'text').toLowerCase();
+        return !['button', 'checkbox', 'color', 'file', 'hidden', 'image', 'radio', 'range', 'reset', 'submit'].includes(type);
+      }
+      return active.isContentEditable;
+    };
+
     const syncViewportHeight = () => {
       const viewportHeight = Math.round(window.visualViewport?.height ?? window.innerHeight);
-      document.documentElement.style.setProperty('--app-dvh', `${viewportHeight}px`);
+      const keyboardLikelyOpen =
+        isEditableElementFocused() &&
+        stableViewportHeight - viewportHeight > KEYBOARD_HEIGHT_THRESHOLD;
+
+      if (!keyboardLikelyOpen) stableViewportHeight = viewportHeight;
+      const nextHeight = keyboardLikelyOpen ? stableViewportHeight : viewportHeight;
+      document.documentElement.style.setProperty('--app-dvh', `${nextHeight}px`);
     };
 
     syncViewportHeight();
     window.addEventListener('resize', syncViewportHeight);
     window.addEventListener('orientationchange', syncViewportHeight);
     window.visualViewport?.addEventListener('resize', syncViewportHeight);
-    window.visualViewport?.addEventListener('scroll', syncViewportHeight);
 
     return () => {
       window.removeEventListener('resize', syncViewportHeight);
       window.removeEventListener('orientationchange', syncViewportHeight);
       window.visualViewport?.removeEventListener('resize', syncViewportHeight);
-      window.visualViewport?.removeEventListener('scroll', syncViewportHeight);
     };
   }, []);
 
@@ -826,7 +845,8 @@ export default function App() {
 
       {/* Main Content Area */}
       <main
-        className={`flex-1 z-10 overflow-y-auto pt-4 pb-32 ${isDenseGrid ? 'px-3' : 'px-6'}`}
+        className={`flex-1 z-10 overflow-y-auto pb-32 ${isDenseGrid ? 'px-3' : 'px-6'}`}
+        style={{ paddingTop: isFullscreen ? '6.5rem' : '1rem' }}
         onTouchStart={(e) => {
           const t = e.touches[0];
           if (!t) return;

@@ -20,6 +20,23 @@ if (typeof window !== 'undefined') {
       }
     });
   }
+
+  let lastTouchEndAt = 0;
+  const blockGestureZoom = (event: Event) => {
+    event.preventDefault();
+  };
+  const blockDoubleTapZoom = (event: TouchEvent) => {
+    const now = Date.now();
+    if (now - lastTouchEndAt <= 300) {
+      event.preventDefault();
+    }
+    lastTouchEndAt = now;
+  };
+
+  document.addEventListener('gesturestart', blockGestureZoom, { passive: false });
+  document.addEventListener('gesturechange', blockGestureZoom, { passive: false });
+  document.addEventListener('gestureend', blockGestureZoom, { passive: false });
+  document.addEventListener('touchend', blockDoubleTapZoom, { passive: false });
 }
 
 initializeBuiltInWidgets();
