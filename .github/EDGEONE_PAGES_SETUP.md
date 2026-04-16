@@ -9,6 +9,7 @@ This repository includes:
 
 Create one of these repository secrets:
 
+
 - `EDGEONE_API_TOKEN`: API token from EdgeOne Pages (preferred).
 - `EDGEONE_TOKEN`: compatible fallback name.
 
@@ -25,14 +26,19 @@ If variables are not set, workflows default to repository name.
 ## 3. Trigger Rules
 
 - Production workflow:
-  - triggers on push to `main`
-  - can be run manually (`workflow_dispatch`)
+  - manual only (`workflow_dispatch`)
 - Preview workflow:
   - triggers on PR open/sync/reopen to `main` or `develop`
 
+Current recommended deployment chain in this repo:
+
+- `main`: deployed by EdgeOne Git auto trigger.
+- `develop`: EdgeOne Git auto trigger disabled.
+- GitHub production workflow kept as a manual fallback.
+
 ## 4. Security Note
 
-Preview workflow uses `pull_request_target` so it can comment preview links back to PRs.
+Preview workflow uses `pull_request` so it can trigger normally on PRs targeting `main`/`develop` and comment preview links back to same-repo PRs.
 To avoid secret exposure, fork PRs are skipped by default.
 
 ## 5. Build Output

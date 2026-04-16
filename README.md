@@ -3,6 +3,7 @@
 baobaobaiphone 是一个基于 React + Vite 的移动端桌面式 Web 应用容器。
 它通过“系统桌面 + 多应用”的方式组织功能，支持本地应用自动注册、应用市场运行时 HTML 应用、系统级定时任务、Memory Center、Web Push 与多种 AI 能力接入。
 
+
 ## 功能概览
 
 - 桌面式应用容器：支持图标布局、分页、组件化桌面 widget。

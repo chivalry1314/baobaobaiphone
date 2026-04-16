@@ -1,11 +1,13 @@
 name: EdgeOne Pages Preview
 
 on:
-  pull_request_target:
+  pull_request:
     types:
       - opened
       - synchronize
       - reopened
+      - edited
+      - ready_for_review
     branches:
       - main
       - develop
@@ -38,7 +40,7 @@ jobs:
       - name: Setup Node.js
         uses: actions/setup-node@v4
         with:
-          node-version: 22.11.0
+          node-version: 22.x
           cache: npm
 
       - name: Install dependencies
@@ -65,8 +67,18 @@ jobs:
             exit 1
           fi
 
-          DEPLOY_OUTPUT="$(npx --yes edgeone pages deploy ./dist -n "${PROJECT_NAME}" -t "${TOKEN}" -e preview)"
-          echo "${DEPLOY_OUTPUT}"
+          echo "Deploying preview for project: ${PROJECT_NAME}"
+          DEPLOY_LOG="$(mktemp)"
+          set +e
+          npx --yes edgeone pages deploy ./dist -n "${PROJECT_NAME}" -t "${TOKEN}" -e preview 2>&1 | tee "${DEPLOY_LOG}"
+          DEPLOY_EXIT_CODE=${PIPESTATUS[0]}
+          set -e
+          DEPLOY_OUTPUT="$(cat "${DEPLOY_LOG}")"
+
+          if [ "${DEPLOY_EXIT_CODE}" -ne 0 ]; then
+            echo "::error::EdgeOne deploy failed with exit code ${DEPLOY_EXIT_CODE}"
+            exit "${DEPLOY_EXIT_CODE}"
+          fi
 
           DEPLOY_URL="$(echo "${DEPLOY_OUTPUT}" | sed -n 's/^.*EDGEONE_DEPLOY_URL: //p' | tail -n 1)"
           PROJECT_ID="$(echo "${DEPLOY_OUTPUT}" | sed -n 's/^.*EDGEONE_PROJECT_ID: //p' | tail -n 1)"
