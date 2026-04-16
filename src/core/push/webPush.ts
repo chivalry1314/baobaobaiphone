@@ -1,7 +1,5 @@
 import type { GlobalSettings } from '../sdk/types';
-
-const PUSH_USER_STORAGE_KEY = 'baobaobaiphone.push.userId';
-const PUSH_DEVICE_STORAGE_KEY = 'baobaobaiphone.push.deviceId';
+import { getOrCreatePushIdentityField } from './pushIdentityRepo';
 
 export const PUSH_OPEN_APP_MESSAGE_TYPE = 'baobaobaiphone:open-app';
 
@@ -77,24 +75,18 @@ const generateId = (prefix: string): string => {
   return `${prefix}-${now}-${random}`;
 };
 
-const getOrCreateStableId = (storageKey: string, prefix: string): string => {
+const getOrCreateStableId = async (field: 'userId' | 'deviceId', prefix: string): Promise<string> => {
   if (typeof window === 'undefined') {
     return generateId(prefix);
   }
-  const fromStorage = toTrimmedString(window.localStorage.getItem(storageKey));
-  if (fromStorage) {
-    return fromStorage;
-  }
-  const next = generateId(prefix);
-  window.localStorage.setItem(storageKey, next);
-  return next;
+  return getOrCreatePushIdentityField(field, () => generateId(prefix));
 };
 
-export const getOrCreatePushUserId = (): string =>
-  getOrCreateStableId(PUSH_USER_STORAGE_KEY, 'user');
+export const getOrCreatePushUserId = (): Promise<string> =>
+  getOrCreateStableId('userId', 'user');
 
-export const getOrCreatePushDeviceId = (): string =>
-  getOrCreateStableId(PUSH_DEVICE_STORAGE_KEY, 'device');
+export const getOrCreatePushDeviceId = (): Promise<string> =>
+  getOrCreateStableId('deviceId', 'device');
 
 export const resolvePushServerBaseUrl = (
   settings?: Pick<GlobalSettings, 'pushServerBaseUrl'>
@@ -116,11 +108,11 @@ export const resolvePushServerBaseUrl = (
   return '';
 };
 
-export const buildPushIdentity = (
+export const buildPushIdentity = async (
   settings: Pick<GlobalSettings, 'pushServerBaseUrl' | 'pushUserId' | 'pushDeviceId'>
-): PushIdentity => {
-  const userId = toTrimmedString(settings.pushUserId) || getOrCreatePushUserId();
-  const deviceId = toTrimmedString(settings.pushDeviceId) || getOrCreatePushDeviceId();
+): Promise<PushIdentity> => {
+  const userId = toTrimmedString(settings.pushUserId) || (await getOrCreatePushUserId());
+  const deviceId = toTrimmedString(settings.pushDeviceId) || (await getOrCreatePushDeviceId());
   const serverBaseUrl = resolvePushServerBaseUrl(settings);
 
   return {
@@ -396,7 +388,7 @@ export const ensureWebPushSubscription = async (
     throw new Error('Notification permission is not granted');
   }
 
-  const identity = buildPushIdentity(settings);
+  const identity = await buildPushIdentity(settings);
   if (!identity.serverBaseUrl) {
     throw new Error('Push server base URL is empty');
   }
@@ -454,7 +446,7 @@ export const removeWebPushSubscription = async (
     };
   }
 
-  const identity = buildPushIdentity(settings);
+  const identity = await buildPushIdentity(settings);
   const registration = await getActiveRegistration();
   const subscription = await registration.pushManager.getSubscription();
 
@@ -497,7 +489,7 @@ export interface PushTestResult {
 export const sendWebPushTest = async (
   settings: Pick<GlobalSettings, 'pushServerBaseUrl' | 'pushUserId' | 'pushDeviceId'>
 ): Promise<PushTestResult> => {
-  const identity = buildPushIdentity(settings);
+  const identity = await buildPushIdentity(settings);
   if (!identity.serverBaseUrl) {
     throw new Error('Push server base URL is empty');
   }

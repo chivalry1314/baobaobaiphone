@@ -716,16 +716,19 @@ export const SellerStoreManagePage: React.FC<SellerStoreManagePageProps> = ({
   }, [onAssetBalanceChange, rechargeAmount, rechargePaymentMethod, syncWechatBalance]);
 
   React.useEffect(() => {
-    const syncInbox = () => {
-      const next = readSellerInboxMessages();
+    const syncInbox = async () => {
+      const next = await readSellerInboxMessages();
       setInboxMessages(next);
       setHasUnreadMessage(next.some((item) => item.status === 'unread'));
     };
-    syncInbox();
+    void syncInbox();
     if (typeof window === 'undefined') return;
-    window.addEventListener(SELLER_MESSAGE_UPDATED_EVENT, syncInbox as EventListener);
+    const onSellerMessageUpdated: EventListener = () => {
+      void syncInbox();
+    };
+    window.addEventListener(SELLER_MESSAGE_UPDATED_EVENT, onSellerMessageUpdated);
     return () => {
-      window.removeEventListener(SELLER_MESSAGE_UPDATED_EVENT, syncInbox as EventListener);
+      window.removeEventListener(SELLER_MESSAGE_UPDATED_EVENT, onSellerMessageUpdated);
     };
   }, []);
 
@@ -805,8 +808,8 @@ export const SellerStoreManagePage: React.FC<SellerStoreManagePageProps> = ({
     setActiveChatSender(conversationSummaries[0]?.senderName || '');
   }, [activeChatSender, conversationSummaries]);
 
-  const syncInboxSnapshot = React.useCallback(() => {
-    const next = readSellerInboxMessages();
+  const syncInboxSnapshot = React.useCallback(async () => {
+    const next = await readSellerInboxMessages();
     setInboxMessages(next);
     setHasUnreadMessage(next.some((item) => item.status === 'unread'));
   }, []);
@@ -815,30 +818,39 @@ export const SellerStoreManagePage: React.FC<SellerStoreManagePageProps> = ({
     (tab: 'reception' | 'notice') => {
       setMessageTopTab(tab);
       if (tab !== 'notice' || systemSenderNames.length === 0) return;
-      systemSenderNames.forEach((sender) => markSellerInboxMessagesReadBySenderName(sender));
-      syncInboxSnapshot();
+      void (async () => {
+        for (const sender of systemSenderNames) {
+          // eslint-disable-next-line no-await-in-loop
+          await markSellerInboxMessagesReadBySenderName(sender);
+        }
+        await syncInboxSnapshot();
+      })();
     },
     [syncInboxSnapshot, systemSenderNames]
   );
 
   const handleOpenChat = React.useCallback((senderName: string) => {
     setActiveChatSender(senderName);
-    markSellerInboxMessagesReadBySenderName(senderName);
-    syncInboxSnapshot();
+    void (async () => {
+      await markSellerInboxMessagesReadBySenderName(senderName);
+      await syncInboxSnapshot();
+    })();
     setMessageView('chat');
   }, [syncInboxSnapshot]);
 
-  const handleDeleteLatestMessage = React.useCallback(() => {
+  const handleDeleteLatestMessage = React.useCallback(async () => {
     if (!resolvedActiveChatSender) return;
     if (typeof window !== 'undefined' && !window.confirm(`确认删除与 ${resolvedActiveChatSender} 的会话吗？`)) return;
-    deleteSellerInboxMessagesBySenderName(resolvedActiveChatSender);
-  }, [resolvedActiveChatSender]);
+    await deleteSellerInboxMessagesBySenderName(resolvedActiveChatSender);
+    await syncInboxSnapshot();
+  }, [resolvedActiveChatSender, syncInboxSnapshot]);
 
-  const handleClearAllMessages = React.useCallback(() => {
+  const handleClearAllMessages = React.useCallback(async () => {
     if (typeof window !== 'undefined' && !window.confirm('确认清空消息列表吗？')) return;
-    clearSellerInboxMessages();
+    await clearSellerInboxMessages();
+    await syncInboxSnapshot();
     setActiveChatSender('');
-  }, []);
+  }, [syncInboxSnapshot]);
 
   const requestBuyerReply = React.useCallback(async (payload: {
     sellerMessage: string;
@@ -893,13 +905,13 @@ export const SellerStoreManagePage: React.FC<SellerStoreManagePageProps> = ({
       createdAt: now,
       peerName: resolvedActiveChatSender,
     };
-    appendSellerInboxChatMessage({
+    await appendSellerInboxChatMessage({
       senderName: resolvedActiveChatSender,
       sender: 'seller',
       content,
       status: 'read',
     });
-    syncInboxSnapshot();
+    await syncInboxSnapshot();
     setChatInput('');
     setIsAutoReplying(true);
     try {
@@ -912,13 +924,13 @@ export const SellerStoreManagePage: React.FC<SellerStoreManagePageProps> = ({
           sellerMessage: content,
           recentConversation,
         })) || '收到，麻烦再详细说一下商品情况，我这边确认后下单。';
-      appendSellerInboxChatMessage({
+      await appendSellerInboxChatMessage({
         senderName: resolvedActiveChatSender,
         sender: 'buyer',
         content: aiReply,
         status: 'read',
       });
-      syncInboxSnapshot();
+      await syncInboxSnapshot();
     } finally {
       setIsAutoReplying(false);
     }
@@ -970,10 +982,10 @@ export const SellerStoreManagePage: React.FC<SellerStoreManagePageProps> = ({
                   </button>
                 </div>
                 <div className={styles.storeMessageManageRow}>
-                  <button type="button" onClick={handleDeleteLatestMessage} disabled={!resolvedActiveChatSender}>
+                  <button type="button" onClick={() => void handleDeleteLatestMessage()} disabled={!resolvedActiveChatSender}>
                     {'删除当前'}
                   </button>
-                  <button type="button" onClick={handleClearAllMessages} disabled={inboxMessages.length === 0}>
+                  <button type="button" onClick={() => void handleClearAllMessages()} disabled={inboxMessages.length === 0}>
                     {'清空全部'}
                   </button>
                 </div>
@@ -1036,8 +1048,13 @@ export const SellerStoreManagePage: React.FC<SellerStoreManagePageProps> = ({
                   <button
                     type="button"
                     onClick={() => {
-                      systemSenderNames.forEach((sender) => markSellerInboxMessagesReadBySenderName(sender));
-                      syncInboxSnapshot();
+                      void (async () => {
+                        for (const sender of systemSenderNames) {
+                          // eslint-disable-next-line no-await-in-loop
+                          await markSellerInboxMessagesReadBySenderName(sender);
+                        }
+                        await syncInboxSnapshot();
+                      })();
                     }}
                     disabled={noticeUnreadCount === 0}
                   >
@@ -1047,8 +1064,13 @@ export const SellerStoreManagePage: React.FC<SellerStoreManagePageProps> = ({
                     type="button"
                     onClick={() => {
                       if (typeof window !== 'undefined' && !window.confirm('Clear all notifications?')) return;
-                      systemSenderNames.forEach((sender) => deleteSellerInboxMessagesBySenderName(sender));
-                      syncInboxSnapshot();
+                      void (async () => {
+                        for (const sender of systemSenderNames) {
+                          // eslint-disable-next-line no-await-in-loop
+                          await deleteSellerInboxMessagesBySenderName(sender);
+                        }
+                        await syncInboxSnapshot();
+                      })();
                     }}
                     disabled={noticeMessages.length === 0}
                   >

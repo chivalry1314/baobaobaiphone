@@ -1,5 +1,10 @@
 import { getDefaultStoreIdByKind } from '../../shared/business/commerce/domain/store';
 import type { CommerceStore, Order, ProductItem, StoreKind } from '../../shared/business/commerce/domain/types';
+import {
+  readSellerStoreTypeRecords,
+  writeSellerStoreTypeRecords,
+  type SellerStoreTypeRecord,
+} from './data/repositories/storeTypeRepo';
 import type { ProductForm, ProductKind, StoreForm, StoreTypeOption } from './types';
 
 export const emptyProductForm: ProductForm = { name: '', price: '', desc: '', img: '' };
@@ -68,44 +73,31 @@ export const resolveTypeCategoryLabel = (item: StoreTypeOption) => {
   return label;
 };
 
-export const loadCustomStoreTypes = (): StoreTypeOption[] => {
-  if (typeof window === 'undefined') return [];
-  try {
-    const raw = window.localStorage.getItem(STORE_TYPE_STORAGE_KEY);
-    if (!raw) return [];
-    const parsed = JSON.parse(raw) as Array<Partial<StoreTypeOption>>;
-    if (!Array.isArray(parsed)) return [];
-    return parsed
-      .map((item, index) => {
-        const typeName = repairText(String(item.typeName || '').trim());
-        if (!typeName) return null;
-        return {
-          id: String(item.id || `type-${index}`),
-          typeName,
-          kind: parseStoreKind(item.kind),
-          categoryLabel: repairText(String(item.categoryLabel || '').trim()) || undefined,
-          custom: true,
-        } as StoreTypeOption;
-      })
-      .filter((item): item is StoreTypeOption => Boolean(item));
-  } catch {
-    return [];
-  }
+export const loadCustomStoreTypes = async (): Promise<StoreTypeOption[]> => {
+  const records = await readSellerStoreTypeRecords();
+  return records
+    .map((item, index) => {
+      const typeName = repairText(item.typeName);
+      if (!typeName) return null;
+      return {
+        id: String(item.id || `type-${index}`),
+        typeName,
+        kind: parseStoreKind(item.kind),
+        categoryLabel: repairText(item.categoryLabel) || undefined,
+        custom: true,
+      } as StoreTypeOption;
+    })
+    .filter((item): item is StoreTypeOption => Boolean(item));
 };
 
-export const saveCustomStoreTypes = (types: StoreTypeOption[]) => {
-  if (typeof window === 'undefined') return;
-  window.localStorage.setItem(
-    STORE_TYPE_STORAGE_KEY,
-    JSON.stringify(
-      types.map((item) => ({
-        id: item.id,
-        typeName: item.typeName,
-        kind: item.kind,
-        categoryLabel: item.categoryLabel,
-      }))
-    )
-  );
+export const saveCustomStoreTypes = async (types: StoreTypeOption[]): Promise<void> => {
+  const records: SellerStoreTypeRecord[] = types.map((item) => ({
+    id: item.id,
+    typeName: item.typeName,
+    kind: parseStoreKind(item.kind),
+    categoryLabel: item.categoryLabel,
+  }));
+  await writeSellerStoreTypeRecords(records);
 };
 
 export const toStoreId = (product: ProductItem, kind: ProductKind) => {

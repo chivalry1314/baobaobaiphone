@@ -1,4 +1,4 @@
-import { getGlobalSettingsSnapshot } from '@baobaobaiOS/sdk';
+﻿import { getGlobalSettingsSnapshot } from '@baobaobaiOS/sdk';
 import {
   appendShoppingOrderToStorage,
   readShoppingAddressesFromStorage,
@@ -10,6 +10,10 @@ import {
   readDessertProductsFromStorage,
   readFlowerProductsFromStorage,
 } from './domain/store';
+import {
+  readMessageBridgeState,
+  updateMessageBridgeState,
+} from './domain/messageBridgeRepo';
 
 export type SellerInboxMessage = {
   id: string;
@@ -22,6 +26,13 @@ export type SellerInboxMessage = {
 
 type CommerceContactSnapshot = {
   name?: string;
+};
+
+type SellerInboxMessageDraft = Omit<
+  SellerInboxMessage,
+  'id' | 'createdAt' | 'status'
+> & {
+  status?: SellerInboxMessage['status'];
 };
 
 type TriggerFavoriteInquiryParams = {
@@ -55,11 +66,7 @@ type AutoOrderTask = {
 };
 
 const DEFAULT_BASE_URL = 'https://api.openai.com/v1';
-const SELLER_INBOX_STORAGE_KEY = 'seller_store_inbox_messages';
-const SELLER_UNREAD_STORAGE_KEY = 'seller_store_message_has_unread';
-const SELLER_FAVORITE_EVENTS_KEY = 'seller_favorite_events';
-const SELLER_AUTO_ORDER_TASKS_KEY = 'seller_auto_order_tasks';
-const AUTO_ORDER_DELAY_MS = 60* 60 * 1000; 
+const AUTO_ORDER_DELAY_MS = 60 * 60 * 1000;
 const AUTO_ORDER_TICK_MS = 30 * 1000;
 
 export const SELLER_MESSAGE_UPDATED_EVENT = 'seller_message_updated';
@@ -89,52 +96,124 @@ const isSellable = (product?: ProductItem | null) => {
   return product.isSelected !== false && stock > 0;
 };
 
-const safeJsonParse = <T>(raw: string | null, fallback: T): T => {
-  if (!raw) return fallback;
-  try {
-    return JSON.parse(raw) as T;
-  } catch {
-    return fallback;
-  }
+const isPlainObject = (value: unknown): value is Record<string, unknown> =>
+  typeof value === 'object' && value !== null && !Array.isArray(value);
+
+const normalizeFavoriteKind = (value: unknown): Favorite['kind'] => {
+  return value === 'flower' ? 'flower' : 'dessert';
 };
 
-const readFavoriteEvents = (): FavoriteEvent[] => {
-  if (typeof window === 'undefined') return [];
-  const parsed = safeJsonParse<FavoriteEvent[]>(
-    window.localStorage.getItem(SELLER_FAVORITE_EVENTS_KEY),
-    []
-  );
-  if (!Array.isArray(parsed)) return [];
-  return parsed
-    .filter((item) => item && typeof item.productId === 'string' && typeof item.at === 'number')
+const normalizeFavoriteEvents = (value: unknown): FavoriteEvent[] => {
+  if (!Array.isArray(value)) return [];
+  return value
+    .map((item) => {
+      if (!isPlainObject(item)) return null;
+      if (typeof item.productId !== 'string') return null;
+      if (typeof item.at !== 'number' || !Number.isFinite(item.at)) return null;
+      const price = Number(item.price);
+      return {
+        id: typeof item.id === 'string' ? item.id : `fav-${item.at}`,
+        kind: normalizeFavoriteKind(item.kind),
+        storeId:
+          typeof item.storeId === 'string'
+            ? item.storeId
+            : getDefaultStoreIdByKind(normalizeFavoriteKind(item.kind)),
+        productId: item.productId,
+        productName: typeof item.productName === 'string' ? item.productName : '',
+        price: Number.isFinite(price) ? price : 0,
+        at: item.at,
+      } as FavoriteEvent;
+    })
+    .filter((item): item is FavoriteEvent => Boolean(item))
     .sort((a, b) => b.at - a.at);
 };
 
-const saveFavoriteEvents = (events: FavoriteEvent[]) => {
-  if (typeof window === 'undefined') return;
-  window.localStorage.setItem(SELLER_FAVORITE_EVENTS_KEY, JSON.stringify(events));
-};
-
-const readAutoOrderTasks = (): AutoOrderTask[] => {
-  if (typeof window === 'undefined') return [];
-  const parsed = safeJsonParse<AutoOrderTask[]>(
-    window.localStorage.getItem(SELLER_AUTO_ORDER_TASKS_KEY),
-    []
-  );
-  if (!Array.isArray(parsed)) return [];
-  return parsed
-    .filter((item) => item && typeof item.productId === 'string' && typeof item.executeAt === 'number')
+const normalizeAutoOrderTasks = (value: unknown): AutoOrderTask[] => {
+  if (!Array.isArray(value)) return [];
+  return value
+    .map((item) => {
+      if (!isPlainObject(item)) return null;
+      if (typeof item.productId !== 'string') return null;
+      if (typeof item.executeAt !== 'number' || !Number.isFinite(item.executeAt)) return null;
+      const kind = normalizeFavoriteKind(item.kind);
+      return {
+        id:
+          typeof item.id === 'string'
+            ? item.id
+            : `auto-order-${item.executeAt.toString(36)}`,
+        sessionId: typeof item.sessionId === 'string' ? item.sessionId : '',
+        consultantName: typeof item.consultantName === 'string' ? item.consultantName : '',
+        kind,
+        storeId:
+          typeof item.storeId === 'string'
+            ? item.storeId
+            : getDefaultStoreIdByKind(kind),
+        productId: item.productId,
+        productName: typeof item.productName === 'string' ? item.productName : '',
+        storeName: typeof item.storeName === 'string' ? item.storeName : '',
+        attempt: item.attempt === 2 ? 2 : 1,
+        executeAt: item.executeAt,
+      } as AutoOrderTask;
+    })
+    .filter((item): item is AutoOrderTask => Boolean(item))
     .sort((a, b) => a.executeAt - b.executeAt);
 };
 
-const saveAutoOrderTasks = (tasks: AutoOrderTask[]) => {
-  if (typeof window === 'undefined') return;
-  window.localStorage.setItem(SELLER_AUTO_ORDER_TASKS_KEY, JSON.stringify(tasks));
+const normalizeSellerInboxMessages = (value: unknown): SellerInboxMessage[] => {
+  if (!Array.isArray(value)) return [];
+  return value
+    .map((item) => {
+      if (!isPlainObject(item)) return null;
+      if (typeof item.content !== 'string') return null;
+      if (typeof item.createdAt !== 'number' || !Number.isFinite(item.createdAt)) return null;
+      if (typeof item.senderName !== 'string') return null;
+      return {
+        id:
+          typeof item.id === 'string'
+            ? item.id
+            : `seller-inbox-${item.createdAt.toString(36)}`,
+        senderName: item.senderName,
+        sender: item.sender === 'seller' ? 'seller' : 'buyer',
+        content: item.content,
+        createdAt: item.createdAt,
+        status: item.status === 'read' ? 'read' : 'unread',
+      } as SellerInboxMessage;
+    })
+    .filter((item): item is SellerInboxMessage => Boolean(item))
+    .sort((a, b) => b.createdAt - a.createdAt);
 };
 
-const appendInboxMessage = (
-  message: Omit<SellerInboxMessage, 'id' | 'createdAt'> & { status?: SellerInboxMessage['status'] }
-) => {
+const readFavoriteEvents = async (): Promise<FavoriteEvent[]> => {
+  if (typeof window === 'undefined') return [];
+  const state = await readMessageBridgeState();
+  return normalizeFavoriteEvents(state.favoriteEvents);
+};
+
+const saveFavoriteEvents = async (events: FavoriteEvent[]): Promise<void> => {
+  if (typeof window === 'undefined') return;
+  await updateMessageBridgeState((state) => ({
+    ...state,
+    favoriteEvents: normalizeFavoriteEvents(events),
+  }));
+};
+
+const readAutoOrderTasks = async (): Promise<AutoOrderTask[]> => {
+  if (typeof window === 'undefined') return [];
+  const state = await readMessageBridgeState();
+  return normalizeAutoOrderTasks(state.autoOrderTasks);
+};
+
+const saveAutoOrderTasks = async (tasks: AutoOrderTask[]): Promise<void> => {
+  if (typeof window === 'undefined') return;
+  await updateMessageBridgeState((state) => ({
+    ...state,
+    autoOrderTasks: normalizeAutoOrderTasks(tasks),
+  }));
+};
+
+const appendInboxMessage = async (
+  message: SellerInboxMessageDraft
+): Promise<void> => {
   const nextMessage: SellerInboxMessage = {
     id: `seller-inbox-${Date.now().toString(36)}-${Math.random().toString(36).slice(2, 8)}`,
     senderName: message.senderName,
@@ -143,20 +222,25 @@ const appendInboxMessage = (
     createdAt: Date.now(),
     status: message.status || 'unread',
   };
-  const current = readSellerInboxMessages();
-  const next = [nextMessage, ...current];
-  saveSellerInboxMessages(next);
-  updateUnreadFlag(next);
+
+  await updateMessageBridgeState((state) => {
+    const current = normalizeSellerInboxMessages(state.inboxMessages);
+    return {
+      ...state,
+      inboxMessages: [nextMessage, ...current],
+    };
+  });
+
   emitSellerMessageUpdated();
 };
 
-export const appendSellerInboxChatMessage = (message: {
+export const appendSellerInboxChatMessage = async (message: {
   senderName: string;
   sender: 'buyer' | 'seller';
   content: string;
   status?: SellerInboxMessage['status'];
-}) => {
-  appendInboxMessage(message);
+}): Promise<void> => {
+  await appendInboxMessage(message);
 };
 
 const callChatCompletion = async (
@@ -195,10 +279,10 @@ const buildInquiryByAi = async (product: ProductItem) => {
     '你是购物平台买家，正在向店主咨询商品。只输出一条 10-30 字中文消息。',
     `你现在扮演我，我想悄悄给最重要的朋友买 TA 收藏的商品，需要去咨询店主。请用日常、自然、不刻意的语气，向店主询问商品细节（材质 / 尺寸 / 发货 / 质量等），并不经意提到这是送给很重要的人、想给对方惊喜，不要太刻意煽情，像普通买家正常咨询一样。商品信息：${JSON.stringify(
       {
-        name: product.name,
-        desc: product.desc,
-        price: product.price,
-        stock: product.stock,
+      name: product.name,
+      desc: product.desc,
+      price: product.price,
+      stock: product.stock,
       }
     )}`,
     `你好，我想咨询一下「${product.name || '这件商品'}」的规格、现货和发货时间。我有个朋友很喜欢，麻烦你详细介绍下。`
@@ -219,7 +303,7 @@ const pickTodayBestCandidate = async (): Promise<{
   storeName: string;
   product: ProductItem;
 } | null> => {
-  const events = readFavoriteEvents().filter((item) => todayKey(item.at) === todayKey());
+  const events = (await readFavoriteEvents()).filter((item) => todayKey(item.at) === todayKey());
   if (events.length === 0) return null;
   const [dessertProducts, flowerProducts, stores] = await Promise.all([
     readDessertProductsFromStorage(),
@@ -303,11 +387,11 @@ const processAutoOrderTask = async (task: AutoOrderTask): Promise<void> => {
     });
     if (order) {
       const orderInfo = `订单号 ${order.id}，商品「${task.productName}」，金额 ￥${Number(order.total).toFixed(2)}`;
-      appendInboxMessage({
+      await appendInboxMessage({
         senderName: '系统',
         content: `${task.consultantName} 为您下单成功，${orderInfo}。`,
       });
-      appendInboxMessage({
+      await appendInboxMessage({
         senderName: task.consultantName,
         content: `我已成功下单，${orderInfo}。请帮我确认预计发货时间，谢谢。`,
       });
@@ -315,13 +399,13 @@ const processAutoOrderTask = async (task: AutoOrderTask): Promise<void> => {
     }
   }
 
-  appendInboxMessage({
+  await appendInboxMessage({
     senderName: '系统',
     content: `自动下单失败：${task.productName} 当前已售罄或已下架。`,
   });
 
   const ask = await buildRetryAskByAi(task.productName);
-  appendInboxMessage({
+  await appendInboxMessage({
     senderName: task.consultantName,
     content: ask,
   });
@@ -333,19 +417,20 @@ const processAutoOrderTask = async (task: AutoOrderTask): Promise<void> => {
       attempt: 2,
       executeAt: Date.now() + AUTO_ORDER_DELAY_MS,
     };
-    const tasks = readAutoOrderTasks();
-    saveAutoOrderTasks([...tasks, nextTask]);
+    const tasks = await readAutoOrderTasks();
+    await saveAutoOrderTasks([...tasks, nextTask]);
   }
 };
+
 const processDueAutoOrders = async () => {
   if (typeof window === 'undefined') return;
-  const tasks = readAutoOrderTasks();
+  const tasks = await readAutoOrderTasks();
   if (tasks.length === 0) return;
   const now = Date.now();
   const due = tasks.filter((item) => item.executeAt <= now);
   const pending = tasks.filter((item) => item.executeAt > now);
   if (due.length === 0) return;
-  saveAutoOrderTasks(pending);
+  await saveAutoOrderTasks(pending);
   for (const task of due) {
     // eslint-disable-next-line no-await-in-loop
     await processAutoOrderTask(task);
@@ -367,37 +452,10 @@ export const initializeSellerMessageScheduler = () => {
   void processDueAutoOrders();
 };
 
-export const readSellerInboxMessages = (): SellerInboxMessage[] => {
+export const readSellerInboxMessages = async (): Promise<SellerInboxMessage[]> => {
   if (typeof window === 'undefined') return [];
-  const parsed = safeJsonParse<SellerInboxMessage[]>(
-    window.localStorage.getItem(SELLER_INBOX_STORAGE_KEY),
-    []
-  );
-  if (!Array.isArray(parsed)) return [];
-  return parsed
-    .filter(
-      (item) =>
-        item &&
-        typeof item.content === 'string' &&
-        typeof item.createdAt === 'number' &&
-        typeof item.senderName === 'string'
-    )
-    .map((item) => ({
-      ...item,
-      sender: item.sender === 'seller' ? 'seller' : 'buyer',
-    }))
-    .sort((a, b) => b.createdAt - a.createdAt);
-};
-
-const saveSellerInboxMessages = (messages: SellerInboxMessage[]) => {
-  if (typeof window === 'undefined') return;
-  window.localStorage.setItem(SELLER_INBOX_STORAGE_KEY, JSON.stringify(messages));
-};
-
-const updateUnreadFlag = (messages: SellerInboxMessage[]) => {
-  if (typeof window === 'undefined') return;
-  const hasUnread = messages.some((item) => item.status === 'unread');
-  window.localStorage.setItem(SELLER_UNREAD_STORAGE_KEY, hasUnread ? '1' : '0');
+  const state = await readMessageBridgeState();
+  return normalizeSellerInboxMessages(state.inboxMessages);
 };
 
 const emitSellerMessageUpdated = () => {
@@ -405,55 +463,66 @@ const emitSellerMessageUpdated = () => {
   window.dispatchEvent(new Event(SELLER_MESSAGE_UPDATED_EVENT));
 };
 
-export const markSellerInboxAsRead = () => {
-  const current = readSellerInboxMessages();
-  if (current.length === 0) {
-    if (typeof window !== 'undefined') window.localStorage.setItem(SELLER_UNREAD_STORAGE_KEY, '0');
-    emitSellerMessageUpdated();
-    return;
-  }
-  const next = current.map((item) => ({ ...item, status: 'read' as const }));
-  saveSellerInboxMessages(next);
-  updateUnreadFlag(next);
-  emitSellerMessageUpdated();
-};
-
-export const deleteSellerInboxMessageById = (id: string) => {
+export const markSellerInboxAsRead = async (): Promise<void> => {
   if (typeof window === 'undefined') return;
-  const current = readSellerInboxMessages();
-  const next = current.filter((item) => item.id !== id);
-  saveSellerInboxMessages(next);
-  updateUnreadFlag(next);
+  await updateMessageBridgeState((state) => {
+    const current = normalizeSellerInboxMessages(state.inboxMessages);
+    return {
+      ...state,
+      inboxMessages: current.map((item) => ({ ...item, status: 'read' as const })),
+    };
+  });
   emitSellerMessageUpdated();
 };
 
-export const deleteSellerInboxMessagesBySenderName = (senderName: string) => {
+export const deleteSellerInboxMessageById = async (id: string): Promise<void> => {
   if (typeof window === 'undefined') return;
-  const current = readSellerInboxMessages();
-  const next = current.filter((item) => item.senderName !== senderName);
-  saveSellerInboxMessages(next);
-  updateUnreadFlag(next);
+  await updateMessageBridgeState((state) => {
+    const current = normalizeSellerInboxMessages(state.inboxMessages);
+    return {
+      ...state,
+      inboxMessages: current.filter((item) => item.id !== id),
+    };
+  });
   emitSellerMessageUpdated();
 };
 
-export const clearSellerInboxMessages = () => {
+export const deleteSellerInboxMessagesBySenderName = async (senderName: string): Promise<void> => {
   if (typeof window === 'undefined') return;
-  saveSellerInboxMessages([]);
-  updateUnreadFlag([]);
+  await updateMessageBridgeState((state) => {
+    const current = normalizeSellerInboxMessages(state.inboxMessages);
+    return {
+      ...state,
+      inboxMessages: current.filter((item) => item.senderName !== senderName),
+    };
+  });
   emitSellerMessageUpdated();
 };
 
-export const markSellerInboxMessagesReadBySenderName = (senderName: string) => {
-  const current = readSellerInboxMessages();
-  if (current.length === 0) return;
-  const next = current.map((item) =>
-    item.senderName === senderName ? { ...item, status: 'read' as const } : item
-  );
-  saveSellerInboxMessages(next);
-  updateUnreadFlag(next);
+export const clearSellerInboxMessages = async (): Promise<void> => {
+  if (typeof window === 'undefined') return;
+  await updateMessageBridgeState((state) => ({
+    ...state,
+    inboxMessages: [],
+  }));
   emitSellerMessageUpdated();
 };
 
+export const markSellerInboxMessagesReadBySenderName = async (
+  senderName: string
+): Promise<void> => {
+  if (typeof window === 'undefined') return;
+  await updateMessageBridgeState((state) => {
+    const current = normalizeSellerInboxMessages(state.inboxMessages);
+    return {
+      ...state,
+      inboxMessages: current.map((item) =>
+        item.senderName === senderName ? { ...item, status: 'read' as const } : item
+      ),
+    };
+  });
+  emitSellerMessageUpdated();
+};
 export const triggerFavoriteInquiryMessage = async ({
   kind,
   product,
@@ -464,7 +533,7 @@ export const triggerFavoriteInquiryMessage = async ({
   ensureAutoOrderScheduler();
 
   const resolvedStoreId = storeId || product.storeId || getDefaultStoreIdByKind(kind);
-  const events = readFavoriteEvents();
+  const events = await readFavoriteEvents();
   const event: FavoriteEvent = {
     id: `fav-${Date.now().toString(36)}-${Math.random().toString(36).slice(2, 8)}`,
     kind,
@@ -474,7 +543,7 @@ export const triggerFavoriteInquiryMessage = async ({
     price: Number(product.price) || 0,
     at: Date.now(),
   };
-  saveFavoriteEvents([event, ...events].slice(0, 300));
+  await saveFavoriteEvents([event, ...events].slice(0, 300));
 
   const candidate = await pickTodayBestCandidate();
   if (!candidate) return;
@@ -485,7 +554,7 @@ export const triggerFavoriteInquiryMessage = async ({
   const randomContact = contacts.length > 0 ? contacts[Math.floor(Math.random() * contacts.length)] : null;
   const senderName = randomContact?.name?.trim() || '张凌赫';
   const inquiryText = await buildInquiryByAi(candidate.product);
-  appendInboxMessage({
+  await appendInboxMessage({
     senderName,
     content: inquiryText,
   });
@@ -502,7 +571,8 @@ export const triggerFavoriteInquiryMessage = async ({
     attempt: 1,
     executeAt: Date.now() + AUTO_ORDER_DELAY_MS,
   };
-  saveAutoOrderTasks([...readAutoOrderTasks(), task]);
+  const nextAutoOrderTasks = await readAutoOrderTasks();
+  await saveAutoOrderTasks([...nextAutoOrderTasks, task]);
   void processDueAutoOrders();
 
   console.info('[seller-message] 已根据收藏生成咨询消息', {
@@ -512,6 +582,14 @@ export const triggerFavoriteInquiryMessage = async ({
     productId: candidate.product.id,
   });
 };
+
+
+
+
+
+
+
+
 
 
 

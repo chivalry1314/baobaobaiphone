@@ -73,24 +73,34 @@ export const PushNotificationView: React.FC<PushNotificationViewProps> = ({
   }, []);
 
   React.useEffect(() => {
-    const patch: Partial<GlobalSettings> = {};
-    if (!settings.pushUserId) {
-      patch.pushUserId = getOrCreatePushUserId();
-    }
-    if (!settings.pushDeviceId) {
-      patch.pushDeviceId = getOrCreatePushDeviceId();
-    }
-    if (!settings.pushServerBaseUrl) {
-      const fallbackServer = resolvePushServerBaseUrl({
-        pushServerBaseUrl: settings.pushServerBaseUrl,
-      });
-      if (fallbackServer) {
-        patch.pushServerBaseUrl = fallbackServer;
+    let cancelled = false;
+
+    const hydratePushIdentityDefaults = async () => {
+      const patch: Partial<GlobalSettings> = {};
+      if (!settings.pushUserId) {
+        patch.pushUserId = await getOrCreatePushUserId();
       }
-    }
-    if (Object.keys(patch).length > 0) {
-      updateSettings(patch);
-    }
+      if (!settings.pushDeviceId) {
+        patch.pushDeviceId = await getOrCreatePushDeviceId();
+      }
+      if (!settings.pushServerBaseUrl) {
+        const fallbackServer = resolvePushServerBaseUrl({
+          pushServerBaseUrl: settings.pushServerBaseUrl,
+        });
+        if (fallbackServer) {
+          patch.pushServerBaseUrl = fallbackServer;
+        }
+      }
+      if (!cancelled && Object.keys(patch).length > 0) {
+        updateSettings(patch);
+      }
+    };
+
+    void hydratePushIdentityDefaults();
+
+    return () => {
+      cancelled = true;
+    };
   }, [
     settings.pushDeviceId,
     settings.pushServerBaseUrl,
