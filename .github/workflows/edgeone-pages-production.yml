@@ -61,6 +61,11 @@ jobs:
           DEPLOY_OUTPUT="$(cat "${DEPLOY_LOG}")"
 
           if [ "${DEPLOY_EXIT_CODE}" -ne 0 ]; then
+            if echo "${DEPLOY_OUTPUT}" | grep -q "Provider 'Github'.*Only projects with Provider 'Upload' are supported"; then
+              echo "::error::Project '${PROJECT_NAME}' uses Provider 'Github'."
+              echo "::error::This workflow deploys local folder artifacts and only supports Provider 'Upload'."
+              echo "::error::If this project is Git-connected, use EdgeOne Git auto deployment instead."
+            fi
             echo "::error::EdgeOne deploy failed with exit code ${DEPLOY_EXIT_CODE}"
             exit "${DEPLOY_EXIT_CODE}"
           fi
