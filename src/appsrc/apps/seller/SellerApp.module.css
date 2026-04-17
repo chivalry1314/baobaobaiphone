@@ -13,10 +13,17 @@
 }
 
 .header {
+  position: sticky;
+  top: 0;
+  z-index: 20;
+  flex-shrink: 0;
   padding: 44px 18px 6px;
   display: flex;
   align-items: center;
   justify-content: space-between;
+  background: rgba(242, 242, 244, 0.92);
+  backdrop-filter: blur(14px);
+  border-bottom: 1px solid rgba(209, 213, 219, 0.55);
 }
 
 .iconButton {
@@ -34,6 +41,7 @@
 
 .content {
   flex: 1;
+  min-height: 0;
   overflow: auto;
   overscroll-behavior-y: contain;
   -webkit-overflow-scrolling: touch;
@@ -1157,6 +1165,10 @@
 }
 
 .publishHeader {
+  position: sticky;
+  top: 0;
+  z-index: 20;
+  flex-shrink: 0;
   padding: 44px 10px 10px;
   display: grid;
   grid-template-columns: 34px 1fr 34px;
@@ -1175,6 +1187,7 @@
 
 .publishContent {
   flex: 1;
+  min-height: 0;
   overflow: auto;
   padding: 12px;
   display: flex;
@@ -1550,11 +1563,18 @@
 }
 
 .storeManageHeader {
+  position: sticky;
+  top: 0;
+  z-index: 20;
+  flex-shrink: 0;
   padding: 44px 18px 8px;
   display: grid;
   align-items: center;
   grid-template-columns: 34px 1fr 34px;
   column-gap: 8px;
+  background: rgba(242, 242, 244, 0.92);
+  backdrop-filter: blur(14px);
+  border-bottom: 1px solid rgba(209, 213, 219, 0.55);
 }
 
 .storeManageHeader h1 {
@@ -1571,6 +1591,7 @@
 
 .storeManageContent {
   flex: 1;
+  min-height: 0;
   overflow-y: scroll;
   overscroll-behavior-y: contain;
   -webkit-overflow-scrolling: touch;
@@ -2196,6 +2217,10 @@
 }
 
 .storeCreateFormHeader {
+  position: sticky;
+  top: 0;
+  z-index: 20;
+  flex-shrink: 0;
   padding: 12px 12px 10px;
   background: #ffffff;
   display: grid;
@@ -3038,11 +3063,18 @@
 }
 
 .financeReportHeader {
+  position: sticky;
+  top: 0;
+  z-index: 20;
+  flex-shrink: 0;
   padding: 44px 14px 10px;
   display: grid;
   grid-template-columns: 34px 1fr 34px;
   align-items: center;
   gap: 8px;
+  background: rgba(247, 251, 255, 0.92);
+  backdrop-filter: blur(14px);
+  border-bottom: 1px solid rgba(210, 219, 232, 0.7);
 }
 
 .financeReportHeader h1 {
@@ -3054,6 +3086,7 @@
 
 .financeReportContent {
   flex: 1;
+  min-height: 0;
   overflow: auto;
   padding: 4px 12px 20px;
   display: flex;
@@ -3213,7 +3246,14 @@
 
 .storeMessageHeader,
 .storeChatHeader {
+  position: sticky;
+  top: 0;
+  z-index: 20;
+  flex-shrink: 0;
   padding: 44px 14px 8px;
+  background: rgba(242, 242, 244, 0.94);
+  backdrop-filter: blur(14px);
+  border-bottom: 1px solid rgba(209, 213, 219, 0.55);
 }
 
 .storeChatHeader {
@@ -3234,6 +3274,7 @@
 
 .storeMessageContent {
   flex: 1;
+  min-height: 0;
   overflow: auto;
   padding: 8px 0 90px;
 }
@@ -3601,6 +3642,7 @@
 
 .storeChatContent {
   flex: 1;
+  min-height: 0;
   overflow: auto;
   padding: 8px 10px 86px;
   display: flex;

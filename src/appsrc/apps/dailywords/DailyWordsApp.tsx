@@ -211,9 +211,9 @@ export const DailyWordsApp: React.FC<DailyWordsAppProps> = ({ onClose, context }
       {...APP_OPEN_MOTION}
       exit={APP_CLOSE_MOTION}
       transition={{ type: 'spring', damping: 20, stiffness: 220 }}
-      className="absolute inset-0 z-50 flex flex-col bg-gradient-to-b from-rose-50 via-pink-50 to-orange-50 text-slate-800"
+      className="absolute inset-0 z-50 flex flex-col overflow-hidden bg-gradient-to-b from-rose-50 via-pink-50 to-orange-50 text-slate-800"
     >
-      <header className="pt-11 px-3 pb-3 bg-white/70 border-b border-rose-100 backdrop-blur">
+      <header className="sticky top-0 z-20 shrink-0 pt-11 px-3 pb-3 bg-white/70 border-b border-rose-100 backdrop-blur">
         <div className="flex items-center">
           <button
             type="button"
@@ -230,7 +230,7 @@ export const DailyWordsApp: React.FC<DailyWordsAppProps> = ({ onClose, context }
         </div>
       </header>
 
-      <main className="relative flex-1 overflow-y-auto px-4 pb-6 pt-3 space-y-3">
+      <main className="relative min-h-0 flex-1 overflow-y-auto px-4 pb-6 pt-3 space-y-3">
         <section className="rounded-3xl bg-white/90 border border-rose-100 p-4 shadow-sm">
           <div className="relative">
             <Search size={15} className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400" />
@@ -364,8 +364,8 @@ export const DailyWordsApp: React.FC<DailyWordsAppProps> = ({ onClose, context }
       ) : null}
 
       {isEditorOpen ? (
-        <div className="absolute inset-0 z-[120] flex flex-col bg-gradient-to-b from-rose-50 via-pink-50 to-orange-50">
-          <header className="pt-11 px-3 pb-3 bg-white/70 border-b border-rose-100 backdrop-blur">
+        <div className="absolute inset-0 z-[120] flex flex-col overflow-hidden bg-gradient-to-b from-rose-50 via-pink-50 to-orange-50">
+          <header className="sticky top-0 z-20 shrink-0 pt-11 px-3 pb-3 bg-white/70 border-b border-rose-100 backdrop-blur">
             <div className="flex items-center">
               <button
                 type="button"
@@ -381,7 +381,7 @@ export const DailyWordsApp: React.FC<DailyWordsAppProps> = ({ onClose, context }
             </div>
           </header>
 
-          <main className="flex-1 overflow-y-auto px-4 py-4 space-y-3">
+          <main className="min-h-0 flex-1 overflow-y-auto px-4 py-4 space-y-3">
             <section className="rounded-3xl bg-white/92 border border-rose-100 p-4 shadow-sm space-y-3">
               <input
                 type="text"

@@ -253,7 +253,7 @@ export const WeChatApp: React.FC<WeChatAppProps> = ({ onClose, context }) => {
             className="flex-1 flex flex-col min-h-0"
           >
             {activeTab !== 'profile' && (
-              <div className="bg-[#F7F7F7] px-3 pt-12 pb-3 flex items-center border-b border-gray-200 shrink-0">
+              <div className="sticky top-0 z-20 bg-[#F7F7F7] px-3 pt-12 pb-3 flex items-center border-b border-gray-200 shrink-0">
                 <button onClick={onClose} className="text-[#07C160] flex items-center gap-1 active:opacity-50">
                   <ChevronLeft size={28} />
                   <span className="text-[17px]">返回</span>

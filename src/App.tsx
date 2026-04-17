@@ -784,8 +784,8 @@ export default function App() {
 
   return (
     <div
-      className="relative w-full bg-white overflow-hidden flex flex-col"
-      style={{ height: 'var(--app-dvh, 100dvh)' }}
+      className="fixed inset-0 w-full overflow-hidden flex flex-col"
+      //style={{ height: 'var(--app-dvh, 100dvh)' }}
     >
       <AnimatePresence>{isBooting && <SystemBootScreen version={__APP_VERSION__} />}</AnimatePresence>
 
@@ -854,7 +854,7 @@ export default function App() {
                 ? 'calc(max(env(safe-area-inset-top, 24px), 24px) + 2.5rem)' // iOS：额外加 2.5rem，避开刘海/灵动岛，增加呼吸感
                 : 'calc(max(env(safe-area-inset-top, 24px), 24px) + 0.5rem)'), // 安卓：只加 0.5rem，整体网格上提，紧凑自然
           // 底部保持一致，统一避开 Dock 栏
-          paddingBottom: 'calc(env(safe-area-inset-bottom, 20px) + 6rem)'
+          paddingBottom: 'calc(env(safe-area-inset-bottom, 20px) + 100px)'
         }}
         onTouchStart={(e) => {
           const t = e.touches[0];
