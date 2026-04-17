@@ -846,7 +846,7 @@ export default function App() {
       {/* Main Content Area */}
       <main
         className={`flex-1 z-10 overflow-y-auto pb-32 ${isDenseGrid ? 'px-3' : 'px-6'}`}
-        style={{ paddingTop: isFullscreen ? '6.5rem' : '1rem' }}
+        style={{ paddingTop: isFullscreen ? '9rem' : '1rem' }}
         onTouchStart={(e) => {
           const t = e.touches[0];
           if (!t) return;
