@@ -22,10 +22,12 @@
    ============================================ */
 html, body, #root {
   @apply h-full w-full m-0 p-0;
+  overscroll-behavior-y: none;
+  background-color: #FFFFFF; /* 强制兜底为白色 */
 }
 
 body {
-  @apply bg-[#8fb6c7] text-white overflow-hidden antialiased;
+  @apply bg-white text-white overflow-hidden antialiased;
   font-family: var(--font-sans);
   /* 禁止移动端默认的双击放大 */
   touch-action: manipulation;
