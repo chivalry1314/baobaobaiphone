@@ -382,8 +382,9 @@ export default function App() {
       return active.isContentEditable;
     };
 
-    const syncViewportHeight = () => {
+    const syncViewportMetrics = () => {
       const viewportHeight = Math.round(window.visualViewport?.height ?? window.innerHeight);
+      const viewportOffsetTop = Math.max(0, Math.round(window.visualViewport?.offsetTop ?? 0));
       const keyboardLikelyOpen =
         isEditableElementFocused() &&
         stableViewportHeight - viewportHeight > KEYBOARD_HEIGHT_THRESHOLD;
@@ -391,17 +392,24 @@ export default function App() {
       if (!keyboardLikelyOpen) stableViewportHeight = viewportHeight;
       const nextHeight = keyboardLikelyOpen ? stableViewportHeight : viewportHeight;
       document.documentElement.style.setProperty('--app-dvh', `${nextHeight}px`);
+      document.documentElement.style.setProperty('--app-vv-offset-top', `${viewportOffsetTop}px`);
     };
 
-    syncViewportHeight();
-    window.addEventListener('resize', syncViewportHeight);
-    window.addEventListener('orientationchange', syncViewportHeight);
-    window.visualViewport?.addEventListener('resize', syncViewportHeight);
+    syncViewportMetrics();
+    window.addEventListener('resize', syncViewportMetrics);
+    window.addEventListener('orientationchange', syncViewportMetrics);
+    window.visualViewport?.addEventListener('resize', syncViewportMetrics);
+    window.visualViewport?.addEventListener('scroll', syncViewportMetrics);
+    document.addEventListener('focusin', syncViewportMetrics);
+    document.addEventListener('focusout', syncViewportMetrics);
 
     return () => {
-      window.removeEventListener('resize', syncViewportHeight);
-      window.removeEventListener('orientationchange', syncViewportHeight);
-      window.visualViewport?.removeEventListener('resize', syncViewportHeight);
+      window.removeEventListener('resize', syncViewportMetrics);
+      window.removeEventListener('orientationchange', syncViewportMetrics);
+      window.visualViewport?.removeEventListener('resize', syncViewportMetrics);
+      window.visualViewport?.removeEventListener('scroll', syncViewportMetrics);
+      document.removeEventListener('focusin', syncViewportMetrics);
+      document.removeEventListener('focusout', syncViewportMetrics);
     };
   }, []);
 
@@ -784,8 +792,8 @@ export default function App() {
 
   return (
     <div
-      className="fixed inset-0 w-full overflow-hidden flex flex-col"
-      //style={{ height: 'var(--app-dvh, 100dvh)' }}
+      className="relative w-full h-full bg-white overflow-hidden flex flex-col"
+      style={{ height: 'var(--app-dvh, 100dvh)' }}
     >
       <AnimatePresence>{isBooting && <SystemBootScreen version={__APP_VERSION__} />}</AnimatePresence>
 

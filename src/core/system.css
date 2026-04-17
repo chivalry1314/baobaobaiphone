@@ -2,6 +2,7 @@
 
 :root {
   --app-dvh: 100dvh;
+  --app-vv-offset-top: 0px;
 }
 
 /* ============================================
@@ -20,19 +21,32 @@
 /* ============================================
    基础重置（系统环境层）
    ============================================ */
-html, body, #root {
-  @apply h-full w-full m-0 p-0;
+html, body {
+  /* 核武器：直接把 html 和 body 钉死在屏幕的四个角 */
+  position: fixed;
+  top: 0;
+  left: 0;
+  width: 100vw;
+  /* 优先使用动态视口高度，兼容老设备用 vh */
+  height: 100dvh; 
+  height: 100vh; 
+  margin: 0;
+  padding: 0;
+  overflow: hidden;
   overscroll-behavior-y: none;
-  background-color: #FFFFFF; /* 强制兜底为白色 */
+  background-color: #EFF6FF; /* 你的壁纸底色 */
+}
+
+#root {
+  width: 100%;
+  height: 100%;
 }
 
 body {
-  @apply bg-white text-white overflow-hidden antialiased;
+  @apply text-white antialiased;
   font-family: var(--font-sans);
-  /* 禁止移动端默认的双击放大 */
   touch-action: manipulation;
   -webkit-tap-highlight-color: transparent;
-  /* 禁止选中文本 */
   -webkit-user-select: none;
   user-select: none;
 }
