@@ -40,6 +40,9 @@ html, body {
 #root {
   width: 100%;
   height: 100%;
+  /* 如果还有留白，可以给 #root 也加上 absolute inset-0 */
+  position: absolute;
+  top: 0; left: 0; right: 0; bottom: 0;
 }
 
 body {

@@ -364,8 +364,8 @@ export const DailyWordsApp: React.FC<DailyWordsAppProps> = ({ onClose, context }
       ) : null}
 
       {isEditorOpen ? (
-        <div className="absolute inset-0 z-[120] flex flex-col overflow-hidden bg-gradient-to-b from-rose-50 via-pink-50 to-orange-50">
-          <header className="sticky top-0 z-20 shrink-0 pt-11 px-3 pb-3 bg-white/70 border-b border-rose-100 backdrop-blur">
+        <div className="absolute inset-0 z-[120] flex min-h-0 flex-col overflow-hidden bg-gradient-to-b from-rose-50 via-pink-50 to-orange-50">
+          <header className="z-20 shrink-0 border-b border-rose-100 bg-white/70 px-3 pb-3 pt-11 backdrop-blur">
             <div className="flex items-center">
               <button
                 type="button"
@@ -381,7 +381,10 @@ export const DailyWordsApp: React.FC<DailyWordsAppProps> = ({ onClose, context }
             </div>
           </header>
 
-          <main className="min-h-0 flex-1 overflow-y-auto px-4 py-4 space-y-3">
+          <main
+            className="min-h-0 flex-1 overflow-y-auto px-4 py-4 space-y-3"
+            style={{ WebkitOverflowScrolling: 'touch', overscrollBehaviorY: 'contain' }}
+          >
             <section className="rounded-3xl bg-white/92 border border-rose-100 p-4 shadow-sm space-y-3">
               <input
                 type="text"
@@ -415,7 +418,7 @@ export const DailyWordsApp: React.FC<DailyWordsAppProps> = ({ onClose, context }
             </section>
           </main>
 
-          <footer className="px-4 pb-5 pt-2 border-t border-rose-100 bg-white/80 backdrop-blur">
+          <footer className="shrink-0 border-t border-rose-100 bg-white/80 px-4 pb-5 pt-2 backdrop-blur">
             <div className="grid grid-cols-2 gap-2">
               <button
                 type="button"
