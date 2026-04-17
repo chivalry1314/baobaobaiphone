@@ -845,8 +845,16 @@ export default function App() {
 
       {/* Main Content Area */}
       <main
-        className={`flex-1 z-10 overflow-y-auto pb-32 ${isDenseGrid ? 'px-3' : 'px-6'}`}
-        style={{ paddingTop: isFullscreen ? '9rem' : '1rem' }}
+        // 移除原来写死的 pb-32，将其移交 style 进行动态安全区计算
+        className={`flex-1 z-10 overflow-y-auto ${isDenseGrid ? 'px-3' : 'px-6'}`}
+        style={{ 
+          // 结合安全区和自定义状态栏高度，给顶部留出呼吸感
+          paddingTop: isFullscreen 
+            ? '9rem' 
+            : 'calc(max(env(safe-area-inset-top, 24px), 24px) + 2.5rem)',
+          // 利用底部安全区计算，消除多余留白，贴合 Dock 栏
+          paddingBottom: 'calc(env(safe-area-inset-bottom, 20px) + 6rem)'
+        }}
         onTouchStart={(e) => {
           const t = e.touches[0];
           if (!t) return;
@@ -873,7 +881,7 @@ export default function App() {
           className={`grid ${isDenseGrid ? 'gap-3' : 'gap-4'}`}
           style={{ gridTemplateColumns: `repeat(${cols}, 1fr)`, gridAutoRows: isDenseGrid ? 'minmax(52px, auto)' : 'minmax(60px, auto)' }}
         >
-          {/* 遍历所有可能的网格位置 */}
+          {/* 遍历所有可能的网格位置逻辑保持不变 */}
           {(() => {
             const cells = [];
             for (let row = 0; row < rows; row++) {
@@ -882,13 +890,10 @@ export default function App() {
                 const widgetItem = widgetPositionMap.get(key);
                 const appItem = appPositionMap.get(key);
 
-                // 检查是否是 widget 的起始位置
                 const isWidgetStart = widgetItem && widgetItem.x === col && widgetItem.y === row;
-                // 检查是否是 widget 内部的某个位置（非起始位置）
                 const isInsideWidget = widgetItem && !isWidgetStart && isOccupiedByWidget(col, row);
 
                 if (isWidgetStart && widgetItem) {
-                  // 渲染 Widget - 使用明确的 grid 位置
                   const widgetConfig = getWidgetById(widgetItem.componentId);
                   const w = widgetItem.w || widgetConfig?.defaultWidth || 2;
                   const h = widgetItem.h || widgetConfig?.defaultHeight || 2;
@@ -896,7 +901,7 @@ export default function App() {
                   const gridColumnEnd = gridColumnStart + w;
                   const gridRowStart = widgetItem.y + 1;
                   const gridRowEnd = gridRowStart + h;
-
+                  
                   cells.push(
                     <div
                       key={widgetItem.instanceId}
@@ -929,10 +934,8 @@ export default function App() {
                     </div>
                   );
                 } else if (isInsideWidget) {
-                  // Widget 内部位置，不渲染
                   continue;
                 } else if (appItem) {
-                  // 渲染 App 图标 - 设置 grid 位置
                   const app = desktopAppMap.get(appItem.componentId);
                   if (app) {
                     const customIcon = settings.customIcons?.[app.id];
@@ -942,7 +945,7 @@ export default function App() {
                       : runtimeIcon
                         ? <span className="text-[26px] leading-none">{runtimeIcon}</span>
                         : undefined;
-                    // 计算 App 的 grid 位置
+
                     const gridColumnStart = appItem.x + 1;
                     const gridRowStart = appItem.y + 1;
                     cells.push(
@@ -968,7 +971,6 @@ export default function App() {
                     );
                   }
                 }
-                // 空白位置不渲染任何内容
               }
             }
             return cells;
@@ -977,7 +979,11 @@ export default function App() {
       </main>
 
       {!activeAppId && computedPageCount > 1 && (
-        <div className="absolute bottom-[120px] left-1/2 -translate-x-1/2 z-40 flex flex-col items-center gap-2">
+        <div 
+          className="absolute left-1/2 -translate-x-1/2 z-40 flex flex-col items-center gap-2"
+          // 利用安全区动态调整分页指示器高度，避免与 Dock 栏过于紧凑或疏离
+          style={{ bottom: 'calc(env(safe-area-inset-bottom, 20px) + 110px)' }}
+        >
           <div className="flex items-center justify-center gap-1.5">
             {Array.from({ length: computedPageCount }).map((_, index) => (
               <button
@@ -1000,7 +1006,11 @@ export default function App() {
 
       {/* Home Indicator - Only show when no app is active */}
       {!activeAppId && (
-        <div className="absolute bottom-2 left-1/2 -translate-x-1/2 w-32 h-1.5 bg-white/30 rounded-full z-50" />
+        <div 
+          className="absolute left-1/2 -translate-x-1/2 w-32 h-1.5 bg-white/30 rounded-full z-50"
+          // 适配 iOS 底部小黑条/白条区域
+          style={{ bottom: 'max(env(safe-area-inset-bottom, 8px), 8px)' }}
+        />
       )}
     </div>
   );
