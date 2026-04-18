@@ -10,7 +10,7 @@ interface ContactsBottomTabsProps {
 
 export const ContactsBottomTabs: React.FC<ContactsBottomTabsProps> = ({ activeTab, onChange }) => {
   return (
-    <div className="absolute bottom-0 left-0 right-0 h-[84px] bg-white border-t border-slate-200 flex items-start justify-around pt-2">
+    <div className="shrink-0 min-h-[84px] bg-white border-t border-slate-200 flex items-start justify-around pt-2 pb-[max(env(safe-area-inset-bottom,0px),8px)]">
       {[
         { key: 'phone' as const, label: TEXT.phone, icon: Phone },
         { key: 'contacts' as const, label: TEXT.contacts, icon: UserRound },

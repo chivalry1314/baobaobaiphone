@@ -233,7 +233,7 @@ export const ContactDetailPage: React.FC<ContactDetailPageProps> = ({
         </div>
       </div>
 
-      <div className="absolute bottom-0 left-0 right-0 h-[84px] bg-white/95 backdrop-blur border-t border-slate-200 flex items-start justify-around pt-2.5">
+      <div className="shrink-0 min-h-[84px] bg-white/95 backdrop-blur border-t border-slate-200 flex items-start justify-around pt-2.5 pb-[max(env(safe-area-inset-bottom,0px),8px)]">
         <button className="w-20 flex flex-col items-center gap-1 text-slate-500">
           <Star size={20} />
           <span className="text-[12px]">{TEXT.favorites}</span>

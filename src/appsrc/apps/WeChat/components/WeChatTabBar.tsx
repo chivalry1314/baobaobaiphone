@@ -15,9 +15,7 @@ export const WeChatTabBar: React.FC<WeChatTabBarProps> = ({ activeTab, onTabChan
   ] as const;
 
   return (
-    // fixed positioning ensures the tab bar stays visible at the bottom
-    // regardless of other content flow – it won't be pushed up by page elements
-    <div className="fixed bottom-0 left-0 right-0 bg-[#F7F7F7] border-t border-gray-200 px-4 py-2 flex justify-around items-center safe-area-bottom z-50">
+    <div className="w-full shrink-0 bg-[#F7F7F7] border-t border-gray-200 px-4 py-2 flex justify-around items-center safe-area-bottom">
       {tabs.map(({ key, icon: Icon, label }) => (
         <button
           key={key}

@@ -1,5 +1,5 @@
 // src/components/wechat/WeChatChatView.tsx
-import React, { useEffect, useMemo, useRef, useState } from 'react';
+import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { motion } from 'motion/react';
 import { useVirtualizer } from '@tanstack/react-virtual';
 import { useWeChatStore } from '../store';
@@ -134,6 +134,14 @@ const normalizeMessageContentForMemoryComparison = (message: WeChatMessage): str
   return message.content.trim();
 };
 
+const isIOSViewportDevice = (): boolean => {
+  if (typeof navigator === 'undefined') return false;
+  const userAgent = navigator.userAgent || '';
+  const isIOSUserAgent = /iPad|iPhone|iPod/i.test(userAgent);
+  const isMacTouchDevice = navigator.platform === 'MacIntel' && navigator.maxTouchPoints > 1;
+  return isIOSUserAgent || isMacTouchDevice;
+};
+
 export const WeChatChatView: React.FC<WeChatChatViewProps> = ({
   characterId,
   onBack,
@@ -152,6 +160,8 @@ export const WeChatChatView: React.FC<WeChatChatViewProps> = ({
   const [inputValue, setInputValue] = useState('');
   const [isTyping, setIsTyping] = useState(false);
   const [isMultiline, setIsMultiline] = useState(false);
+  const [isComposerFocused, setIsComposerFocused] = useState(false);
+  const [keyboardInset, setKeyboardInset] = useState(0);
   const [showFullScreenEditor, setShowFullScreenEditor] = useState(false);
   const [showPlusMenu, setShowPlusMenu] = useState(false);
   const textareaRef = useRef<HTMLTextAreaElement>(null);
@@ -232,6 +242,8 @@ export const WeChatChatView: React.FC<WeChatChatViewProps> = ({
   const lastRestoreVoiceCallSignalRef = useRef<number | null>(restoreVoiceCallSignal ?? null);
 
   const scrollRef = useRef<HTMLDivElement>(null);
+  const pendingAssistantReplyCountRef = useRef(0);
+  const shouldFollowVisualViewport = useMemo(() => isIOSViewportDevice(), []);
 
   const character = wechatCharacters.find(c => c.id === characterId);
   const session = wechatSessions.find(s => s.characterId === characterId);
@@ -311,13 +323,112 @@ export const WeChatChatView: React.FC<WeChatChatViewProps> = ({
     useAnimationFrameWithResizeObserver: true,
   });
 
-  const scrollToBottom = () => {
-    if (messages.length > 0 && !isSelectionMode) {
-      setTimeout(() => { virtualizer.scrollToIndex(messages.length - 1, { align: 'end' }); }, 50);
-    }
-  };
+  const scrollToBottom = useCallback((extraPasses = 2) => {
+    if (messages.length === 0 || isSelectionMode) return;
 
-  useEffect(() => { scrollToBottom(); }, [messages.length, isTyping, quotingMessage]);
+    const run = (remaining: number) => {
+      window.requestAnimationFrame(() => {
+        const scroller = scrollRef.current;
+        if (!scroller) return;
+
+        virtualizer.measure();
+        const targetTop = Math.max(
+          0,
+          virtualizer.getTotalSize() - scroller.clientHeight + 24
+        );
+        scroller.scrollTo({ top: targetTop, behavior: 'auto' });
+        virtualizer.scrollToIndex(messages.length - 1, { align: 'end' });
+
+        if (remaining > 0) {
+          window.setTimeout(() => run(remaining - 1), 80);
+        }
+      });
+    };
+
+    run(extraPasses);
+  }, [isSelectionMode, messages.length, virtualizer]);
+
+  useEffect(() => {
+    scrollToBottom(1);
+  }, [messages.length, quotingMessage, scrollToBottom]);
+
+  useEffect(() => {
+    if (!isComposerFocused && keyboardInset === 0 && !showPlusMenu) return;
+    scrollToBottom(2);
+  }, [isComposerFocused, keyboardInset, scrollToBottom, showPlusMenu]);
+
+  useEffect(() => {
+    if (shouldFollowVisualViewport) {
+      setKeyboardInset(0);
+      return;
+    }
+
+    const KEYBOARD_INSET_THRESHOLD = 80;
+    const syncKeyboardInset = () => {
+      const layoutViewportHeight = Math.round(window.innerHeight);
+      const viewportHeight = Math.round(window.visualViewport?.height ?? layoutViewportHeight);
+      const viewportOffsetTop = Math.max(0, Math.round(window.visualViewport?.offsetTop ?? 0));
+      const nextInset = Math.max(0, layoutViewportHeight - viewportHeight - viewportOffsetTop);
+      setKeyboardInset(nextInset > KEYBOARD_INSET_THRESHOLD ? nextInset : 0);
+    };
+
+    syncKeyboardInset();
+    window.addEventListener('resize', syncKeyboardInset);
+    window.addEventListener('orientationchange', syncKeyboardInset);
+    window.visualViewport?.addEventListener('resize', syncKeyboardInset);
+    window.visualViewport?.addEventListener('scroll', syncKeyboardInset);
+
+    return () => {
+      window.removeEventListener('resize', syncKeyboardInset);
+      window.removeEventListener('orientationchange', syncKeyboardInset);
+      window.visualViewport?.removeEventListener('resize', syncKeyboardInset);
+      window.visualViewport?.removeEventListener('scroll', syncKeyboardInset);
+    };
+  }, [shouldFollowVisualViewport]);
+
+  const handleComposerFocus = useCallback(() => {
+    setIsComposerFocused(true);
+    if (showPlusMenu) setShowPlusMenu(false);
+    scrollToBottom(3);
+    window.setTimeout(() => scrollToBottom(3), 180);
+  }, [scrollToBottom, setShowPlusMenu, showPlusMenu]);
+
+  const handleComposerBlur = useCallback(() => {
+    window.setTimeout(() => {
+      const activeElement = document.activeElement;
+      if (activeElement !== textareaRef.current) {
+        setIsComposerFocused(false);
+      }
+    }, 0);
+  }, []);
+
+  const chatViewportStyle = useMemo<CSSProperties>(() => {
+    if (shouldFollowVisualViewport) {
+      return {
+        top: 'var(--app-vv-offset-top, 0px)',
+        height: 'var(--app-vv-height, var(--app-dvh, 100dvh))',
+      };
+    }
+
+    return {
+      top: 0,
+      height: 'var(--app-dvh, 100dvh)',
+      paddingBottom: `${keyboardInset}px`,
+    };
+  }, [keyboardInset, shouldFollowVisualViewport]);
+
+  const beginAssistantReply = useCallback(() => {
+    pendingAssistantReplyCountRef.current += 1;
+    setIsTyping(true);
+  }, []);
+
+  const endAssistantReply = useCallback(() => {
+    pendingAssistantReplyCountRef.current = Math.max(
+      0,
+      pendingAssistantReplyCountRef.current - 1
+    );
+    setIsTyping(pendingAssistantReplyCountRef.current > 0);
+  }, []);
 
   const clearVoicePlayback = () => {
     if (voiceAudioRef.current) {
@@ -1380,7 +1491,7 @@ export const WeChatChatView: React.FC<WeChatChatViewProps> = ({
   const requestAssistantReply = async (sessionId: string) => {
     if (!character) return;
 
-    setIsTyping(true);
+    beginAssistantReply();
     try {
       let systemPrompt = `你扮演${character.name}与我微信聊天。设定：${character.description}。开场白：${character.greeting}。`;
       if (character.worldBookId) {
@@ -1411,7 +1522,7 @@ export const WeChatChatView: React.FC<WeChatChatViewProps> = ({
     } catch (e) {
       addWeChatMessage(sessionId, { role: 'character', content: '[系统提示：AI连接失败]' });
     } finally {
-      setIsTyping(false);
+      endAssistantReply();
       scrollToBottom();
     }
   };
@@ -1594,7 +1705,7 @@ export const WeChatChatView: React.FC<WeChatChatViewProps> = ({
     setShowTransferView(false); setTransferAmount(''); scrollToBottom();
 
     if (!settings.apiKey) {
-      setIsTyping(true);
+      beginAssistantReply();
       setTimeout(() => {
         withdrawWeChatBalance(amount, {
           title: '转账',
@@ -1604,11 +1715,11 @@ export const WeChatChatView: React.FC<WeChatChatViewProps> = ({
         const acceptedText = `已收款 ¥${amount.toFixed(2)}`;
         addWeChatMessage(sessionId!, { role: 'character', content: acceptedText, type: 'transfer_accepted', amount });
         void playVoiceReply(acceptedText);
-        setIsTyping(false); scrollToBottom();
+        endAssistantReply(); scrollToBottom();
       }, 2000); return;
     }
 
-    setIsTyping(true);
+    beginAssistantReply();
     try {
       let systemPrompt = `你扮演${character.name}与我微信聊天。设定：${character.description}。开场白：${character.greeting}。\n`;
       if (character.worldBookId) systemPrompt += `背景：${worldBook.find(w => w.id === character.worldBookId)?.content}\n`;
@@ -1641,7 +1752,7 @@ export const WeChatChatView: React.FC<WeChatChatViewProps> = ({
         }
       }
     } catch (e) { addWeChatMessage(sessionId, { role: 'character', content: '[系统提示：AI连接失败]' }); } 
-    finally { setIsTyping(false); scrollToBottom(); }
+    finally { endAssistantReply(); scrollToBottom(); }
   };
 
   const handleSend = async (inputOverride?: string) => {
@@ -1932,10 +2043,7 @@ export const WeChatChatView: React.FC<WeChatChatViewProps> = ({
         exit={{ opacity: 0, x: 20 }}
         transition={{ duration: 0.2 }}
         className="absolute left-0 right-0 z-50 flex min-h-0 flex-col overflow-hidden bg-[#EDEDED]"
-        style={{
-          top: 'var(--app-vv-offset-top, 0px)',
-          height: 'var(--app-vv-height, var(--app-dvh, 100dvh))',
-        }}
+        style={chatViewportStyle}
       >
         
         {/* 顶部 Header */}
@@ -1953,6 +2061,7 @@ export const WeChatChatView: React.FC<WeChatChatViewProps> = ({
               inset: 0,
               overflowY: 'auto',
               overflowX: 'hidden',
+              overflowAnchor: 'none',
               overscrollBehaviorY: 'contain',
               WebkitOverflowScrolling: 'touch',
               ...chatBackgroundStyle,
@@ -1995,7 +2104,11 @@ export const WeChatChatView: React.FC<WeChatChatViewProps> = ({
           isVoiceRecording={isVoiceRecording}
           isVoiceBusy={isVoiceSynthesizing}
           isMultiline={isMultiline}
-          textareaRef={textareaRef} showPlusMenu={showPlusMenu} setShowPlusMenu={setShowPlusMenu}
+          textareaRef={textareaRef}
+          onInputFocus={handleComposerFocus}
+          onInputBlur={handleComposerBlur}
+          showPlusMenu={showPlusMenu}
+          setShowPlusMenu={setShowPlusMenu}
           quotingMessage={quotingMessage} setQuotingMessage={setQuotingMessage}
           onSend={() => { void handleSend(); }}
           onKeyDown={(e) => {

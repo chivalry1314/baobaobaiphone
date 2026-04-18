@@ -28,6 +28,8 @@ interface WeChatChatInputBarProps {
   isVoiceBusy: boolean;
   isMultiline: boolean;
   textareaRef: React.RefObject<HTMLTextAreaElement | null>;
+  onInputFocus: () => void;
+  onInputBlur: () => void;
   showPlusMenu: boolean;
   setShowPlusMenu: (show: boolean) => void;
   quotingMessage: { senderName: string; content: string } | null;
@@ -57,6 +59,8 @@ export const WeChatChatInputBar: React.FC<WeChatChatInputBarProps> = ({
   isVoiceBusy,
   isMultiline,
   textareaRef,
+  onInputFocus,
+  onInputBlur,
   showPlusMenu,
   setShowPlusMenu,
   quotingMessage,
@@ -148,7 +152,8 @@ export const WeChatChatInputBar: React.FC<WeChatChatInputBarProps> = ({
               value={inputValue}
               onChange={onInputChange}
               onKeyDown={onKeyDown}
-              disabled={isTyping}
+              onFocus={onInputFocus}
+              onBlur={onInputBlur}
               style={{ minHeight: '24px' }}
               className="flex-1 min-w-0 text-[16px] text-gray-900 outline-none resize-none bg-transparent overflow-y-auto leading-snug disabled:bg-transparent"
               rows={1}
@@ -179,10 +184,7 @@ export const WeChatChatInputBar: React.FC<WeChatChatInputBarProps> = ({
                   exit={{ scale: 0.8, opacity: 0 }}
                   transition={{ duration: 0.15 }}
                   onClick={onSend}
-                  disabled={isTyping}
-                  className={`text-white text-[14px] sm:text-[15px] font-medium w-full h-[36px] sm:h-[38px] rounded-md ${
-                    isTyping ? 'bg-[#7CD799]' : 'bg-[#07C160] active:opacity-80'
-                  }`}
+                  className="text-white text-[14px] sm:text-[15px] font-medium w-full h-[36px] sm:h-[38px] rounded-md bg-[#07C160] active:opacity-80"
                 >
                   发送
                 </motion.button>

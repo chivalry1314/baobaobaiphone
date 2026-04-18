@@ -332,7 +332,7 @@ export const WeChatApp: React.FC<WeChatAppProps> = ({ onClose, context }) => {
               )}
             </div>
 
-            <div className="h-14 shrink-0">
+            <div className="shrink-0">
               <WeChatTabBar activeTab={activeTab} onTabChange={setActiveTab} />
             </div>
           </motion.div>

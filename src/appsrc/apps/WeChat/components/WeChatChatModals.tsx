@@ -112,9 +112,9 @@ export const Modals = {
             <div className="text-[17px] font-medium text-gray-900">编辑文字</div>
             <button
               onClick={onSend}
-              disabled={!inputValue.trim() || isTyping}
+              disabled={!inputValue.trim()}
               className={`rounded-[4px] px-4 py-1.5 text-[15px] font-medium transition-colors ${
-                !inputValue.trim() || isTyping
+                !inputValue.trim()
                   ? 'bg-gray-200 text-gray-400'
                   : 'bg-[#07C160] text-white active:bg-[#06ad56]'
               }`}
