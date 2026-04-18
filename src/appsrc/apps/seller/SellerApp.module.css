@@ -1158,16 +1158,15 @@
   inset: 0;
   z-index: 75;
   display: flex;
-  min-height: 0;
   flex-direction: column;
-  overflow: hidden;
-  overscroll-behavior: none;
   background: #eef0f8;
   color: #111827;
   font-family: 'PingFang SC', 'Hiragino Sans GB', 'Microsoft YaHei', sans-serif;
 }
 
 .publishHeader {
+  position: sticky;
+  top: 0;
   z-index: 20;
   flex-shrink: 0;
   padding: 44px 10px 10px;
@@ -1190,8 +1189,6 @@
   flex: 1;
   min-height: 0;
   overflow: auto;
-  overscroll-behavior-y: contain;
-  -webkit-overflow-scrolling: touch;
   padding: 12px;
   display: flex;
   flex-direction: column;
@@ -1455,7 +1452,6 @@
 }
 
 .publishFooter {
-  flex-shrink: 0;
   border-top: 1px solid #e5e7eb;
   background: #ffffff;
   padding: 10px 12px 14px;
@@ -2206,8 +2202,6 @@
   z-index: 98;
   background: rgba(15, 23, 42, 0.36);
   display: flex;
-  overflow: hidden;
-  overscroll-behavior: none;
   align-items: flex-end;
   justify-content: center;
 }
@@ -2218,12 +2212,13 @@
   background: #f7f8fb;
   border-radius: 18px 18px 0 0;
   display: flex;
-  min-height: 0;
   flex-direction: column;
   overflow: hidden;
 }
 
 .storeCreateFormHeader {
+  position: sticky;
+  top: 0;
   z-index: 20;
   flex-shrink: 0;
   padding: 12px 12px 10px;
@@ -2256,10 +2251,7 @@
 
 .storeCreateFormBody {
   flex: 1;
-  min-height: 0;
   overflow: auto;
-  overscroll-behavior-y: contain;
-  -webkit-overflow-scrolling: touch;
   padding: 12px;
   display: flex;
   flex-direction: column;
@@ -2975,7 +2967,6 @@
 }
 
 .storeCreateFormFooter {
-  flex-shrink: 0;
   padding: 10px 12px 14px;
   background: #ffffff;
   border-top: 1px solid #eceff4;
@@ -3285,8 +3276,6 @@
   flex: 1;
   min-height: 0;
   overflow: auto;
-  overscroll-behavior-y: contain;
-  -webkit-overflow-scrolling: touch;
   padding: 8px 0 90px;
 }
 
@@ -3305,21 +3294,6 @@
   font-weight: 600;
   position: relative;
   padding: 0;
-}
-
-.storeMessageFont16 .storeMessageTopTab,
-.storeMessageFont16 .storeMessageStatusRow,
-.storeMessageFont16 .storeMessageManageRow button,
-.storeMessageFont16 .storeMessageTipsBar,
-.storeMessageFont16 .storeMessageTipsBar button,
-.storeMessageFont16 .storeMessageMetaTop strong,
-.storeMessageFont16 .storeMessageMetaTop span,
-.storeMessageFont16 .storeMessageMetaBottom p,
-.storeMessageFont16 .storeMessageMetaBottom em,
-.storeMessageFont16 .storeMessageFooterItem,
-.storeMessageFont16 .storeMessageDetailText,
-.storeMessageFont16 .storeMessageDetailActions button {
-  font-size: 16px;
 }
 
 .storeMessageTopTabActive {
@@ -3670,8 +3644,6 @@
   flex: 1;
   min-height: 0;
   overflow: auto;
-  overscroll-behavior-y: contain;
-  -webkit-overflow-scrolling: touch;
   padding: 8px 10px 86px;
   display: flex;
   flex-direction: column;

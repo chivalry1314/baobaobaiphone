@@ -904,7 +904,7 @@ export const SellerStoreManagePage: React.FC<SellerStoreManagePageProps> = ({
 
   if (messageView === 'list') {
     return (
-      <div className={`${styles.storeManageRoot} ${styles.storeMessageFont16}`}>
+      <div className={styles.storeManageRoot}>
         <header className={styles.storeMessageHeader}>
           <div className={styles.storeMessageTopTabs}>
             <button
