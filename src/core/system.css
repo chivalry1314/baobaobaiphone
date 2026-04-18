@@ -27,19 +27,19 @@ html, body {
   top: 0;
   left: 0;
   width: 100vw;
-  /* 优先使用动态视口高度，兼容老设备用 vh */
-  height: 100dvh; 
-  height: 100vh; 
+  height: var(--app-dvh, 100dvh);
+  min-height: 100dvh;
   margin: 0;
   padding: 0;
   overflow: hidden;
   overscroll-behavior-y: none;
-  background-color: #EFF6FF; /* 你的壁纸底色 */
+  background-color: #EFF6FF;
 }
 
 #root {
   width: 100%;
-  height: 100%;
+  height: var(--app-dvh, 100dvh);
+  min-height: 100dvh;
 }
 
 body {

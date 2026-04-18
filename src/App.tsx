@@ -368,7 +368,11 @@ export default function App() {
 
   useEffect(() => {
     const KEYBOARD_HEIGHT_THRESHOLD = 120;
-    let stableViewportHeight = Math.round(window.visualViewport?.height ?? window.innerHeight);
+    let stableViewportHeight = Math.max(
+      Math.round(window.innerHeight),
+      Math.round(window.visualViewport?.height ?? window.innerHeight) +
+        Math.max(0, Math.round(window.visualViewport?.offsetTop ?? 0))
+    );
 
     const isEditableElementFocused = () => {
       const active = document.activeElement as HTMLElement | null;
@@ -383,14 +387,16 @@ export default function App() {
     };
 
     const syncViewportMetrics = () => {
-      const viewportHeight = Math.round(window.visualViewport?.height ?? window.innerHeight);
+      const layoutViewportHeight = Math.round(window.innerHeight);
+      const viewportHeight = Math.round(window.visualViewport?.height ?? layoutViewportHeight);
       const viewportOffsetTop = Math.max(0, Math.round(window.visualViewport?.offsetTop ?? 0));
+      const fullViewportHeight = Math.max(layoutViewportHeight, viewportHeight + viewportOffsetTop);
       const keyboardLikelyOpen =
         isEditableElementFocused() &&
         stableViewportHeight - viewportHeight > KEYBOARD_HEIGHT_THRESHOLD;
 
-      if (!keyboardLikelyOpen) stableViewportHeight = viewportHeight;
-      const nextHeight = keyboardLikelyOpen ? stableViewportHeight : viewportHeight;
+      if (!keyboardLikelyOpen) stableViewportHeight = fullViewportHeight;
+      const nextHeight = keyboardLikelyOpen ? stableViewportHeight : fullViewportHeight;
       document.documentElement.style.setProperty('--app-dvh', `${nextHeight}px`);
       document.documentElement.style.setProperty('--app-vv-offset-top', `${viewportOffsetTop}px`);
     };
