@@ -155,6 +155,7 @@ export const createTakeoutOrderSlice = (
   TakeoutStore,
   | 'submitCartAsOrder'
   | 'updateOrderStatus'
+  | 'updateOrder'
   | 'deleteOrder'
   | 'reorderOrderToCart'
   | 'urgeOrder'
@@ -313,6 +314,12 @@ export const createTakeoutOrderSlice = (
     });
 
     return nextOrderId;
+  },
+
+  updateOrder: (order) => {
+    set((state) => ({
+      orders: state.orders.map((o) => (o.id === order.id ? order : o)),
+    }));
   },
 
   updateOrderStatus: (orderId, status) => {

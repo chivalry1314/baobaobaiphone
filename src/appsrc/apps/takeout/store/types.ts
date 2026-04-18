@@ -105,6 +105,7 @@ export interface TakeoutCartActions {
 
 export interface TakeoutOrderActions {
   submitCartAsOrder: (merchantId?: string) => string | null;
+  updateOrder: (order: DeliveryOrder) => void;
   updateOrderStatus: (orderId: string, status: DeliveryOrderStatus) => void;
   deleteOrder: (orderId: string) => void;
   reorderOrderToCart: (orderId: string) => void;

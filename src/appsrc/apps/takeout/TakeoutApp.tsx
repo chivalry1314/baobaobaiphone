@@ -1,7 +1,9 @@
-import React from 'react';
+import React, { useEffect } from 'react';
 import { motion, AnimatePresence } from 'motion/react';
 import { ChevronLeft, Home, ListOrdered, User } from 'lucide-react';
 import { APP_CLOSE_MOTION, APP_OPEN_MOTION } from '../../../core/appOpenMotion';
+import { useTakeoutDeliveryEventListeners } from './hooks/useDeliveryEventListeners';
+import { initializeSync, startPeriodicSync, stopPeriodicSync, NotificationService } from '../../shared/business/delivery';
 import {
   TakeoutCart,
   TakeoutHome,
@@ -82,6 +84,21 @@ const merchantMatchesKeyword = (
 // 内部组件，使用 toast
 const TakeoutAppInner: React.FC<TakeoutAppProps> = ({ onClose }) => {
   const toast = useToast();
+  
+  // 启用事件监听
+  useTakeoutDeliveryEventListeners();
+
+  // 初始化同步
+  useEffect(() => {
+    initializeSync().catch(console.error);
+    startPeriodicSync();
+    NotificationService.requestPermission().catch(console.error);
+
+    return () => {
+      stopPeriodicSync();
+    };
+  }, []);
+
   const {
     route,
     merchants,
