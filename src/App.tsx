@@ -1004,7 +1004,7 @@ export default function App() {
       {!activeAppId && computedPageCount > 1 && (
         <div 
           className="absolute left-1/2 -translate-x-1/2 z-40 flex flex-col items-center gap-2"
-          style={{ bottom: 'calc(env(safe-area-inset-bottom, 20px) + 90px)' }}
+          style={{ bottom: 'calc(max(env(safe-area-inset-bottom, 0px), 0px) + 90px)' }}
         >
           <div className="flex items-center justify-center gap-1.5">
             {Array.from({ length: computedPageCount }).map((_, index) => (
@@ -1030,7 +1030,7 @@ export default function App() {
       {!activeAppId && (
         <div 
           className="absolute left-1/2 -translate-x-1/2 w-32 h-1.5 bg-white/30 rounded-full z-50"
-          style={{ bottom: 'max(env(safe-area-inset-bottom, 8px), 8px)' }}
+          style={{ bottom: 'max(env(safe-area-inset-bottom, 0px), 8px)' }}
         />
       )}
     </div>

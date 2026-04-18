@@ -10,7 +10,7 @@ export const HomeDock: React.FC<HomeDockProps> = ({ onOpenPhone }) => {
   return (
     <div
       className="absolute left-1/2 -translate-x-1/2 w-[92%] h-[84px] glass rounded-[2.5rem] flex items-center justify-around px-4 z-50"
-      style={{ bottom: '0px' }}
+      style={{ bottom: 'max(env(safe-area-inset-bottom, 0px), 0px)' }}
     >
       <AppIcon name="Phone" icon="Phone" onClick={onOpenPhone} />
       <AppIcon name="Safari" icon="Compass" />
