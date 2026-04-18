@@ -20,7 +20,7 @@ export const WeChatChatHeader: React.FC<WeChatChatHeaderProps> = ({
 }) => {
   if (isSelectionMode) {
     return (
-      <div className="bg-[#F7F7F7] px-4 pt-12 pb-2.5 flex items-center border-b border-gray-200 shrink-0">
+      <div className="sticky top-0 z-20 shrink-0 border-b border-gray-200 bg-[#F7F7F7] px-4 pb-2.5 pt-12 flex items-center">
         <button onClick={onExitSelection} className="text-gray-900 text-[16px] active:opacity-50">
           {'取消'}
         </button>
@@ -35,7 +35,7 @@ export const WeChatChatHeader: React.FC<WeChatChatHeaderProps> = ({
   }
 
   return (
-    <div className="bg-[#F7F7F7] px-2 pt-12 pb-2.5 flex items-center border-b border-gray-200 shrink-0">
+    <div className="sticky top-0 z-20 shrink-0 border-b border-gray-200 bg-[#F7F7F7] px-2 pb-2.5 pt-12 flex items-center">
       <button onClick={onBack} className="text-gray-900 flex items-center active:opacity-50">
         <ChevronLeft size={30} strokeWidth={1.5} />
       </button>

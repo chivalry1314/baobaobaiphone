@@ -241,7 +241,7 @@ export const WeChatApp: React.FC<WeChatAppProps> = ({ onClose, context }) => {
       {...APP_OPEN_MOTION}
       exit={APP_CLOSE_MOTION}
       transition={{ type: 'spring', damping: 20, stiffness: 200 }}
-      className="absolute inset-0 z-50 bg-[#EDEDED] flex flex-col"
+      className="absolute inset-0 z-50 flex flex-col overflow-hidden bg-[#EDEDED]"
     >
       <AnimatePresence mode="wait">
         {currentView === 'main' && (
@@ -444,7 +444,7 @@ export const WeChatApp: React.FC<WeChatAppProps> = ({ onClose, context }) => {
       </AnimatePresence>
 
       {selectedCharacterId && currentView === 'chat' && (
-        <div className="absolute inset-0 z-[80]">
+        <div className="absolute inset-0 z-[80] overflow-hidden">
           <WeChatChatView
             key="chat-view-persistent"
             characterId={selectedCharacterId}

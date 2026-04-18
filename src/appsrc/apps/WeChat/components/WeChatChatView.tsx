@@ -1926,13 +1926,26 @@ export const WeChatChatView: React.FC<WeChatChatViewProps> = ({
 
   return (
     <>
-      <motion.div initial={{ opacity: 0, x: 20 }} animate={{ opacity: 1, x: 0 }} exit={{ opacity: 0, x: 20 }} transition={{ duration: 0.2 }} className="absolute inset-0 bg-[#EDEDED] flex flex-col z-50">
+      <motion.div
+        initial={{ opacity: 0, x: 20 }}
+        animate={{ opacity: 1, x: 0 }}
+        exit={{ opacity: 0, x: 20 }}
+        transition={{ duration: 0.2 }}
+        className="absolute left-0 right-0 z-50 flex min-h-0 flex-col overflow-hidden bg-[#EDEDED]"
+        style={{
+          top: 'var(--app-vv-offset-top, 0px)',
+          height: 'var(--app-vv-height, var(--app-dvh, 100dvh))',
+        }}
+      >
         
         {/* 顶部 Header */}
         <WeChatChatHeader isSelectionMode={isSelectionMode} selectedCount={selectedMessageIds.length} characterName={character.name} isTyping={isTyping} onBack={onBack} onExitSelection={exitSelectionMode} />
 
         {/* 虚拟列表内容 */}
-        <div className="flex-1 relative bg-[#EDEDED]" onClick={() => showPlusMenu && setShowPlusMenu(false)}>
+        <div
+          className="relative flex-1 min-h-0 overflow-hidden bg-[#EDEDED]"
+          onClick={() => showPlusMenu && setShowPlusMenu(false)}
+        >
           <div
             ref={scrollRef}
             style={{
@@ -1940,6 +1953,7 @@ export const WeChatChatView: React.FC<WeChatChatViewProps> = ({
               inset: 0,
               overflowY: 'auto',
               overflowX: 'hidden',
+              overscrollBehaviorY: 'contain',
               WebkitOverflowScrolling: 'touch',
               ...chatBackgroundStyle,
             }}

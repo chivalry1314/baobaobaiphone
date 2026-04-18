@@ -26,7 +26,7 @@ const DEFAULT_WALLPAPER = `data:image/svg+xml;utf8,${encodeURIComponent(`
     <linearGradient id="sky" x1="0" y1="0" x2="0" y2="1">
       <stop offset="0%" stop-color="#DFF3FF"/>
       <stop offset="52%" stop-color="#F1FAFF"/>
-      <stop offset="100%" stop-color="#FFFFFF"/>
+      <stop offset="100%" stop-color="#EAF6FF"/>
     </linearGradient>
     <filter id="soft" x="-20%" y="-20%" width="140%" height="140%">
       <feGaussianBlur stdDeviation="24"/>
@@ -399,6 +399,7 @@ export default function App() {
       const nextHeight = keyboardLikelyOpen ? stableViewportHeight : fullViewportHeight;
       document.documentElement.style.setProperty('--app-dvh', `${nextHeight}px`);
       document.documentElement.style.setProperty('--app-vv-offset-top', `${viewportOffsetTop}px`);
+      document.documentElement.style.setProperty('--app-vv-height', `${viewportHeight}px`);
     };
 
     syncViewportMetrics();
@@ -799,7 +800,7 @@ export default function App() {
   return (
     <div
       className="relative w-full h-full bg-white overflow-hidden flex flex-col"
-      style={{ height: 'var(--app-dvh, 100dvh)' }}
+      style={{ height: 'var(--app-physical-height, var(--app-dvh, 100dvh))' }}
     >
       <AnimatePresence>{isBooting && <SystemBootScreen version={__APP_VERSION__} />}</AnimatePresence>
 
