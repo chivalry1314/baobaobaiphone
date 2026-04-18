@@ -4,7 +4,7 @@
   --app-dvh: 100dvh;
   --app-vv-offset-top: 0px;
   --app-vv-height: 100dvh;
-  --app-physical-height: var(--app-dvh, 100dvh);
+  --app-physical-height: calc(var(--app-dvh, 100dvh) + env(safe-area-inset-bottom, 0px));
 }
 
 /* ============================================
@@ -29,8 +29,8 @@ html, body {
   top: 0;
   left: 0;
   width: 100vw;
-  height: var(--app-dvh, 100dvh);
-  min-height: var(--app-dvh, 100dvh);
+  height: var(--app-physical-height);
+  min-height: var(--app-physical-height);
   margin: 0;
   padding: 0;
   overflow: hidden;
@@ -40,8 +40,8 @@ html, body {
 
 #root {
   width: 100%;
-  height: var(--app-dvh, 100dvh);
-  min-height: var(--app-dvh, 100dvh);
+  height: var(--app-physical-height);
+  min-height: var(--app-physical-height);
 }
 
 body {
