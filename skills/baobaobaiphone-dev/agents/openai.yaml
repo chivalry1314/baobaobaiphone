@@ -1,4 +1,4 @@
 interface:
   display_name: "baobaobaiphone Dev"
-  short_description: "Build baobaobaiphone apps and memory modules"
-  default_prompt: "Use this skill to add or update baobaobaiphone apps following local architecture and conventions."
+  short_description: "Build baobaobaiphone apps, layout rules, and memory modules"
+  default_prompt: "Use this skill to add or update baobaobaiphone apps following local architecture, bottom-nav/safe-area rules, and memory conventions."

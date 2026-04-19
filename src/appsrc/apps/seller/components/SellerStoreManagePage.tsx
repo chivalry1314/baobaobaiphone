@@ -904,7 +904,7 @@ export const SellerStoreManagePage: React.FC<SellerStoreManagePageProps> = ({
 
   if (messageView === 'list') {
     return (
-      <div className={styles.storeManageRoot}>
+      <div className={`${styles.storeManageRoot} ${styles.storeManageFont13}`}>
         <header className={styles.storeMessageHeader}>
           <div className={styles.storeMessageTopTabs}>
             <button
@@ -1120,7 +1120,7 @@ export const SellerStoreManagePage: React.FC<SellerStoreManagePageProps> = ({
   }
   if (messageView === 'chat') {
     return (
-      <div className={styles.storeManageRoot}>
+      <div className={`${styles.storeManageRoot} ${styles.storeManageFont13}`}>
         <header className={styles.storeChatHeader}>
           <button type="button" className={styles.iconButton} onClick={() => setMessageView('list')} aria-label="返回">
             <ChevronLeft size={22} />

@@ -415,7 +415,7 @@ export const DailyWordsApp: React.FC<DailyWordsAppProps> = ({ onClose, context }
             </section>
           </main>
 
-          <footer className="px-4 pb-5 pt-2 border-t border-rose-100 bg-white/80 backdrop-blur">
+          <footer className="px-4 pb-5 pt-2 border-t border-rose-100 bg-white/80 backdrop-blur safe-area-bottom">
             <div className="grid grid-cols-2 gap-2">
               <button
                 type="button"

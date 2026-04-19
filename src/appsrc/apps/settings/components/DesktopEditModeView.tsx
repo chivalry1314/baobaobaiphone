@@ -627,7 +627,7 @@ export const DesktopEditModeView: React.FC<DesktopEditModeViewProps> = ({ rows, 
         </div>
 
         {/* 底部控制面板 */}
-        <footer className="shrink-0 pb-6 pt-3 px-4 bg-white/80 backdrop-blur border-t border-slate-200/70 shadow-[0_-10px_30px_-24px_rgba(2,6,23,0.55)] z-20">
+        <footer className="shrink-0 px-4 pt-3 pb-[calc(env(safe-area-inset-bottom,0px)+24px)] bg-white/80 backdrop-blur border-t border-slate-200/70 shadow-[0_-10px_30px_-24px_rgba(2,6,23,0.55)] z-20">
           <div className="mx-auto w-full max-w-[420px]">
             {/* 编辑模式切换 */}
             <div className="flex items-center justify-center mb-3">

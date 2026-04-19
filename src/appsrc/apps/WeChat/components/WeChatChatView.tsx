@@ -390,6 +390,36 @@ export const WeChatChatView: React.FC<WeChatChatViewProps> = ({
     }, 0);
   }, []);
 
+  const focusComposer = useCallback(() => {
+    const textarea = textareaRef.current;
+    if (!textarea) return;
+
+    window.requestAnimationFrame(() => {
+      try {
+        textarea.focus({ preventScroll: true });
+      } catch {
+        textarea.focus();
+      }
+
+      const end = textarea.value.length;
+      try {
+        textarea.setSelectionRange(end, end);
+      } catch {
+        // ignore browsers that do not support selection on textarea
+      }
+    });
+  }, []);
+
+  const handleChatAreaClick = useCallback(() => {
+    if (showPlusMenu) setShowPlusMenu(false);
+
+    const textarea = textareaRef.current;
+    if (textarea && document.activeElement === textarea) {
+      textarea.blur();
+    }
+    setIsComposerFocused(false);
+  }, [showPlusMenu]);
+
   const chatViewportStyle = useMemo<CSSProperties>(() => {
     if (shouldFollowVisualViewport) {
       return {
@@ -404,6 +434,10 @@ export const WeChatChatView: React.FC<WeChatChatViewProps> = ({
       paddingBottom: `${keyboardInset}px`,
     };
   }, [keyboardInset, shouldFollowVisualViewport]);
+
+  const isKeyboardVisible = shouldFollowVisualViewport
+    ? isComposerFocused
+    : keyboardInset > 0;
 
   const beginAssistantReply = useCallback(() => {
     pendingAssistantReplyCountRef.current += 1;
@@ -1780,8 +1814,8 @@ export const WeChatChatView: React.FC<WeChatChatViewProps> = ({
     setIsMultiline(false);
     setShowPlusMenu(false);
     if (textareaRef.current) textareaRef.current.style.height = 'auto';
-    
     scrollToBottom();
+    focusComposer();
     await requestAssistantReply(sessionId);
   };
 
@@ -2040,7 +2074,7 @@ export const WeChatChatView: React.FC<WeChatChatViewProps> = ({
         {/* 消息列表内容 */}
         <div
           className="relative flex-1 min-h-0 overflow-hidden bg-[#EDEDED]"
-          onClick={() => showPlusMenu && setShowPlusMenu(false)}
+          onClick={handleChatAreaClick}
         >
           <div
             ref={scrollRef}
@@ -2055,7 +2089,7 @@ export const WeChatChatView: React.FC<WeChatChatViewProps> = ({
               ...chatBackgroundStyle,
             }}
           >
-            <div className="flex min-h-full flex-col justify-end px-4 pt-4 pb-6">
+            <div className="flex min-h-full flex-col px-4 pt-4 pb-6">
               {messages.map((message) => (
                 <div key={message.id} className="pb-2">
                   <WeChatChatMessageItem 
@@ -2083,6 +2117,7 @@ export const WeChatChatView: React.FC<WeChatChatViewProps> = ({
         {/* 底部输入组件 */}
         <WeChatChatInputBar 
           readOnly={readOnly}
+          isKeyboardVisible={isKeyboardVisible}
           isSelectionMode={isSelectionMode} selectedCount={selectedMessageIds.length}
           inputValue={inputValue}
           hasVoiceDraft={Boolean(pendingVoiceDraft)}

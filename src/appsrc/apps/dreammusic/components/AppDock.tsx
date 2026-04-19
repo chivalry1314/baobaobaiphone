@@ -7,7 +7,7 @@ interface AppDockProps {
 }
 
 export const AppDock: React.FC<AppDockProps> = ({ activeView, onChange }) => (
-  <footer className="absolute bottom-0 left-0 right-0 h-[76px] border-t border-white/10 bg-[#5A422D]/75 backdrop-blur-xl px-2">
+  <footer className="absolute bottom-0 left-0 right-0 h-[76px] border-t border-white/10 bg-[#5A422D]/75 backdrop-blur-xl px-2 safe-area-bottom">
     <div className="h-full grid grid-cols-4">
       {BOTTOM_NAV_ITEMS.map((item) => {
         const active = activeView === item.id;

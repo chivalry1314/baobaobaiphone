@@ -1,6 +1,6 @@
 ---
 name: baobaobaiphone-dev
-description: Build and maintain the baobaobaiphone React/Vite app ecosystem. Use when adding or updating apps in src/appsrc/apps, wiring AppManifest and registration behavior, integrating app memory modules, extending app market runtime HTML apps, or troubleshooting baobaobaiphone app launch, settings, and model API flows.
+description: Build and maintain the baobaobaiphone React/Vite app ecosystem. Use when adding or updating apps in src/appsrc/apps, wiring AppManifest and registration behavior, integrating app memory modules, extending app market runtime HTML apps, aligning bottom navigation and safe-area footers, or troubleshooting baobaobaiphone app launch, settings, keyboard/composer, and model API flows.
 ---
 
 # baobaobaiphone Dev
@@ -16,6 +16,7 @@ Implement features in baobaobaiphone by following existing architecture and conv
 4. Read references before broad edits:
 - `references/architecture-map.md`
 - `references/new-app-playbook.md`
+- `../../design/code/bottom-nav-layout.md` when touching app bottom navs, bottom action bars, or keyboard/composer spacing
 
 ## Quick Intake
 1. Identify the target surface before editing:
@@ -72,6 +73,13 @@ Implement features in baobaobaiphone by following existing architecture and conv
 - `/images/generations`
 4. Gracefully handle missing keys, network failures, and non-OK responses.
 5. Do not introduce new provider-specific SDKs unless explicitly requested.
+
+## Bottom Navigation And Footer Rules
+1. When requests mention “和微信底部导航一致”, “往上挪一点”, “底部不要留空”, or keyboard/composer bottom spacing, read `../../design/code/bottom-nav-layout.md` first.
+2. Standard app tab bars and docks should align to the WeChat baseline: use `safe-area-bottom` or `bottom: env(safe-area-inset-bottom, 0px)` without duplicating safe-area padding.
+3. Raised action footers such as save/cancel, publish, and edit toolbars should use `calc(env(safe-area-inset-bottom, 0px) + 24px)`.
+4. Scroll areas must reserve footer height plus safe area, otherwise the last rows will be covered.
+5. Keyboard-visible chat/composer bars should drop extra safe-area bottom padding so the input stays flush with the keyboard.
 
 ## Validation Checklist
 1. Run `npm run lint` after code changes.

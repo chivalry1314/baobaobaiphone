@@ -184,7 +184,7 @@ export const WarmTrackApp: React.FC<WarmTrackAppProps> = ({ onClose }) => {
         )}
       </main>
 
-      <footer className="border-t border-rose-100 bg-white px-4 pt-2 pb-5">
+      <footer className="border-t border-rose-100 bg-white px-4 pt-2 pb-[calc(env(safe-area-inset-bottom,0px)+24px)]">
         <div className="grid grid-cols-2 gap-2">
           <button
             type="button"

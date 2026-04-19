@@ -19,6 +19,7 @@ import {
 
 interface WeChatChatInputBarProps {
   readOnly?: boolean;
+  isKeyboardVisible?: boolean;
   isSelectionMode: boolean;
   selectedCount: number;
   inputValue: string;
@@ -50,6 +51,7 @@ interface WeChatChatInputBarProps {
 
 export const WeChatChatInputBar: React.FC<WeChatChatInputBarProps> = ({
   readOnly = false,
+  isKeyboardVisible = false,
   isSelectionMode,
   selectedCount,
   inputValue,
@@ -78,9 +80,16 @@ export const WeChatChatInputBar: React.FC<WeChatChatInputBarProps> = ({
   onForwardMulti,
   onDeleteMulti,
 }) => {
+  const keepTextareaFocused = (
+    event: React.MouseEvent<HTMLButtonElement> | React.PointerEvent<HTMLButtonElement>
+  ) => {
+    event.preventDefault();
+  };
+  const bottomPaddingClass = isKeyboardVisible ? 'pb-0' : 'pb-safe';
+
   if (readOnly) {
     return (
-      <div className="bg-[#F7F7F7] border-t border-gray-200 px-4 py-3 shrink-0 pb-safe">
+      <div className={`bg-[#F7F7F7] border-t border-gray-200 px-4 py-3 shrink-0 ${bottomPaddingClass}`}>
         <p className="text-[13px] text-gray-500 text-center">查手机模式：仅可查看聊天记录</p>
       </div>
     );
@@ -88,7 +97,7 @@ export const WeChatChatInputBar: React.FC<WeChatChatInputBarProps> = ({
 
   if (isSelectionMode) {
     return (
-      <div className="bg-[#F7F7F7] border-t border-gray-200 px-6 py-2 flex items-center justify-between shrink-0 pb-safe">
+      <div className={`bg-[#F7F7F7] border-t border-gray-200 px-6 py-2 flex items-center justify-between shrink-0 ${bottomPaddingClass}`}>
         <button
           onClick={onForwardMulti}
           disabled={selectedCount === 0}
@@ -118,7 +127,7 @@ export const WeChatChatInputBar: React.FC<WeChatChatInputBarProps> = ({
   }
 
   return (
-    <div className="bg-[#F7F7F7] border-t border-gray-200 flex flex-col shrink-0 pb-safe">
+    <div className={`bg-[#F7F7F7] border-t border-gray-200 flex flex-col shrink-0 ${bottomPaddingClass}`}>
       <div className="px-1.5 py-2 flex flex-col">
         <div className="flex items-end gap-1 w-full min-w-0">
           <div className="flex flex-col justify-end shrink-0 mb-0.5 w-[42px] sm:w-[52px] items-start">
@@ -183,7 +192,10 @@ export const WeChatChatInputBar: React.FC<WeChatChatInputBarProps> = ({
                   animate={{ scale: 1, opacity: 1 }}
                   exit={{ scale: 0.8, opacity: 0 }}
                   transition={{ duration: 0.15 }}
+                  onPointerDown={keepTextareaFocused}
+                  onMouseDown={keepTextareaFocused}
                   onClick={onSend}
+                  type="button"
                   className="text-white text-[14px] sm:text-[15px] font-medium w-full h-[36px] sm:h-[38px] rounded-md bg-[#07C160] active:opacity-80"
                 >
                   发送

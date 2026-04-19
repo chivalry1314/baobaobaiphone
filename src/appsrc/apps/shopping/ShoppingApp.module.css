@@ -70,11 +70,11 @@
   overflow: auto;
   overscroll-behavior-y: contain;
   -webkit-overflow-scrolling: touch;
-  padding: 10px 12px calc(var(--tab-h) + 8px);
+  padding: 10px 12px calc(var(--tab-h) + 8px + env(safe-area-inset-bottom, 0px));
 }
 
 .contentDocked {
-  padding-bottom: calc(var(--tab-h) + 90px);
+  padding-bottom: calc(var(--tab-h) + 90px + env(safe-area-inset-bottom, 0px));
 }
 
 .section {
@@ -2135,7 +2135,7 @@
   position: absolute;
   left: 0;
   right: 0;
-  bottom: 0;
+  bottom: env(safe-area-inset-bottom, 0px);
   height: var(--tab-h);
   padding: 5px 10px;
   display: grid;

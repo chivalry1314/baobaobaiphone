@@ -497,7 +497,7 @@ export const StepEditorOverlay: React.FC<StepEditorOverlayProps> = ({
         ) : null}
       </main>
 
-      <footer className="px-4 pb-5 pt-2 border-t border-indigo-100 bg-white/90">
+      <footer className="px-4 pt-2 pb-[calc(env(safe-area-inset-bottom,0px)+24px)] border-t border-indigo-100 bg-white/90">
         <div className="grid grid-cols-2 gap-2">
           <button
             type="button"
