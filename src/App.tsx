@@ -800,7 +800,8 @@ export default function App() {
 
   return (
     <div
-      className="fixed inset-0 bg-white overflow-hidden flex flex-col"
+      className="fixed left-0 right-0 top-0 bg-white overflow-hidden flex flex-col"
+      style={{ height: 'var(--app-physical-height, var(--app-dvh, 100dvh))' }}
     >
       <AnimatePresence>{isBooting && <SystemBootScreen version={__APP_VERSION__} />}</AnimatePresence>
 
