@@ -1,7 +1,6 @@
 // src/components/wechat/WeChatChatView.tsx
 import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { motion } from 'motion/react';
-import { useVirtualizer } from '@tanstack/react-virtual';
 import { useWeChatStore } from '../store';
 import { useGlobalSettingsStore, useGlobalWorldBookStore } from '@baobaobaiOS/sdk';
 import type { CSSProperties } from 'react';
@@ -242,6 +241,7 @@ export const WeChatChatView: React.FC<WeChatChatViewProps> = ({
   const lastRestoreVoiceCallSignalRef = useRef<number | null>(restoreVoiceCallSignal ?? null);
 
   const scrollRef = useRef<HTMLDivElement>(null);
+  const bottomAnchorRef = useRef<HTMLDivElement>(null);
   const pendingAssistantReplyCountRef = useRef(0);
   const shouldFollowVisualViewport = useMemo(() => isIOSViewportDevice(), []);
 
@@ -315,29 +315,17 @@ export const WeChatChatView: React.FC<WeChatChatViewProps> = ({
     wechatUiSettings.chatBackgroundOpacity,
   ]);
 
-  const virtualizer = useVirtualizer({
-    count: messages.length,
-    getScrollElement: () => scrollRef.current,
-    estimateSize: () => 80, 
-    overscan: 10,
-    useAnimationFrameWithResizeObserver: true,
-  });
-
   const scrollToBottom = useCallback((extraPasses = 2) => {
-    if (messages.length === 0 || isSelectionMode) return;
+    if (isSelectionMode) return;
 
     const run = (remaining: number) => {
       window.requestAnimationFrame(() => {
         const scroller = scrollRef.current;
         if (!scroller) return;
 
-        virtualizer.measure();
-        const targetTop = Math.max(
-          0,
-          virtualizer.getTotalSize() - scroller.clientHeight + 24
-        );
+        const targetTop = Math.max(0, scroller.scrollHeight - scroller.clientHeight);
         scroller.scrollTo({ top: targetTop, behavior: 'auto' });
-        virtualizer.scrollToIndex(messages.length - 1, { align: 'end' });
+        bottomAnchorRef.current?.scrollIntoView({ block: 'end' });
 
         if (remaining > 0) {
           window.setTimeout(() => run(remaining - 1), 80);
@@ -346,7 +334,7 @@ export const WeChatChatView: React.FC<WeChatChatViewProps> = ({
     };
 
     run(extraPasses);
-  }, [isSelectionMode, messages.length, virtualizer]);
+  }, [isSelectionMode]);
 
   useEffect(() => {
     scrollToBottom(1);
@@ -2049,7 +2037,7 @@ export const WeChatChatView: React.FC<WeChatChatViewProps> = ({
         {/* 顶部 Header */}
         <WeChatChatHeader isSelectionMode={isSelectionMode} selectedCount={selectedMessageIds.length} characterName={character.name} isTyping={isTyping} onBack={onBack} onExitSelection={exitSelectionMode} />
 
-        {/* 虚拟列表内容 */}
+        {/* 消息列表内容 */}
         <div
           className="relative flex-1 min-h-0 overflow-hidden bg-[#EDEDED]"
           onClick={() => showPlusMenu && setShowPlusMenu(false)}
@@ -2067,29 +2055,27 @@ export const WeChatChatView: React.FC<WeChatChatViewProps> = ({
               ...chatBackgroundStyle,
             }}
           >
-            <div style={{ height: `${virtualizer.getTotalSize()}px`, width: '100%', position: 'relative' }}>
-              {virtualizer.getVirtualItems().map((virtualItem) => {
-                const message = messages[virtualItem.index];
-                return (
-                  <div key={message.id} data-index={virtualItem.index} ref={virtualizer.measureElement} style={{ position: 'absolute', top: 0, left: 0, width: '100%', transform: `translateY(${virtualItem.start}px)`, padding: '16px 16px 8px 16px' }}>
-                    <WeChatChatMessageItem 
-                      message={message} isUser={message.role === 'user'} 
-                      userAvatar={wechatUserProfile?.avatar} characterAvatar={character.avatar} characterName={character.name}
-                      selfBubblePreset={wechatUiSettings.selfBubblePreset}
-                      peerBubblePreset={wechatUiSettings.peerBubblePreset}
-                      customRenderConfig={customRenderConfig}
-                      isSelected={selectedMessageIds.includes(message.id)} isSelectionMode={isSelectionMode}
-                      isMenuOpen={menuState?.messageId === message.id}
-                      onMessageClick={readOnly ? (event) => event.stopPropagation() : handleMessageClick}
-                      onOpenMessageMenu={readOnly ? undefined : openMessageMenu}
-                      onVoiceMessagePlay={readOnly ? undefined : handlePlayVoiceMessage}
-                      isVoicePlaying={playingVoiceMessageId === message.id}
-                      onToggleSelection={readOnly ? () => undefined : toggleSelection}
-                      onAvatarClick={readOnly ? undefined : handlePeerAvatarTap}
-                    />
-                  </div>
-                );
-              })}
+            <div className="flex min-h-full flex-col justify-end px-4 pt-4 pb-6">
+              {messages.map((message) => (
+                <div key={message.id} className="pb-2">
+                  <WeChatChatMessageItem 
+                    message={message} isUser={message.role === 'user'} 
+                    userAvatar={wechatUserProfile?.avatar} characterAvatar={character.avatar} characterName={character.name}
+                    selfBubblePreset={wechatUiSettings.selfBubblePreset}
+                    peerBubblePreset={wechatUiSettings.peerBubblePreset}
+                    customRenderConfig={customRenderConfig}
+                    isSelected={selectedMessageIds.includes(message.id)} isSelectionMode={isSelectionMode}
+                    isMenuOpen={menuState?.messageId === message.id}
+                    onMessageClick={readOnly ? (event) => event.stopPropagation() : handleMessageClick}
+                    onOpenMessageMenu={readOnly ? undefined : openMessageMenu}
+                    onVoiceMessagePlay={readOnly ? undefined : handlePlayVoiceMessage}
+                    isVoicePlaying={playingVoiceMessageId === message.id}
+                    onToggleSelection={readOnly ? () => undefined : toggleSelection}
+                    onAvatarClick={readOnly ? undefined : handlePeerAvatarTap}
+                  />
+                </div>
+              ))}
+              <div ref={bottomAnchorRef} className="h-px w-full shrink-0" />
             </div>
           </div>
         </div>
