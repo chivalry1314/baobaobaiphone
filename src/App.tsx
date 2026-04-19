@@ -130,6 +130,12 @@ const isStandaloneDisplayMode = (): boolean => {
   );
 };
 
+const isWeChatEmbeddedBrowser = (): boolean => {
+  if (typeof navigator === 'undefined') return false;
+  const userAgent = navigator.userAgent || '';
+  return /MicroMessenger/i.test(userAgent);
+};
+
 const requestBrowserFullscreen = async (el: FullscreenElement): Promise<void> => {
   if (typeof el.requestFullscreen === 'function') {
     await el.requestFullscreen();
@@ -293,6 +299,8 @@ export default function App() {
   const fullscreenHintTimerRef = useRef<number | null>(null);
   const isDenseGrid = cols >= 5;
   const isIOSStandalonePwa = isIOSDevice() && isStandalonePwa;
+  const isWeChatBrowser = isWeChatEmbeddedBrowser();
+  const desktopDockBottomOffset = isIOSStandalonePwa || isWeChatBrowser ? 54 : 18;
   const shouldRenderCustomStatusBar = !isIOSStandalonePwa;
   const shouldRenderCustomHomeIndicator = !isIOSStandalonePwa;
   const effectiveIconSize = isDenseGrid ? Math.min(settings.iconSize, 52) : settings.iconSize;
@@ -1028,7 +1036,7 @@ export default function App() {
       {!activeAppId && (
         <HomeDock
           onOpenPhone={() => openApp('contacts', { initialTab: 'phone' })}
-          isStandalonePwa={isIOSStandalonePwa}
+          bottomOffset={desktopDockBottomOffset}
         />
       )}
 
