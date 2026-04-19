@@ -1025,7 +1025,12 @@ export default function App() {
       )}
 
       {/* Home Dock - Only show when no app is active */}
-      {!activeAppId && <HomeDock onOpenPhone={() => openApp('contacts', { initialTab: 'phone' })} />}
+      {!activeAppId && (
+        <HomeDock
+          onOpenPhone={() => openApp('contacts', { initialTab: 'phone' })}
+          isStandalonePwa={isIOSStandalonePwa}
+        />
+      )}
 
       {/* Home Indicator - Only show when no app is active */}
       {!activeAppId && shouldRenderCustomHomeIndicator && (
