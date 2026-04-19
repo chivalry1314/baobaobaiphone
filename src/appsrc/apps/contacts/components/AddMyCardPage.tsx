@@ -1,5 +1,6 @@
 import React, { useRef, useState } from 'react';
 import { Image as ImageIcon } from 'lucide-react';
+import { useMobileViewportPageStyle } from '../../../../core/mobileViewport';
 import { TEXT } from '../constants';
 import type { AddMyCardPayload, MyCard } from '../types';
 
@@ -29,6 +30,7 @@ export const AddMyCardPage: React.FC<AddMyCardPageProps> = ({
   const [introduction, setIntroduction] = useState(initialCard?.introduction ?? '');
 
   const fileInputRef = useRef<HTMLInputElement | null>(null);
+  const pageStyle = useMobileViewportPageStyle(false);
   const isFormValid = name.trim().length > 0;
 
   const handleAvatarClick = () => {
@@ -87,8 +89,11 @@ export const AddMyCardPage: React.FC<AddMyCardPageProps> = ({
   };
 
   return (
-    <div className="absolute inset-0 z-[91] bg-white flex min-h-0 flex-col overflow-hidden">
-      <div className="px-5 pt-11 pb-3 flex items-center justify-between border-b border-slate-200 shrink-0">
+    <div
+      className="absolute left-0 right-0 z-[91] bg-white flex min-h-0 flex-col overflow-hidden"
+      style={pageStyle}
+    >
+      <div className="sticky top-0 z-20 px-5 pt-11 pb-3 flex items-center justify-between border-b border-slate-200 bg-white shrink-0">
         <button onClick={onBack} className="text-[15px] font-medium text-slate-600">
           {TEXT.cancel}
         </button>
@@ -143,19 +148,19 @@ export const AddMyCardPage: React.FC<AddMyCardPageProps> = ({
             value={age}
             onChange={(event) => setAge(event.target.value)}
             placeholder={TEXT.age}
-            className="w-full h-12 rounded-xl bg-slate-100 px-3 text-[15px] outline-none"
+            className="w-full h-12 rounded-xl bg-slate-100 px-3 text-[16px] outline-none"
           />
           <input
             value={height}
             onChange={(event) => setHeight(event.target.value)}
             placeholder={TEXT.height}
-            className="w-full h-12 rounded-xl bg-slate-100 px-3 text-[15px] outline-none"
+            className="w-full h-12 rounded-xl bg-slate-100 px-3 text-[16px] outline-none"
           />
           <input
             value={weight}
             onChange={(event) => setWeight(event.target.value)}
             placeholder={TEXT.weight}
-            className="w-full h-12 rounded-xl bg-slate-100 px-3 text-[15px] outline-none"
+            className="w-full h-12 rounded-xl bg-slate-100 px-3 text-[16px] outline-none"
           />
         </div>
 

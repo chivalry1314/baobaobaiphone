@@ -1,6 +1,7 @@
 ﻿import React, { useMemo, useRef, useState } from 'react';
 import { useVirtualizer } from '@tanstack/react-virtual';
 import { Check, Image as ImageIcon } from 'lucide-react';
+import { useMobileViewportPageStyle } from '../../../../core/mobileViewport';
 import { TEXT } from '../constants';
 import type { AddContactPayload, Contact, WeChatRelation } from '../types';
 import type { AddContactView } from '../uiTypes';
@@ -37,6 +38,7 @@ export const AddContactPage: React.FC<AddContactPageProps> = ({
 
   const fileInputRef = useRef<HTMLInputElement | null>(null);
   const worldBookListRef = useRef<HTMLDivElement | null>(null);
+  const pageStyle = useMobileViewportPageStyle(false);
 
   const isFormValid = name.trim().length > 0;
 
@@ -111,8 +113,11 @@ export const AddContactPage: React.FC<AddContactPageProps> = ({
   };
 
   return (
-    <div className="absolute inset-0 z-[90] bg-white flex min-h-0 flex-col overflow-hidden">
-      <div className="px-5 pt-11 pb-3 flex items-center justify-between border-b border-slate-200 shrink-0">
+    <div
+      className="absolute left-0 right-0 z-[90] bg-white flex min-h-0 flex-col overflow-hidden"
+      style={pageStyle}
+    >
+      <div className="sticky top-0 z-20 px-5 pt-11 pb-3 flex items-center justify-between border-b border-slate-200 bg-white shrink-0">
         {view === 'worldbook' ? (
           <button onClick={() => setView('form')} className="text-[15px] font-medium text-slate-600">
             {TEXT.back}

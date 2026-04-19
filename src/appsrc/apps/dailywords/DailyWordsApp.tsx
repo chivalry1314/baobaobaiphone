@@ -165,6 +165,7 @@ export const DailyWordsApp: React.FC<DailyWordsAppProps> = ({ onClose, context }
   const isEditorOpen = editorMode !== null;
   const editorTitle = editorMode === 'edit' ? '编辑日记' : '新建日记';
   const viewportPageStyle = useMobileViewportPageStyle(!isEditorOpen);
+  const editorPageStyle = useMobileViewportPageStyle(false);
   const shouldHideEditorFooter = useKeyboardTextEntryActive(isEditorOpen);
 
   const handleOpenCreateEditor = () => {
@@ -371,7 +372,10 @@ export const DailyWordsApp: React.FC<DailyWordsAppProps> = ({ onClose, context }
       ) : null}
 
       {isEditorOpen ? (
-        <div className="absolute inset-0 z-[120] flex flex-col overflow-hidden bg-gradient-to-b from-rose-50 via-pink-50 to-orange-50">
+        <div
+          className="absolute left-0 right-0 z-[120] flex min-h-0 flex-col overflow-hidden bg-gradient-to-b from-rose-50 via-pink-50 to-orange-50"
+          style={editorPageStyle}
+        >
           <header className="sticky top-0 z-20 shrink-0 pt-11 px-3 pb-3 bg-white/70 border-b border-rose-100 backdrop-blur">
             <div className="flex items-center">
               <button
@@ -422,11 +426,17 @@ export const DailyWordsApp: React.FC<DailyWordsAppProps> = ({ onClose, context }
             </section>
           </main>
 
-          {!shouldHideEditorFooter ? (
-            <footer
-              className="px-4 pb-5 pt-2 border-t border-rose-100 bg-white/80 backdrop-blur"
-              style={{ paddingBottom: 'calc(env(safe-area-inset-bottom, 0px) + 12px)' }}
-            >
+          <footer
+            className={
+              shouldHideEditorFooter
+                ? 'shrink-0 h-0 overflow-hidden border-0 bg-white/80 px-0 pt-0 backdrop-blur'
+                : 'shrink-0 px-4 pb-5 pt-2 border-t border-rose-100 bg-white/80 backdrop-blur'
+            }
+            style={{
+              paddingBottom: shouldHideEditorFooter ? 0 : 'calc(env(safe-area-inset-bottom, 0px) + 12px)',
+            }}
+          >
+            {!shouldHideEditorFooter ? (
               <div className="grid grid-cols-2 gap-2">
                 <button
                   type="button"
@@ -448,8 +458,8 @@ export const DailyWordsApp: React.FC<DailyWordsAppProps> = ({ onClose, context }
                   保存日记
                 </button>
               </div>
-            </footer>
-          ) : null}
+            ) : null}
+          </footer>
         </div>
       ) : null}
     </motion.div>

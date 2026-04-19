@@ -1,6 +1,9 @@
 import React from 'react';
 import { X } from 'lucide-react';
-import { useKeyboardTextEntryActive } from '../../../../core/mobileViewport';
+import {
+  useKeyboardTextEntryActive,
+  useMobileViewportPageStyle,
+} from '../../../../core/mobileViewport';
 import type { DailyScriptActionType } from '../../../shared/business/dailyscript/actionBridge';
 import { DEFAULT_ACTIVE_ROLE_ID } from '../../../shared/business/roleIdentity';
 import type {
@@ -117,6 +120,7 @@ export const StepEditorOverlay: React.FC<StepEditorOverlayProps> = ({
   onPatch,
 }) => {
   const shouldHideFooter = useKeyboardTextEntryActive();
+  const pageStyle = useMobileViewportPageStyle(false);
   const currentActionAppType = getActionAppType(state.actionType);
   const filteredActionOptions = ACTION_OPTIONS_BY_APP[currentActionAppType];
 
@@ -250,7 +254,10 @@ export const StepEditorOverlay: React.FC<StepEditorOverlayProps> = ({
   );
 
   return (
-    <div className="absolute inset-0 z-[120] flex min-h-0 flex-col overflow-hidden bg-white/90 backdrop-blur-sm">
+    <div
+      className="absolute left-0 right-0 z-[120] flex min-h-0 flex-col overflow-hidden bg-white/90 backdrop-blur-sm"
+      style={pageStyle}
+    >
       <header className="shrink-0 pt-11 px-3 pb-3 border-b border-indigo-100 bg-white/85">
         <div className="flex items-center">
           <button
@@ -499,11 +506,15 @@ export const StepEditorOverlay: React.FC<StepEditorOverlayProps> = ({
         ) : null}
       </main>
 
-      {!shouldHideFooter ? (
-        <footer
-          className="px-4 pt-2 border-t border-indigo-100 bg-white/90"
-          style={{ paddingBottom: 'calc(env(safe-area-inset-bottom, 0px) + 12px)' }}
-        >
+      <footer
+        className={
+          shouldHideFooter
+            ? 'shrink-0 h-0 overflow-hidden border-0 bg-white/90 px-0 pt-0'
+            : 'shrink-0 px-4 pt-2 border-t border-indigo-100 bg-white/90'
+        }
+        style={{ paddingBottom: shouldHideFooter ? 0 : 'calc(env(safe-area-inset-bottom, 0px) + 12px)' }}
+      >
+        {!shouldHideFooter ? (
           <div className="grid grid-cols-2 gap-2">
             <button
               type="button"
@@ -520,8 +531,8 @@ export const StepEditorOverlay: React.FC<StepEditorOverlayProps> = ({
               保存步骤
             </button>
           </div>
-        </footer>
-      ) : null}
+        ) : null}
+      </footer>
     </div>
   );
 };

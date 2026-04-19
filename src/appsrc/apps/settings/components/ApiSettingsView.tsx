@@ -379,8 +379,9 @@ export const ApiSettingsView: React.FC<ApiSettingsViewProps> = ({
   };
 
   return (
-    <div className="flex-1 min-h-0 overflow-y-auto p-4 space-y-6 pb-20">
-      <section className="space-y-2">
+    <div className="flex-1 min-h-0 flex flex-col overflow-hidden">
+      <main className="flex-1 min-h-0 overflow-y-auto p-4 space-y-6">
+        <section className="space-y-2">
         <h2 className="px-4 text-[13px] text-gray-500 uppercase tracking-wider">API 配置</h2>
 
         <div className="bg-white rounded-xl overflow-hidden border border-gray-200">
@@ -935,7 +936,12 @@ export const ApiSettingsView: React.FC<ApiSettingsViewProps> = ({
             </select>
           </div>
         </div>
-      </section>
+        </section>
+      </main>
+      <footer
+        className="shrink-0 border-t border-transparent bg-[#F2F2F7]"
+        style={{ paddingBottom: 'calc(env(safe-area-inset-bottom, 0px) + 12px)' }}
+      />
     </div>
   );
 };

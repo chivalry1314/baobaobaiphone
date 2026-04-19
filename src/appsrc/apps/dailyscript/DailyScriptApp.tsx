@@ -736,85 +736,93 @@ export const DailyScriptApp: React.FC<DailyScriptAppProps> = ({ onClose }) => {
           </div>
         </div>
       </header>
-      <main className="flex-1 min-h-0 overflow-y-auto px-4 pt-3 pb-6 space-y-3">
-        {view === 'roles' ? (
-          <RoleListView
-            roleOptions={roleOptions}
-            plans={plans}
-            onOpenRoleCalendar={openRoleCalendar}
+      {view === 'settings' ? (
+        <div className="flex-1 min-h-0 flex flex-col overflow-hidden">
+          <main className="flex-1 min-h-0 overflow-y-auto px-4 pt-3 pb-4 space-y-3">
+            <DaySettingsView
+              selectedRoleId={selectedRoleId}
+              selectedDateKey={selectedDateKey}
+              selectedDayPlans={selectedDayPlans}
+              selectedDayLogs={selectedDayLogs}
+              planNameDrafts={planNameDrafts}
+              isRunningNow={isRunningNow}
+              canRunNow={canRunNow}
+              runSummary={runSummary}
+              formatDateKeyLabel={formatDateKeyLabel}
+              onAddPlan={handleAddPlan}
+              onOpenAiCreate={openAiCreate}
+              onRunNow={handleRunNow}
+              onSetPlanNameDraft={(planId, value) =>
+                setPlanNameDrafts((current) => ({
+                  ...current,
+                  [planId]: value,
+                }))
+              }
+              onCommitPlanName={commitPlanName}
+              onSetPlanEnabled={setPlanEnabled}
+              onRemovePlan={handleRemovePlan}
+              onOpenCreateStep={handleOpenCreateStep}
+              onOpenEditStep={handleOpenEditStep}
+              onRemoveStep={handleRemoveStep}
+              onToggleStepEnabled={setStepEnabled}
+              onClearLogs={clearLogs}
+            />
+          </main>
+          <footer
+            className="shrink-0 border-t border-indigo-100 bg-white/70 backdrop-blur"
+            style={{ paddingBottom: 'calc(env(safe-area-inset-bottom, 0px) + 12px)' }}
           />
-        ) : null}
+        </div>
+      ) : (
+        <main className="flex-1 min-h-0 overflow-y-auto px-4 pt-3 pb-6 space-y-3">
+          {view === 'roles' ? (
+            <RoleListView
+              roleOptions={roleOptions}
+              plans={plans}
+              onOpenRoleCalendar={openRoleCalendar}
+            />
+          ) : null}
 
-        {view === 'calendar' ? (
-          <CalendarView
-            monthCursor={monthCursor}
-            weekdayLabels={WEEKDAY_LABELS}
-            calendarCells={calendarCells}
-            selectedRolePlanCountByDate={selectedRolePlanCountByDate}
-            todayDateKey={todayDateKey}
-            onOpenDateSettings={openDateSettings}
-            onPrevMonth={() =>
-              setMonthCursor((current) => new Date(current.getFullYear(), current.getMonth() - 1, 1))
-            }
-            onNextMonth={() =>
-              setMonthCursor((current) => new Date(current.getFullYear(), current.getMonth() + 1, 1))
-            }
-            formatMonthLabel={formatMonthLabel}
-          />
-        ) : null}
+          {view === 'calendar' ? (
+            <CalendarView
+              monthCursor={monthCursor}
+              weekdayLabels={WEEKDAY_LABELS}
+              calendarCells={calendarCells}
+              selectedRolePlanCountByDate={selectedRolePlanCountByDate}
+              todayDateKey={todayDateKey}
+              onOpenDateSettings={openDateSettings}
+              onPrevMonth={() =>
+                setMonthCursor((current) => new Date(current.getFullYear(), current.getMonth() - 1, 1))
+              }
+              onNextMonth={() =>
+                setMonthCursor((current) => new Date(current.getFullYear(), current.getMonth() + 1, 1))
+              }
+              formatMonthLabel={formatMonthLabel}
+            />
+          ) : null}
 
-        {view === 'settings' ? (
-          <DaySettingsView
-            selectedRoleId={selectedRoleId}
-            selectedDateKey={selectedDateKey}
-            selectedDayPlans={selectedDayPlans}
-            selectedDayLogs={selectedDayLogs}
-            planNameDrafts={planNameDrafts}
-            isRunningNow={isRunningNow}
-            canRunNow={canRunNow}
-            runSummary={runSummary}
-            formatDateKeyLabel={formatDateKeyLabel}
-            onAddPlan={handleAddPlan}
-            onOpenAiCreate={openAiCreate}
-            onRunNow={handleRunNow}
-            onSetPlanNameDraft={(planId, value) =>
-              setPlanNameDrafts((current) => ({
-                ...current,
-                [planId]: value,
-              }))
-            }
-            onCommitPlanName={commitPlanName}
-            onSetPlanEnabled={setPlanEnabled}
-            onRemovePlan={handleRemovePlan}
-            onOpenCreateStep={handleOpenCreateStep}
-            onOpenEditStep={handleOpenEditStep}
-            onRemoveStep={handleRemoveStep}
-            onToggleStepEnabled={setStepEnabled}
-            onClearLogs={clearLogs}
-          />
-        ) : null}
-
-        {view === 'ai-create' ? (
-          <AiCreateView
-            selectedRoleId={selectedRoleId}
-            selectedRoleLabel={selectedRoleLabel}
-            selectedDateKey={selectedDateKey}
-            sourceText={aiSourceText}
-            rawDraftText={aiResultText}
-            generatedPlans={aiDraftPlans}
-            isGenerating={isAiGenerating}
-            isImporting={isAiImporting}
-            errorMessage={aiErrorMessage}
-            summaryMessage={aiSummaryMessage}
-            formatDateKeyLabel={formatDateKeyLabel}
-            onSourceTextChange={setAiSourceText}
-            onRawDraftTextChange={setAiResultText}
-            onGenerate={handleGenerateAiPlans}
-            onRefreshPreview={handleRefreshAiPreview}
-            onImport={handleImportAiPlans}
-          />
-        ) : null}
-      </main>
+          {view === 'ai-create' ? (
+            <AiCreateView
+              selectedRoleId={selectedRoleId}
+              selectedRoleLabel={selectedRoleLabel}
+              selectedDateKey={selectedDateKey}
+              sourceText={aiSourceText}
+              rawDraftText={aiResultText}
+              generatedPlans={aiDraftPlans}
+              isGenerating={isAiGenerating}
+              isImporting={isAiImporting}
+              errorMessage={aiErrorMessage}
+              summaryMessage={aiSummaryMessage}
+              formatDateKeyLabel={formatDateKeyLabel}
+              onSourceTextChange={setAiSourceText}
+              onRawDraftTextChange={setAiResultText}
+              onGenerate={handleGenerateAiPlans}
+              onRefreshPreview={handleRefreshAiPreview}
+              onImport={handleImportAiPlans}
+            />
+          ) : null}
+        </main>
+      )}
 
       {editorState ? (
         <StepEditorOverlay

@@ -2159,6 +2159,7 @@
   align-content: center;
   gap: 4px;
   color: #64748b;
+  transform: translateY(-8px);
   transition: background 0.2s ease, color 0.2s ease;
 }
 

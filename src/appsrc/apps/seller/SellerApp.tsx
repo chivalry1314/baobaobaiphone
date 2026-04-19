@@ -1288,13 +1288,15 @@ export const SellerApp: React.FC<SellerAppProps> = ({ onClose }) => {
           </section>
         </main>
 
-        {!shouldHidePublishFooter ? (
-          <footer
-            className={`${styles.publishFooter} ${
-              editingProductId && !editingDraft && activeStore?.kind === 'movie' ? styles.publishFooterWithDelete : ''
-            }`}
-          >
-            {editingProductId && !editingDraft ? (
+        <footer
+          className={`${styles.publishFooter} ${
+            shouldHidePublishFooter ? styles.publishFooterHidden : ''
+          } ${
+            editingProductId && !editingDraft && activeStore?.kind === 'movie' ? styles.publishFooterWithDelete : ''
+          }`}
+        >
+          {!shouldHidePublishFooter ? (
+            editingProductId && !editingDraft ? (
               <>
                 {activeStore?.kind === 'movie' ? (
                   <button
@@ -1318,11 +1320,11 @@ export const SellerApp: React.FC<SellerAppProps> = ({ onClose }) => {
                 >
                   取消
                 </button>
-                  <button
-                    type="button"
-                    className={`${styles.publishSubmitBtn} ${styles.publishSubmitBtnEdit}`}
-                    onClick={() => {
-                      void handleSaveEditedProduct();
+                <button
+                  type="button"
+                  className={`${styles.publishSubmitBtn} ${styles.publishSubmitBtnEdit}`}
+                  onClick={() => {
+                    void handleSaveEditedProduct();
                   }}
                 >
                   保存
@@ -1372,9 +1374,9 @@ export const SellerApp: React.FC<SellerAppProps> = ({ onClose }) => {
                   立即上架
                 </button>
               </>
-            )}
-          </footer>
-        ) : null}
+            )
+          ) : null}
+        </footer>
       </motion.div>
     );
   }
