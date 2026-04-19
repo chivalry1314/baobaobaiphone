@@ -233,23 +233,29 @@ export const ContactDetailPage: React.FC<ContactDetailPageProps> = ({
         </div>
       </div>
 
-      <div className="shrink-0 bg-white/95 backdrop-blur border-t border-slate-200 pb-safe">
-        <div className="min-h-[76px] flex items-start justify-around pt-2.5">
-          <button className="w-20 py-1 flex flex-col items-center gap-1 text-slate-500">
-            <Star size={20} />
-            <span className="text-[12px]">{TEXT.favorites}</span>
+      <div className="shrink-0 bg-white/95 backdrop-blur border-t border-slate-200">
+        <div
+          className="min-h-[84px] flex items-start justify-around pt-2"
+          style={{ paddingBottom: 'calc(env(safe-area-inset-bottom, 0px) + 12px)' }}
+        >
+          <button className="w-20 py-0.5 flex flex-col items-center gap-1 text-slate-500">
+            <Star size={22} />
+            <span className="text-[13px] font-medium">{TEXT.favorites}</span>
           </button>
           {readOnly ? (
             <div className="w-20" />
           ) : (
-            <button onClick={onEdit} className="w-20 py-1 flex flex-col items-center gap-1 text-[#1E64D8]">
-              <SquarePen size={20} />
-              <span className="text-[12px]">{TEXT.edit}</span>
+            <button
+              onClick={onEdit}
+              className="w-20 py-0.5 flex flex-col items-center gap-1 text-[#1E64D8]"
+            >
+              <SquarePen size={22} />
+              <span className="text-[13px] font-medium">{TEXT.edit}</span>
             </button>
           )}
-          <button className="w-20 py-1 flex flex-col items-center gap-1 text-slate-500">
-            <Ellipsis size={20} />
-            <span className="text-[12px]">{TEXT.moreOptions}</span>
+          <button className="w-20 py-0.5 flex flex-col items-center gap-1 text-slate-500">
+            <Ellipsis size={22} />
+            <span className="text-[13px] font-medium">{TEXT.moreOptions}</span>
           </button>
         </div>
       </div>

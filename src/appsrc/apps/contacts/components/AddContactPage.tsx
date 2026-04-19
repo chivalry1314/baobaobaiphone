@@ -1,7 +1,10 @@
 ﻿import React, { useMemo, useRef, useState } from 'react';
 import { useVirtualizer } from '@tanstack/react-virtual';
 import { Check, Image as ImageIcon } from 'lucide-react';
-import { useMobileViewportPageStyle } from '../../../../core/mobileViewport';
+import {
+  useKeyboardViewportStabilizer,
+  useMobileViewportPageStyle,
+} from '../../../../core/mobileViewport';
 import { TEXT } from '../constants';
 import type { AddContactPayload, Contact, WeChatRelation } from '../types';
 import type { AddContactView } from '../uiTypes';
@@ -37,8 +40,10 @@ export const AddContactPage: React.FC<AddContactPageProps> = ({
   );
 
   const fileInputRef = useRef<HTMLInputElement | null>(null);
+  const formScrollRef = useRef<HTMLDivElement | null>(null);
   const worldBookListRef = useRef<HTMLDivElement | null>(null);
   const pageStyle = useMobileViewportPageStyle(false);
+  useKeyboardViewportStabilizer(view === 'form', formScrollRef);
 
   const isFormValid = name.trim().length > 0;
 
@@ -139,7 +144,10 @@ export const AddContactPage: React.FC<AddContactPageProps> = ({
       </div>
 
       {view === 'form' ? (
-        <div className="flex-1 min-h-0 overflow-y-auto overscroll-y-contain px-5 pb-8 pt-4 space-y-3">
+        <div
+          ref={formScrollRef}
+          className="flex-1 min-h-0 overflow-y-auto overscroll-y-contain px-5 pb-8 pt-4 space-y-3"
+        >
           <div className="flex flex-col items-center mb-1">
             <button
               onClick={handleAvatarClick}

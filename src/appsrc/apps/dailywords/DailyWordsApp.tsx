@@ -4,6 +4,7 @@ import { Brain, ChevronLeft, Pencil, Plus, Search, Trash2 } from 'lucide-react';
 import { APP_CLOSE_MOTION, APP_OPEN_MOTION } from '../../../core/appOpenMotion';
 import {
   useKeyboardTextEntryActive,
+  useKeyboardViewportStabilizer,
   useMobileViewportPageStyle,
 } from '../../../core/mobileViewport';
 import { COMMERCE_ROLE_CHANGED_EVENT } from '../../shared/business/commerce/roleContext';
@@ -167,6 +168,8 @@ export const DailyWordsApp: React.FC<DailyWordsAppProps> = ({ onClose, context }
   const viewportPageStyle = useMobileViewportPageStyle(!isEditorOpen);
   const editorPageStyle = useMobileViewportPageStyle(false);
   const shouldHideEditorFooter = useKeyboardTextEntryActive(isEditorOpen);
+  const editorScrollRef = React.useRef<HTMLElement | null>(null);
+  useKeyboardViewportStabilizer(isEditorOpen, editorScrollRef);
 
   const handleOpenCreateEditor = () => {
     if (isReadOnlyMode) return;
@@ -392,7 +395,7 @@ export const DailyWordsApp: React.FC<DailyWordsAppProps> = ({ onClose, context }
             </div>
           </header>
 
-          <main className="min-h-0 flex-1 overflow-y-auto px-4 py-4 space-y-3">
+          <main ref={editorScrollRef} className="min-h-0 flex-1 overflow-y-auto px-4 py-4 space-y-3">
             <section className="rounded-3xl bg-white/92 border border-rose-100 p-4 shadow-sm space-y-3">
               <input
                 type="text"

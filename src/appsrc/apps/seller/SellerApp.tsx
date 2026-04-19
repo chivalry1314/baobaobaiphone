@@ -62,6 +62,7 @@ import {
 import { initializeSellerMessageScheduler } from '../../shared/business/commerce/messageBridge';
 import {
   useKeyboardTextEntryActive,
+  useKeyboardViewportStabilizer,
   useMobileViewportPageStyle,
 } from '../../../core/mobileViewport';
 import styles from './SellerApp.module.css';
@@ -365,11 +366,13 @@ export const SellerApp: React.FC<SellerAppProps> = ({ onClose }) => {
   const [decorationDropTargetId, setDecorationDropTargetId] = React.useState<string | null>(null);
   const [movieStoreQuery, setMovieStoreQuery] = React.useState('');
   const publishImageInputRef = React.useRef<HTMLInputElement | null>(null);
+  const publishContentScrollRef = React.useRef<HTMLElement | null>(null);
   const storeDecorationImageInputRef = React.useRef<HTMLInputElement | null>(null);
   const storeDecorationAvatarInputRef = React.useRef<HTMLInputElement | null>(null);
   const decorationPointerIdRef = React.useRef<number | null>(null);
   const storeDecorationPreviewScrollRef = React.useRef<HTMLDivElement | null>(null);
   const storeViewContentRef = React.useRef<HTMLDivElement | null>(null);
+  useKeyboardViewportStabilizer(page === 'product-publish', publishContentScrollRef);
 
   const refreshData = React.useCallback(async () => {
     setIsLoading(true);
@@ -1144,7 +1147,7 @@ export const SellerApp: React.FC<SellerAppProps> = ({ onClose }) => {
           </button>
         </header>
 
-        <main className={styles.publishContent}>
+        <main ref={publishContentScrollRef} className={styles.publishContent}>
           <section className={styles.publishCard}>
             <h3 className={styles.publishFieldTitle}>
               商品图片 <em>*</em>

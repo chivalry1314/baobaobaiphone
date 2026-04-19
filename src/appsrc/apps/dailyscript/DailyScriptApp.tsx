@@ -1,9 +1,12 @@
 import { useGlobalSettingsStore } from '@baobaobaiOS/sdk';
 import { ChevronLeft } from 'lucide-react';
 import { motion } from 'motion/react';
-import React, { useMemo, useState } from 'react';
+import React, { useMemo, useRef, useState } from 'react';
 import { APP_CLOSE_MOTION, APP_OPEN_MOTION } from '../../../core/appOpenMotion';
-import { useMobileViewportPageStyle } from '../../../core/mobileViewport';
+import {
+  useKeyboardViewportStabilizer,
+  useMobileViewportPageStyle,
+} from '../../../core/mobileViewport';
 import { useMyCardsSnapshotBridge } from '../../shared/business/contacts/myCardsSnapshotBridge';
 import { useContactsSnapshotBridge } from '../../shared/business/contacts/snapshotBridge';
 import { emitCommerceRoleChanged } from '../../shared/business/commerce/roleContext';
@@ -114,8 +117,10 @@ export const DailyScriptApp: React.FC<DailyScriptAppProps> = ({ onClose }) => {
   const [isAiImporting, setIsAiImporting] = useState(false);
   const [aiErrorMessage, setAiErrorMessage] = useState('');
   const [aiSummaryMessage, setAiSummaryMessage] = useState('');
+  const settingsScrollRef = useRef<HTMLElement | null>(null);
   const shouldFreezeViewport = view === 'settings' || editorState !== null;
   const viewportPageStyle = useMobileViewportPageStyle(!shouldFreezeViewport);
+  useKeyboardViewportStabilizer(view === 'settings', settingsScrollRef);
 
   const roleOptions = useMemo<RoleOption[]>(
     () =>
@@ -738,7 +743,10 @@ export const DailyScriptApp: React.FC<DailyScriptAppProps> = ({ onClose }) => {
       </header>
       {view === 'settings' ? (
         <div className="flex-1 min-h-0 flex flex-col overflow-hidden">
-          <main className="flex-1 min-h-0 overflow-y-auto px-4 pt-3 pb-4 space-y-3">
+          <main
+            ref={settingsScrollRef}
+            className="flex-1 min-h-0 overflow-y-auto px-4 pt-3 pb-4 space-y-3"
+          >
             <DaySettingsView
               selectedRoleId={selectedRoleId}
               selectedDateKey={selectedDateKey}

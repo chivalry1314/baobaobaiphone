@@ -2,6 +2,7 @@ import React from 'react';
 import { X } from 'lucide-react';
 import {
   useKeyboardTextEntryActive,
+  useKeyboardViewportStabilizer,
   useMobileViewportPageStyle,
 } from '../../../../core/mobileViewport';
 import type { DailyScriptActionType } from '../../../shared/business/dailyscript/actionBridge';
@@ -121,6 +122,8 @@ export const StepEditorOverlay: React.FC<StepEditorOverlayProps> = ({
 }) => {
   const shouldHideFooter = useKeyboardTextEntryActive();
   const pageStyle = useMobileViewportPageStyle(false);
+  const contentScrollRef = React.useRef<HTMLElement | null>(null);
+  useKeyboardViewportStabilizer(true, contentScrollRef);
   const currentActionAppType = getActionAppType(state.actionType);
   const filteredActionOptions = ACTION_OPTIONS_BY_APP[currentActionAppType];
 
@@ -276,7 +279,7 @@ export const StepEditorOverlay: React.FC<StepEditorOverlayProps> = ({
         </div>
       </header>
 
-      <main className="flex-1 min-h-0 overflow-y-auto px-4 py-4 space-y-3">
+      <main ref={contentScrollRef} className="flex-1 min-h-0 overflow-y-auto px-4 py-4 space-y-3">
         <section className="rounded-3xl border border-indigo-100 bg-white p-4 space-y-3">
           <input
             type="text"

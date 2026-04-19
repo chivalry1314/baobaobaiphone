@@ -521,23 +521,39 @@ export const LoveCheckInPage: React.FC<LoveCheckInPageProps> = ({
       ) : null}
 
       {!isAdding ? (
-        <nav className="h-20 border-t border-rose-100/90 bg-white px-4 grid grid-cols-2 safe-area-bottom-nav">
-          {[
-            { key: 'mine' as const, label: LOVE_SPACE_TEXT.checkInTabMine, icon: CheckCircle2 },
-            { key: 'record' as const, label: LOVE_SPACE_TEXT.checkInTabRecord, icon: ClipboardList },
-          ].map((item) => {
-            const Icon = item.icon;
-            const active = activeTab === item.key;
-            return (
-              <button key={item.key} type="button" onClick={() => setActiveTab(item.key)} className="flex flex-col items-center justify-center gap-1">
-                <span className={`w-9 h-9 rounded-full grid place-items-center ${active ? 'bg-[#f575a3] text-white' : 'bg-slate-100 text-slate-300'}`}>
-                  <Icon size={19} className={active && item.key !== 'record' ? 'fill-white' : ''} />
-                </span>
-                <span className={`text-[13px] ${active ? 'text-[#ef5b94]' : 'text-slate-500'}`}>{item.label}</span>
-              </button>
-            );
-          })}
-        </nav>
+        <footer
+          className="shrink-0 border-t border-rose-100/90 bg-white px-4"
+          style={{ paddingBottom: 'calc(env(safe-area-inset-bottom, 0px) + 8px)' }}
+        >
+          <nav className="min-h-[78px] grid grid-cols-2 pt-1.5">
+            {[
+              { key: 'mine' as const, label: LOVE_SPACE_TEXT.checkInTabMine, icon: CheckCircle2 },
+              { key: 'record' as const, label: LOVE_SPACE_TEXT.checkInTabRecord, icon: ClipboardList },
+            ].map((item) => {
+              const Icon = item.icon;
+              const active = activeTab === item.key;
+              return (
+                <button
+                  key={item.key}
+                  type="button"
+                  onClick={() => setActiveTab(item.key)}
+                  className="flex flex-col items-center justify-center gap-1 py-0.5"
+                >
+                  <span
+                    className={`w-9 h-9 rounded-full grid place-items-center ${
+                      active ? 'bg-[#f575a3] text-white' : 'bg-slate-100 text-slate-300'
+                    }`}
+                  >
+                    <Icon size={19} className={active && item.key !== 'record' ? 'fill-white' : ''} />
+                  </span>
+                  <span className={`text-[13px] font-medium ${active ? 'text-[#ef5b94]' : 'text-slate-500'}`}>
+                    {item.label}
+                  </span>
+                </button>
+              );
+            })}
+          </nav>
+        </footer>
       ) : null}
 
       <AnimatePresence>
