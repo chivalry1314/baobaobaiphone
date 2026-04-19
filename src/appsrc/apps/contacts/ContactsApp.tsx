@@ -2,6 +2,7 @@ import React, { useEffect, useMemo, useRef, useState } from 'react';
 import { AnimatePresence, motion } from 'motion/react';
 import { AlertTriangle } from 'lucide-react';
 import { APP_CLOSE_MOTION, APP_OPEN_MOTION } from '../../../core/appOpenMotion';
+import { useMobileViewportPageStyle } from '../../../core/mobileViewport';
 import { useGlobalSettingsStore, useGlobalWorldBookStore } from '@baobaobaiOS/sdk';
 import { isVoiceProviderConfigured, synthesizeVoice } from '../WeChat/voice';
 import { FONT_STACK, TEXT } from './constants';
@@ -145,6 +146,12 @@ export const ContactsApp: React.FC<ContactsAppProps> = ({ onClose, context }) =>
   const launchTab =
     context?.params?.initialTab === 'phone' ? 'phone' : 'contacts';
   const [currentPage, setCurrentPage] = useState<ContactsPage>('main');
+  const shouldFreezeViewport =
+    currentPage === 'addContact' ||
+    currentPage === 'editContact' ||
+    currentPage === 'addMyCard' ||
+    currentPage === 'editMyCard';
+  const viewportPageStyle = useMobileViewportPageStyle(!shouldFreezeViewport);
   const [activeTab, setActiveTab] = useState<ContactsBottomTab>(launchTab);
   const [selectedContactId, setSelectedContactId] = useState<string | null>(null);
   const [selectedMyCardId, setSelectedMyCardId] = useState<string | null>(null);
@@ -419,8 +426,8 @@ export const ContactsApp: React.FC<ContactsAppProps> = ({ onClose, context }) =>
       {...APP_OPEN_MOTION}
       exit={APP_CLOSE_MOTION}
       transition={{ type: 'spring', damping: 20, stiffness: 200 }}
-      className="absolute inset-0 z-50 bg-white flex flex-col text-slate-800"
-      style={{ fontFamily: FONT_STACK }}
+      className="absolute left-0 right-0 z-50 flex min-h-0 flex-col overflow-hidden bg-white text-slate-800"
+      style={{ ...viewportPageStyle, fontFamily: FONT_STACK }}
     >
       {currentPage === 'main' ? (
         <>

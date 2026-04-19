@@ -18,16 +18,18 @@ const tabItems: { key: TabKey; label: string; icon: React.ReactNode }[] = [
 export const ShoppingTabBar: React.FC<ShoppingTabBarProps> = ({ tab, onSwitch }) => {
   return (
     <nav className={`${styles.tabBar} pb-safe`}>
-      {tabItems.map((item) => (
-        <button
-          key={item.key}
-          className={`${styles.tabItem} ${tab === item.key ? styles.tabItemActive : ''}`}
-          onClick={() => onSwitch(item.key)}
-        >
-          <div className={styles.tabIcon}>{item.icon}</div>
-          <div className={styles.tabLabel}>{item.label}</div>
-        </button>
-      ))}
+      <div className={styles.tabBarInner}>
+        {tabItems.map((item) => (
+          <button
+            key={item.key}
+            className={`${styles.tabItem} ${tab === item.key ? styles.tabItemActive : ''}`}
+            onClick={() => onSwitch(item.key)}
+          >
+            <div className={styles.tabIcon}>{item.icon}</div>
+            <div className={styles.tabLabel}>{item.label}</div>
+          </button>
+        ))}
+      </div>
     </nav>
   );
 };

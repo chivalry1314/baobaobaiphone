@@ -15,26 +15,28 @@ export const WeChatTabBar: React.FC<WeChatTabBarProps> = ({ activeTab, onTabChan
   ] as const;
 
   return (
-    <div className="w-full shrink-0 bg-[#F7F7F7] border-t border-gray-200 px-4 py-2 flex justify-around items-center pb-safe">
-      {tabs.map(({ key, icon: Icon, label }) => (
-        <button
-          key={key}
-          onClick={() => onTabChange(key)}
-          className={`flex flex-col items-center gap-0.5 py-1 px-3 rounded-lg transition-colors ${
-            activeTab === key ? 'text-[#07C160]' : 'text-gray-500'
-          }`}
-        >
-          <span className="relative">
-            <Icon size={22} />
-            {key === 'contacts' && newFriendsCount > 0 ? (
-              <span className="absolute -right-3 -top-2 min-w-[16px] h-4 rounded-full bg-[#FA5151] px-1 text-[10px] leading-4 text-white text-center">
-                {newFriendsCount > 99 ? '99+' : newFriendsCount}
-              </span>
-            ) : null}
-          </span>
-          <span className="text-[10px]">{label}</span>
-        </button>
-      ))}
+    <div className="w-full shrink-0 bg-[#F7F7F7] border-t border-gray-200 pb-safe">
+      <div className="px-4 py-2 flex justify-around items-center">
+        {tabs.map(({ key, icon: Icon, label }) => (
+          <button
+            key={key}
+            onClick={() => onTabChange(key)}
+            className={`flex flex-col items-center gap-0.5 py-1 px-3 rounded-lg transition-colors ${
+              activeTab === key ? 'text-[#07C160]' : 'text-gray-500'
+            }`}
+          >
+            <span className="relative">
+              <Icon size={22} />
+              {key === 'contacts' && newFriendsCount > 0 ? (
+                <span className="absolute -right-3 -top-2 min-w-[16px] h-4 rounded-full bg-[#FA5151] px-1 text-[10px] leading-4 text-white text-center">
+                  {newFriendsCount > 99 ? '99+' : newFriendsCount}
+                </span>
+              ) : null}
+            </span>
+            <span className="text-[10px]">{label}</span>
+          </button>
+        ))}
+      </div>
     </div>
   );
 };

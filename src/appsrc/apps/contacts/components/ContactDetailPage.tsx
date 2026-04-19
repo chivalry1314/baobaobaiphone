@@ -87,7 +87,7 @@ export const ContactDetailPage: React.FC<ContactDetailPageProps> = ({
   };
 
   return (
-    <div className="absolute inset-0 z-[92] bg-[#F3F4F7] flex flex-col">
+    <div className="absolute inset-0 z-[92] bg-[#F3F4F7] flex min-h-0 flex-col overflow-hidden">
       <div className="px-5 pt-11 pb-3 flex items-center justify-between shrink-0">
         <button
           onClick={onBack}
@@ -233,23 +233,25 @@ export const ContactDetailPage: React.FC<ContactDetailPageProps> = ({
         </div>
       </div>
 
-      <div className="shrink-0 min-h-[84px] bg-white/95 backdrop-blur border-t border-slate-200 flex items-start justify-around pt-2.5 pb-[max(env(safe-area-inset-bottom,0px),8px)]">
-        <button className="w-20 flex flex-col items-center gap-1 text-slate-500">
-          <Star size={20} />
-          <span className="text-[12px]">{TEXT.favorites}</span>
-        </button>
-        {readOnly ? (
-          <div className="w-20" />
-        ) : (
-          <button onClick={onEdit} className="w-20 flex flex-col items-center gap-1 text-[#1E64D8]">
-            <SquarePen size={20} />
-            <span className="text-[12px]">{TEXT.edit}</span>
+      <div className="shrink-0 bg-white/95 backdrop-blur border-t border-slate-200 pb-safe">
+        <div className="min-h-[76px] flex items-start justify-around pt-2.5">
+          <button className="w-20 py-1 flex flex-col items-center gap-1 text-slate-500">
+            <Star size={20} />
+            <span className="text-[12px]">{TEXT.favorites}</span>
           </button>
-        )}
-        <button className="w-20 flex flex-col items-center gap-1 text-slate-500">
-          <Ellipsis size={20} />
-          <span className="text-[12px]">{TEXT.moreOptions}</span>
-        </button>
+          {readOnly ? (
+            <div className="w-20" />
+          ) : (
+            <button onClick={onEdit} className="w-20 py-1 flex flex-col items-center gap-1 text-[#1E64D8]">
+              <SquarePen size={20} />
+              <span className="text-[12px]">{TEXT.edit}</span>
+            </button>
+          )}
+          <button className="w-20 py-1 flex flex-col items-center gap-1 text-slate-500">
+            <Ellipsis size={20} />
+            <span className="text-[12px]">{TEXT.moreOptions}</span>
+          </button>
+        </div>
       </div>
     </div>
   );

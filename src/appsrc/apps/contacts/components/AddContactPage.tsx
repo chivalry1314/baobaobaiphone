@@ -111,8 +111,8 @@ export const AddContactPage: React.FC<AddContactPageProps> = ({
   };
 
   return (
-    <div className="absolute inset-0 z-[90] bg-white flex flex-col">
-      <div className="px-5 pt-11 pb-3 flex items-center justify-between border-b border-slate-200">
+    <div className="absolute inset-0 z-[90] bg-white flex min-h-0 flex-col overflow-hidden">
+      <div className="px-5 pt-11 pb-3 flex items-center justify-between border-b border-slate-200 shrink-0">
         {view === 'worldbook' ? (
           <button onClick={() => setView('form')} className="text-[15px] font-medium text-slate-600">
             {TEXT.back}
@@ -134,7 +134,7 @@ export const AddContactPage: React.FC<AddContactPageProps> = ({
       </div>
 
       {view === 'form' ? (
-        <div className="overflow-y-auto px-5 pb-8 pt-4 space-y-3">
+        <div className="flex-1 min-h-0 overflow-y-auto overscroll-y-contain px-5 pb-8 pt-4 space-y-3">
           <div className="flex flex-col items-center mb-1">
             <button
               onClick={handleAvatarClick}
@@ -247,7 +247,7 @@ export const AddContactPage: React.FC<AddContactPageProps> = ({
           />
         </div>
       ) : (
-        <div ref={worldBookListRef} className="overflow-y-auto py-2">
+        <div ref={worldBookListRef} className="flex-1 min-h-0 overflow-y-auto overscroll-y-contain py-2">
           <div className="relative" style={{ height: `${worldBookVirtualizer.getTotalSize()}px` }}>
             {worldBookVirtualizer.getVirtualItems().map((virtualRow) => {
               if (virtualRow.index === 0) {

@@ -2136,14 +2136,17 @@
   left: 0;
   right: 0;
   bottom: 0;
+  background: rgba(255, 255, 255, 0.78);
+  border-top: 1px solid rgba(255, 255, 255, 0.86);
+  backdrop-filter: blur(16px);
+}
+
+.tabBarInner {
   height: var(--tab-h);
   padding: 5px 10px;
   display: grid;
   grid-template-columns: repeat(4, 1fr);
   gap: 6px;
-  background: rgba(255, 255, 255, 0.78);
-  border-top: 1px solid rgba(255, 255, 255, 0.86);
-  backdrop-filter: blur(16px);
 }
 
 .tabItem {
