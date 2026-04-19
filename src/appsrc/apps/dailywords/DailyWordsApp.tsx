@@ -2,7 +2,10 @@
 import { motion } from 'motion/react';
 import { Brain, ChevronLeft, Pencil, Plus, Search, Trash2 } from 'lucide-react';
 import { APP_CLOSE_MOTION, APP_OPEN_MOTION } from '../../../core/appOpenMotion';
-import { useMobileViewportPageStyle } from '../../../core/mobileViewport';
+import {
+  useKeyboardTextEntryActive,
+  useMobileViewportPageStyle,
+} from '../../../core/mobileViewport';
 import { COMMERCE_ROLE_CHANGED_EVENT } from '../../shared/business/commerce/roleContext';
 import { useRoleDisplayNameBridge } from '../../shared/business/contacts/roleDisplayNameBridge';
 import { isContactRoleId } from '../../shared/business/roleIdentity';
@@ -89,7 +92,6 @@ const buildTimelineGroups = (entries: DailyWordsEntry[]): TimelineGroup[] => {
 };
 
 export const DailyWordsApp: React.FC<DailyWordsAppProps> = ({ onClose, context }) => {
-  const viewportPageStyle = useMobileViewportPageStyle();
   const activeRoleId = useDailyWordsStore((state) => state.activeRoleId);
   const roleDisplayName = useRoleDisplayNameBridge(activeRoleId);
   const runtimeRoleId = useRoleRuntimeStore((state) => state.overrideRoleId);
@@ -162,6 +164,8 @@ export const DailyWordsApp: React.FC<DailyWordsAppProps> = ({ onClose, context }
 
   const isEditorOpen = editorMode !== null;
   const editorTitle = editorMode === 'edit' ? '编辑日记' : '新建日记';
+  const viewportPageStyle = useMobileViewportPageStyle(!isEditorOpen);
+  const shouldHideEditorFooter = useKeyboardTextEntryActive(isEditorOpen);
 
   const handleOpenCreateEditor = () => {
     if (isReadOnlyMode) return;
@@ -418,29 +422,34 @@ export const DailyWordsApp: React.FC<DailyWordsAppProps> = ({ onClose, context }
             </section>
           </main>
 
-          <footer className="px-4 pb-5 pt-2 border-t border-rose-100 bg-white/80 backdrop-blur safe-area-bottom-action">
-            <div className="grid grid-cols-2 gap-2">
-              <button
-                type="button"
-                onClick={handleCloseEditor}
-                className="h-11 rounded-2xl bg-slate-100 text-slate-700 text-[14px] font-semibold hover:bg-slate-200 transition-colors"
-              >
-                取消
-              </button>
-              <button
-                type="button"
-                onClick={handleSubmitDraft}
-                disabled={!draftCanSubmit}
-                className={`h-11 rounded-2xl text-[14px] font-semibold transition-colors ${
-                  draftCanSubmit
-                    ? 'bg-rose-500 text-white hover:bg-rose-600'
-                    : 'bg-slate-200 text-slate-500 cursor-not-allowed'
-                }`}
-              >
-                保存日记
-              </button>
-            </div>
-          </footer>
+          {!shouldHideEditorFooter ? (
+            <footer
+              className="px-4 pb-5 pt-2 border-t border-rose-100 bg-white/80 backdrop-blur"
+              style={{ paddingBottom: 'calc(env(safe-area-inset-bottom, 0px) + 12px)' }}
+            >
+              <div className="grid grid-cols-2 gap-2">
+                <button
+                  type="button"
+                  onClick={handleCloseEditor}
+                  className="h-11 rounded-2xl bg-slate-100 text-slate-700 text-[14px] font-semibold hover:bg-slate-200 transition-colors"
+                >
+                  取消
+                </button>
+                <button
+                  type="button"
+                  onClick={handleSubmitDraft}
+                  disabled={!draftCanSubmit}
+                  className={`h-11 rounded-2xl text-[14px] font-semibold transition-colors ${
+                    draftCanSubmit
+                      ? 'bg-rose-500 text-white hover:bg-rose-600'
+                      : 'bg-slate-200 text-slate-500 cursor-not-allowed'
+                  }`}
+                >
+                  保存日记
+                </button>
+              </div>
+            </footer>
+          ) : null}
         </div>
       ) : null}
     </motion.div>

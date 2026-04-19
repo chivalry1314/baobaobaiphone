@@ -15,7 +15,7 @@ export const WeChatTabBar: React.FC<WeChatTabBarProps> = ({ activeTab, onTabChan
   ] as const;
 
   return (
-    <div className="w-full shrink-0 bg-[#F7F7F7] border-t border-gray-200 px-4 py-2 flex justify-around items-center safe-area-bottom-nav">
+    <div className="w-full shrink-0 bg-[#F7F7F7] border-t border-gray-200 px-4 py-2 flex justify-around items-center pb-safe">
       {tabs.map(({ key, icon: Icon, label }) => (
         <button
           key={key}

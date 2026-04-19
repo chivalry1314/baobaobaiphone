@@ -17,7 +17,7 @@ const tabItems: { key: TabKey; label: string; icon: React.ReactNode }[] = [
 
 export const ShoppingTabBar: React.FC<ShoppingTabBarProps> = ({ tab, onSwitch }) => {
   return (
-    <nav className={styles.tabBar}>
+    <nav className={`${styles.tabBar} pb-safe`}>
       {tabItems.map((item) => (
         <button
           key={item.key}

@@ -60,7 +60,10 @@ import {
   writeSellerPublishDraftMap,
 } from './data/repositories/publishDraftRepo';
 import { initializeSellerMessageScheduler } from '../../shared/business/commerce/messageBridge';
-import { useMobileViewportPageStyle } from '../../../core/mobileViewport';
+import {
+  useKeyboardTextEntryActive,
+  useMobileViewportPageStyle,
+} from '../../../core/mobileViewport';
 import styles from './SellerApp.module.css';
 import type { SellerAppProps } from './types';
 
@@ -318,7 +321,6 @@ const createStoreDecorationDraft = (store: CommerceStore, products: ProductItem[
 };
 
 export const SellerApp: React.FC<SellerAppProps> = ({ onClose }) => {
-  const viewportPageStyle = useMobileViewportPageStyle();
   const [dessertProducts, setDessertProducts] = React.useState<ProductItem[]>([]);
   const [flowerProducts, setFlowerProducts] = React.useState<ProductItem[]>([]);
   const [movieProducts, setMovieProducts] = React.useState<ProductItem[]>([]);
@@ -345,6 +347,8 @@ export const SellerApp: React.FC<SellerAppProps> = ({ onClose }) => {
   const [editingProductId, setEditingProductId] = React.useState<string | null>(null);
   const [editingDraft, setEditingDraft] = React.useState(false);
   const [publishReturnPage, setPublishReturnPage] = React.useState<SellerPage>('dashboard');
+  const viewportPageStyle = useMobileViewportPageStyle(page !== 'product-publish');
+  const shouldHidePublishFooter = useKeyboardTextEntryActive(page === 'product-publish');
   const [stockEditProductId, setStockEditProductId] = React.useState<string | null>(null);
   const [stockEditValue, setStockEditValue] = React.useState('');
   const [isStoreDecorationEditing, setIsStoreDecorationEditing] = React.useState(false);
@@ -1284,91 +1288,93 @@ export const SellerApp: React.FC<SellerAppProps> = ({ onClose }) => {
           </section>
         </main>
 
-        <footer
-          className={`${styles.publishFooter} ${
-            editingProductId && !editingDraft && activeStore?.kind === 'movie' ? styles.publishFooterWithDelete : ''
-          }`}
-        >
-          {editingProductId && !editingDraft ? (
-            <>
-              {activeStore?.kind === 'movie' ? (
+        {!shouldHidePublishFooter ? (
+          <footer
+            className={`${styles.publishFooter} ${
+              editingProductId && !editingDraft && activeStore?.kind === 'movie' ? styles.publishFooterWithDelete : ''
+            }`}
+          >
+            {editingProductId && !editingDraft ? (
+              <>
+                {activeStore?.kind === 'movie' ? (
+                  <button
+                    type="button"
+                    className={styles.publishDeleteBtn}
+                    onClick={() => {
+                      void handleDeleteEditedProduct();
+                    }}
+                  >
+                    删除
+                  </button>
+                ) : null}
                 <button
                   type="button"
-                  className={styles.publishDeleteBtn}
+                  className={`${styles.publishSaveBtn} ${styles.publishSaveBtnEdit}`}
                   onClick={() => {
-                    void handleDeleteEditedProduct();
+                    setEditingProductId(null);
+                    setEditingDraft(false);
+                    setPage('store-view');
                   }}
                 >
-                  删除
+                  取消
                 </button>
-              ) : null}
-              <button
-                type="button"
-                className={`${styles.publishSaveBtn} ${styles.publishSaveBtnEdit}`}
-                onClick={() => {
-                  setEditingProductId(null);
-                  setEditingDraft(false);
-                  setPage('store-view');
-                }}
-              >
-                取消
-              </button>
+                  <button
+                    type="button"
+                    className={`${styles.publishSubmitBtn} ${styles.publishSubmitBtnEdit}`}
+                    onClick={() => {
+                      void handleSaveEditedProduct();
+                  }}
+                >
+                  保存
+                </button>
+              </>
+            ) : editingDraft ? (
+              <>
+                <button
+                  type="button"
+                  className={`${styles.publishSaveBtn} ${styles.publishSaveBtnEdit}`}
+                  onClick={() => {
+                    setEditingProductId(null);
+                    setEditingDraft(false);
+                    setPage('store-view');
+                  }}
+                >
+                  取消
+                </button>
                 <button
                   type="button"
                   className={`${styles.publishSubmitBtn} ${styles.publishSubmitBtnEdit}`}
                   onClick={() => {
-                    void handleSaveEditedProduct();
-                }}
-              >
-                保存
-              </button>
-            </>
-          ) : editingDraft ? (
-            <>
-              <button
-                type="button"
-                className={`${styles.publishSaveBtn} ${styles.publishSaveBtnEdit}`}
-                onClick={() => {
-                  setEditingProductId(null);
-                  setEditingDraft(false);
-                  setPage('store-view');
-                }}
-              >
-                取消
-              </button>
-              <button
-                type="button"
-                className={`${styles.publishSubmitBtn} ${styles.publishSubmitBtnEdit}`}
-                onClick={() => {
-                  void handleSavePublishDraft();
-                }}
-              >
-                保存
-              </button>
-            </>
-          ) : (
-            <>
-              <button
-                type="button"
-                className={`${styles.publishSaveBtn} ${editingDraft ? styles.publishSaveBtnEdit : ''}`}
-                onClick={() => {
-                  void handleSavePublishDraft();
-                }}
-              >
-                保存
-              </button>
-              <button
-                type="button"
-                className={`${styles.publishSubmitBtn} ${editingDraft ? styles.publishSubmitBtnEdit : ''}`}
-                onClick={() => {
-                  void handlePublishNow();
-                }}
-              >
-                立即上架
-              </button>
-            </>
-          )}
-        </footer>
+                    void handleSavePublishDraft();
+                  }}
+                >
+                  保存
+                </button>
+              </>
+            ) : (
+              <>
+                <button
+                  type="button"
+                  className={`${styles.publishSaveBtn} ${editingDraft ? styles.publishSaveBtnEdit : ''}`}
+                  onClick={() => {
+                    void handleSavePublishDraft();
+                  }}
+                >
+                  保存
+                </button>
+                <button
+                  type="button"
+                  className={`${styles.publishSubmitBtn} ${editingDraft ? styles.publishSubmitBtnEdit : ''}`}
+                  onClick={() => {
+                    void handlePublishNow();
+                  }}
+                >
+                  立即上架
+                </button>
+              </>
+            )}
+          </footer>
+        ) : null}
       </motion.div>
     );
   }

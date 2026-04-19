@@ -1457,7 +1457,7 @@
 .publishFooter {
   border-top: 1px solid #e5e7eb;
   background: #ffffff;
-  padding: 10px 12px calc(env(safe-area-inset-bottom, 0px) + 32px);
+  padding: 10px 12px calc(env(safe-area-inset-bottom, 0px) + 12px);
   display: grid;
   grid-template-columns: 72px 1fr;
   gap: 10px;

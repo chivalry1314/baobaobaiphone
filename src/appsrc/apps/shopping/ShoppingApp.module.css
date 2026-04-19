@@ -2135,7 +2135,7 @@
   position: absolute;
   left: 0;
   right: 0;
-  bottom: env(safe-area-inset-bottom, 0px);
+  bottom: 0;
   height: var(--tab-h);
   padding: 5px 10px;
   display: grid;

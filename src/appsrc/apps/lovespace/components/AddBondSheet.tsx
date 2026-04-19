@@ -139,7 +139,10 @@ export const AddBondSheet: React.FC<AddBondSheetProps> = ({
               </div>
             </div>
 
-            <div className="px-5 pb-5 pt-3 border-t border-rose-100/80">
+            <div
+              className="px-5 pb-5 pt-3 border-t border-rose-100/80"
+              style={{ paddingBottom: 'calc(env(safe-area-inset-bottom, 0px) + 12px)' }}
+            >
               <button
                 disabled={selectedCount === 0}
                 onClick={onSave}

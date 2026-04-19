@@ -72,7 +72,6 @@ const runWithRuntimeRole = <T,>(roleId: string, runner: () => T): T => {
 };
 
 export const DailyScriptApp: React.FC<DailyScriptAppProps> = ({ onClose }) => {
-  const viewportPageStyle = useMobileViewportPageStyle();
   const { settings } = useGlobalSettingsStore();
 
   const plans = useDailyScriptStore((state) => state.plans);
@@ -115,6 +114,8 @@ export const DailyScriptApp: React.FC<DailyScriptAppProps> = ({ onClose }) => {
   const [isAiImporting, setIsAiImporting] = useState(false);
   const [aiErrorMessage, setAiErrorMessage] = useState('');
   const [aiSummaryMessage, setAiSummaryMessage] = useState('');
+  const shouldFreezeViewport = view === 'settings' || editorState !== null;
+  const viewportPageStyle = useMobileViewportPageStyle(!shouldFreezeViewport);
 
   const roleOptions = useMemo<RoleOption[]>(
     () =>

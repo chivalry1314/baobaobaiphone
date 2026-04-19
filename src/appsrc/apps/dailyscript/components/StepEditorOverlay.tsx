@@ -1,5 +1,6 @@
 import React from 'react';
 import { X } from 'lucide-react';
+import { useKeyboardTextEntryActive } from '../../../../core/mobileViewport';
 import type { DailyScriptActionType } from '../../../shared/business/dailyscript/actionBridge';
 import { DEFAULT_ACTIVE_ROLE_ID } from '../../../shared/business/roleIdentity';
 import type {
@@ -115,6 +116,7 @@ export const StepEditorOverlay: React.FC<StepEditorOverlayProps> = ({
   onSave,
   onPatch,
 }) => {
+  const shouldHideFooter = useKeyboardTextEntryActive();
   const currentActionAppType = getActionAppType(state.actionType);
   const filteredActionOptions = ACTION_OPTIONS_BY_APP[currentActionAppType];
 
@@ -497,24 +499,29 @@ export const StepEditorOverlay: React.FC<StepEditorOverlayProps> = ({
         ) : null}
       </main>
 
-      <footer className="px-4 pt-2 border-t border-indigo-100 bg-white/90 safe-area-bottom-action">
-        <div className="grid grid-cols-2 gap-2">
-          <button
-            type="button"
-            onClick={onClose}
-            className="h-11 rounded-2xl bg-slate-100 text-slate-700 text-[14px] font-semibold"
-          >
-            取消
-          </button>
-          <button
-            type="button"
-            onClick={onSave}
-            className="h-11 rounded-2xl bg-indigo-500 text-white text-[14px] font-semibold"
-          >
-            保存步骤
-          </button>
-        </div>
-      </footer>
+      {!shouldHideFooter ? (
+        <footer
+          className="px-4 pt-2 border-t border-indigo-100 bg-white/90"
+          style={{ paddingBottom: 'calc(env(safe-area-inset-bottom, 0px) + 12px)' }}
+        >
+          <div className="grid grid-cols-2 gap-2">
+            <button
+              type="button"
+              onClick={onClose}
+              className="h-11 rounded-2xl bg-slate-100 text-slate-700 text-[14px] font-semibold"
+            >
+              取消
+            </button>
+            <button
+              type="button"
+              onClick={onSave}
+              className="h-11 rounded-2xl bg-indigo-500 text-white text-[14px] font-semibold"
+            >
+              保存步骤
+            </button>
+          </div>
+        </footer>
+      ) : null}
     </div>
   );
 };

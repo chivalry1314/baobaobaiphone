@@ -1,6 +1,6 @@
 ---
 name: baobaobaiphone-dev
-description: Build and maintain the baobaobaiphone React/Vite app ecosystem. Use when adding or updating apps in src/appsrc/apps, wiring AppManifest and registration behavior, integrating app memory modules, extending app market runtime HTML apps, aligning bottom navigation and safe-area footers, or troubleshooting baobaobaiphone app launch, settings, keyboard/composer, and model API flows.
+description: Build and maintain the baobaobaiphone React/Vite app ecosystem. Use when adding or updating apps in src/appsrc/apps, wiring AppManifest and registration behavior, integrating app memory modules, extending app market runtime HTML apps, aligning bottom navigation and bottom action bars, stabilizing keyboard/form layouts, or troubleshooting baobaobaiphone app launch, settings, keyboard/composer, and model API flows.
 ---
 
 # baobaobaiphone Dev
@@ -76,10 +76,13 @@ Implement features in baobaobaiphone by following existing architecture and conv
 
 ## Bottom Navigation And Footer Rules
 1. When requests mention “和微信底部导航一致”, “往上挪一点”, “底部不要留空”, or keyboard/composer bottom spacing, read `../../design/code/bottom-nav-layout.md` first.
-2. Standard app tab bars and docks should align to the WeChat baseline: prefer `safe-area-bottom-nav`, or `bottom: env(safe-area-inset-bottom, 0px)` plus an extra `8px` lift without duplicating safe-area padding.
-3. Raised action footers such as save/cancel, publish, and edit toolbars should use `safe-area-bottom-action` or `calc(env(safe-area-inset-bottom, 0px) + 32px)`.
-4. Scroll areas must reserve footer height plus safe area, otherwise the last rows will be covered.
-5. Keyboard-visible chat/composer bars should drop extra safe-area bottom padding so the input stays flush with the keyboard.
+2. Default standard tab bars and docks should align to the WeChat main-nav baseline: prefer `pb-safe`; for absolute/fixed bars use `bottom: 0` on the container and add `pb-safe` from JSX instead of stacking `env(...)` in multiple places.
+3. Default raised action footers such as save/cancel, publish, and edit toolbars should use `calc(env(safe-area-inset-bottom, 0px) + 12px)`. Treat legacy `safe-area-bottom-action` / `+32px` as opt-in only when the user explicitly wants a higher resting position or the page must preserve old visuals.
+4. Dense form editors must use `flex-col + overflow-hidden`, with only the middle content region scrolling (`flex-1 min-h-0 overflow-y-auto`).
+5. If text-entry focus would crowd the footer or make the page feel cramped, hide the footer while text inputs are focused via `useKeyboardTextEntryActive(...)`.
+6. If iOS input focus makes the whole page jump, stop following `visualViewport` for that page or editor state via `useMobileViewportPageStyle(false)` or a conditional variant.
+7. Chat/composer bars should keep `pb-safe` when idle and switch to `pb-0` when the keyboard is visible so the composer stays flush with the keyboard.
+8. Scroll areas must reserve footer height plus safe area, otherwise the last rows will be covered.
 
 ## Validation Checklist
 1. Run `npm run lint` after code changes.

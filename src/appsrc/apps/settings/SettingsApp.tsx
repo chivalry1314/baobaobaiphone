@@ -16,7 +16,6 @@ interface SettingsAppProps {
 export const SettingsApp: React.FC<SettingsAppProps> = ({ onClose }) => {
   const { settings, updateSettings } = useSettingsStore();
   const { desktopLayout, addDesktopItem, updateDesktopItem, updateDesktopLayout } = useGlobalDesktopStore();
-  const viewportPageStyle = useMobileViewportPageStyle();
   const [currentView, setCurrentView] = useState<ViewType>('main');
   const [widgetEditorId, setWidgetEditorId] = useState<string | undefined>(undefined);
   const [widgetEditorReturnTo, setWidgetEditorReturnTo] = useState<ViewType>('widgetManage');
@@ -30,6 +29,8 @@ export const SettingsApp: React.FC<SettingsAppProps> = ({ onClose }) => {
   const [showImageApiKey, setShowImageApiKey] = useState(false);
   const [showVoiceApiKey, setShowVoiceApiKey] = useState(false);
   const [showMemoryApiKey, setShowMemoryApiKey] = useState(false);
+  const shouldFreezeViewport = currentView === 'api' || currentView === 'editMode';
+  const viewportPageStyle = useMobileViewportPageStyle(!shouldFreezeViewport);
 
   const findFirstSlot = (w: number, h: number, ignoreInstanceId?: string) => {
     const items = desktopLayout.items || [];
