@@ -12,8 +12,8 @@ export const HomeDock: React.FC<HomeDockProps> = ({
 }) => {
   return (
     <div
-      className="absolute inset-x-0 bottom-0 z-50 flex justify-center px-4"
-      style={{ paddingBottom: isStandalonePwa ? '30px' : '18px' }}
+      className="absolute inset-x-0 z-50 flex justify-center px-4"
+      style={{ bottom: isStandalonePwa ? '42px' : '18px' }}
     >
       <div className="glass flex w-[92%] items-end justify-around rounded-[2.5rem] px-4 py-3">
         <div className="flex h-[72px] w-full items-center justify-around">
