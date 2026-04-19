@@ -2,6 +2,7 @@
 import { motion } from 'motion/react';
 import { Brain, ChevronLeft, Pencil, Plus, Search, Trash2 } from 'lucide-react';
 import { APP_CLOSE_MOTION, APP_OPEN_MOTION } from '../../../core/appOpenMotion';
+import { useMobileViewportPageStyle } from '../../../core/mobileViewport';
 import { COMMERCE_ROLE_CHANGED_EVENT } from '../../shared/business/commerce/roleContext';
 import { useRoleDisplayNameBridge } from '../../shared/business/contacts/roleDisplayNameBridge';
 import { isContactRoleId } from '../../shared/business/roleIdentity';
@@ -88,6 +89,7 @@ const buildTimelineGroups = (entries: DailyWordsEntry[]): TimelineGroup[] => {
 };
 
 export const DailyWordsApp: React.FC<DailyWordsAppProps> = ({ onClose, context }) => {
+  const viewportPageStyle = useMobileViewportPageStyle();
   const activeRoleId = useDailyWordsStore((state) => state.activeRoleId);
   const roleDisplayName = useRoleDisplayNameBridge(activeRoleId);
   const runtimeRoleId = useRoleRuntimeStore((state) => state.overrideRoleId);
@@ -211,7 +213,8 @@ export const DailyWordsApp: React.FC<DailyWordsAppProps> = ({ onClose, context }
       {...APP_OPEN_MOTION}
       exit={APP_CLOSE_MOTION}
       transition={{ type: 'spring', damping: 20, stiffness: 220 }}
-      className="absolute inset-0 z-50 flex flex-col overflow-hidden bg-gradient-to-b from-rose-50 via-pink-50 to-orange-50 text-slate-800"
+      className="absolute left-0 right-0 z-50 flex min-h-0 flex-col overflow-hidden bg-gradient-to-b from-rose-50 via-pink-50 to-orange-50 text-slate-800"
+      style={viewportPageStyle}
     >
       <header className="sticky top-0 z-20 shrink-0 pt-11 px-3 pb-3 bg-white/70 border-b border-rose-100 backdrop-blur">
         <div className="flex items-center">
@@ -415,7 +418,7 @@ export const DailyWordsApp: React.FC<DailyWordsAppProps> = ({ onClose, context }
             </section>
           </main>
 
-          <footer className="px-4 pb-5 pt-2 border-t border-rose-100 bg-white/80 backdrop-blur safe-area-bottom">
+          <footer className="px-4 pb-5 pt-2 border-t border-rose-100 bg-white/80 backdrop-blur safe-area-bottom-action">
             <div className="grid grid-cols-2 gap-2">
               <button
                 type="button"

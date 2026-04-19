@@ -60,6 +60,7 @@ import {
   writeSellerPublishDraftMap,
 } from './data/repositories/publishDraftRepo';
 import { initializeSellerMessageScheduler } from '../../shared/business/commerce/messageBridge';
+import { useMobileViewportPageStyle } from '../../../core/mobileViewport';
 import styles from './SellerApp.module.css';
 import type { SellerAppProps } from './types';
 
@@ -317,6 +318,7 @@ const createStoreDecorationDraft = (store: CommerceStore, products: ProductItem[
 };
 
 export const SellerApp: React.FC<SellerAppProps> = ({ onClose }) => {
+  const viewportPageStyle = useMobileViewportPageStyle();
   const [dessertProducts, setDessertProducts] = React.useState<ProductItem[]>([]);
   const [flowerProducts, setFlowerProducts] = React.useState<ProductItem[]>([]);
   const [movieProducts, setMovieProducts] = React.useState<ProductItem[]>([]);
@@ -1113,6 +1115,7 @@ export const SellerApp: React.FC<SellerAppProps> = ({ onClose }) => {
         exit={APP_CLOSE_MOTION}
         transition={{ type: 'spring', damping: 21, stiffness: 210 }}
         className={styles.publishRoot}
+        style={viewportPageStyle}
       >
         <header
           className={styles.publishHeader}

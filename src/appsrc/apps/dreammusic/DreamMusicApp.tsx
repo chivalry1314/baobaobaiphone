@@ -516,7 +516,7 @@ export const DreamMusicApp: React.FC<DreamMusicAppProps> = ({ onClose }) => {
       <div className="relative z-10 flex h-full flex-col">
         <AppHeader onBack={handleHeaderBack} />
 
-        <main className="flex-1 min-h-0 overflow-y-auto px-4 pb-[calc(96px+env(safe-area-inset-bottom,0px))]">
+        <main className="flex-1 min-h-0 overflow-y-auto px-4 pb-4">
           {activeView === 'home' && (
             <HomeView
               currentTrack={currentTrack}

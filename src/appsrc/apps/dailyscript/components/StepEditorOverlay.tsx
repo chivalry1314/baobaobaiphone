@@ -248,8 +248,8 @@ export const StepEditorOverlay: React.FC<StepEditorOverlayProps> = ({
   );
 
   return (
-    <div className="absolute inset-0 z-[120] bg-white/90 backdrop-blur-sm flex flex-col">
-      <header className="pt-11 px-3 pb-3 border-b border-indigo-100 bg-white/85">
+    <div className="absolute inset-0 z-[120] flex min-h-0 flex-col overflow-hidden bg-white/90 backdrop-blur-sm">
+      <header className="shrink-0 pt-11 px-3 pb-3 border-b border-indigo-100 bg-white/85">
         <div className="flex items-center">
           <button
             type="button"
@@ -267,7 +267,7 @@ export const StepEditorOverlay: React.FC<StepEditorOverlayProps> = ({
         </div>
       </header>
 
-      <main className="flex-1 overflow-y-auto px-4 py-4 space-y-3">
+      <main className="flex-1 min-h-0 overflow-y-auto px-4 py-4 space-y-3">
         <section className="rounded-3xl border border-indigo-100 bg-white p-4 space-y-3">
           <input
             type="text"
@@ -497,7 +497,7 @@ export const StepEditorOverlay: React.FC<StepEditorOverlayProps> = ({
         ) : null}
       </main>
 
-      <footer className="px-4 pt-2 pb-[calc(env(safe-area-inset-bottom,0px)+24px)] border-t border-indigo-100 bg-white/90">
+      <footer className="px-4 pt-2 border-t border-indigo-100 bg-white/90 safe-area-bottom-action">
         <div className="grid grid-cols-2 gap-2">
           <button
             type="button"

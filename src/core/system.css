@@ -6,6 +6,8 @@
   --app-vv-height: 100dvh;
   --app-safe-bottom: env(safe-area-inset-bottom, 0px);
   --app-physical-height: calc(var(--app-dvh, 100dvh) + var(--app-safe-bottom));
+  --app-bottom-nav-lift: 8px;
+  --app-bottom-action-lift: 32px;
 }
 
 /* ============================================
@@ -104,6 +106,12 @@ body {
   }
   .safe-area-bottom {
     padding-bottom: env(safe-area-inset-bottom, 0);
+  }
+  .safe-area-bottom-nav {
+    padding-bottom: calc(env(safe-area-inset-bottom, 0px) + var(--app-bottom-nav-lift));
+  }
+  .safe-area-bottom-action {
+    padding-bottom: calc(env(safe-area-inset-bottom, 0px) + var(--app-bottom-action-lift));
   }
   .pb-safe {
     padding-bottom: env(safe-area-inset-bottom, 0);

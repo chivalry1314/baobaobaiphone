@@ -4,6 +4,7 @@ import { ChevronLeft, ChevronRight, Key, Shield, Info, Bell, Moon, Sparkles } fr
 import { useSettingsStore } from './store';
 import { useGlobalDesktopStore } from '@baobaobaiOS/sdk';
 import { APP_OPEN_MOTION, APP_CLOSE_MOTION } from '../../../core/appOpenMotion';
+import { useMobileViewportPageStyle } from '../../../core/mobileViewport';
 import { BeautifyView, ThemeManageView, IconManageView, FontManageView, WidgetManageView, WidgetEditorView, DesktopLayoutView, DesktopEditModeView, ApiSettingsView, PushNotificationView } from './components';
 
 type ViewType = 'main' | 'api' | 'notifications' | 'beautify' | 'themeManage' | 'iconManage' | 'fontManage' | 'widgetManage' | 'widgetEditor' | 'layout' | 'editMode';
@@ -15,6 +16,7 @@ interface SettingsAppProps {
 export const SettingsApp: React.FC<SettingsAppProps> = ({ onClose }) => {
   const { settings, updateSettings } = useSettingsStore();
   const { desktopLayout, addDesktopItem, updateDesktopItem, updateDesktopLayout } = useGlobalDesktopStore();
+  const viewportPageStyle = useMobileViewportPageStyle();
   const [currentView, setCurrentView] = useState<ViewType>('main');
   const [widgetEditorId, setWidgetEditorId] = useState<string | undefined>(undefined);
   const [widgetEditorReturnTo, setWidgetEditorReturnTo] = useState<ViewType>('widgetManage');
@@ -236,9 +238,10 @@ export const SettingsApp: React.FC<SettingsAppProps> = ({ onClose }) => {
       {...APP_OPEN_MOTION}
       exit={APP_CLOSE_MOTION}
       transition={{ type: 'spring', damping: 20, stiffness: 200 }}
-      className="absolute inset-0 z-50 bg-[#F2F2F7] flex flex-col text-gray-900"
+      className="absolute left-0 right-0 z-50 flex flex-col overflow-hidden bg-[#F2F2F7] text-gray-900"
+      style={viewportPageStyle}
     >
-      <div className="bg-white/80 backdrop-blur-md border-b border-gray-200 px-4 pt-12 pb-4 flex items-center justify-between">
+      <div className="shrink-0 bg-white/80 backdrop-blur-md border-b border-gray-200 px-4 pt-12 pb-4 flex items-center justify-between">
         <button
           onClick={() => {
             if (currentView === 'main') {
@@ -295,7 +298,7 @@ export const SettingsApp: React.FC<SettingsAppProps> = ({ onClose }) => {
           animate={{ x: 0, opacity: 1 }}
           exit={{ x: currentView === 'main' ? 20 : -20, opacity: 0 }}
           transition={{ duration: 0.2 }}
-          className="flex-1 flex flex-col overflow-hidden"
+          className="flex-1 min-h-0 flex flex-col overflow-hidden"
         >
           {currentView === 'main' ? renderMainView() : currentView === 'api' ? renderApiView() : currentView === 'notifications' ? <PushNotificationView settings={settings} updateSettings={updateSettings} /> : currentView === 'beautify' ? <BeautifyView onNavigateToThemeManage={() => setCurrentView('themeManage')} onNavigateToIconManage={() => setCurrentView('iconManage')} onNavigateToFontManage={() => setCurrentView('fontManage')} onNavigateToWidgetManage={() => setCurrentView('widgetManage')} onNavigateToLayout={() => setCurrentView('layout')} /> : currentView === 'themeManage' ? <ThemeManageView onBack={() => setCurrentView('beautify')} /> : currentView === 'iconManage' ? <IconManageView /> : currentView === 'fontManage' ? <FontManageView /> : currentView === 'widgetManage' ? <WidgetManageView onNavigateToEditor={(id) => { setWidgetEditorId(id); setWidgetEditorReturnTo('widgetManage'); setCurrentView('widgetEditor'); }} /> : currentView === 'widgetEditor' ? (
             <WidgetEditorView

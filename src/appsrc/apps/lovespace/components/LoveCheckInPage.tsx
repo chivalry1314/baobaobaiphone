@@ -521,7 +521,7 @@ export const LoveCheckInPage: React.FC<LoveCheckInPageProps> = ({
       ) : null}
 
       {!isAdding ? (
-        <nav className="h-20 border-t border-rose-100/90 bg-white px-4 grid grid-cols-2 safe-area-bottom">
+        <nav className="h-20 border-t border-rose-100/90 bg-white px-4 grid grid-cols-2 safe-area-bottom-nav">
           {[
             { key: 'mine' as const, label: LOVE_SPACE_TEXT.checkInTabMine, icon: CheckCircle2 },
             { key: 'record' as const, label: LOVE_SPACE_TEXT.checkInTabRecord, icon: ClipboardList },

@@ -16,7 +16,7 @@
 ### 1.2 上抬型底部操作栏
 - 适用：发布商品、编辑商品、新增步骤、保存/取消、桌面编辑工具栏。
 - 目标：按钮比标准底部导航再往上抬一点，避免过贴底部。
-- 默认做法：安全区基础上再加 `24px`。
+- 默认做法：安全区基础上再加 `32px`。
 
 ### 1.3 输入栏 / 聊天栏
 - 适用：聊天输入框、消息发送栏、底部 composer。
@@ -29,7 +29,7 @@
 ### 2.1 Tailwind / JSX
 
 ```tsx
-<footer className="w-full shrink-0 border-t border-gray-200 bg-white px-4 pt-2 safe-area-bottom">
+<footer className="w-full shrink-0 border-t border-gray-200 bg-white px-4 pt-2 safe-area-bottom-nav">
   ...
 </footer>
 ```
@@ -54,7 +54,7 @@
 ```
 
 ### 2.3 强制规则
-- 标准底部导航优先使用 `safe-area-bottom` 或 `bottom: env(safe-area-inset-bottom, 0px)`。
+- 标准底部导航优先使用 `safe-area-bottom-nav`，或 `bottom: env(safe-area-inset-bottom, 0px)` 配合额外 `8px` 内边距提升。
 - 导航自身只能吃一层安全区，禁止重复叠加。
 - 内容滚动区域必须预留“导航高度 + 安全区”。
 
@@ -65,7 +65,7 @@
 ### 3.1 Tailwind / JSX
 
 ```tsx
-<footer className="border-t bg-white px-4 pt-2 pb-[calc(env(safe-area-inset-bottom,0px)+24px)]">
+<footer className="border-t bg-white px-4 pt-2 safe-area-bottom-action">
   ...
 </footer>
 ```
@@ -76,20 +76,20 @@
 .publishFooter {
   border-top: 1px solid #e5e7eb;
   background: #fff;
-  padding: 10px 12px calc(env(safe-area-inset-bottom, 0px) + 24px);
+  padding: 10px 12px calc(env(safe-area-inset-bottom, 0px) + 32px);
 }
 ```
 
 ### 3.3 适用判断
 - 用户说“往上挪一点”“按钮不要太贴底”“和编辑页一致”，默认用这一档。
-- 如果用户说“和微信底部导航一致”，优先回到标准底部导航，不额外加 `24px`。
+- 如果用户说“和微信底部导航一致”，优先回到标准底部导航，不额外加 `32px`。
 
 ---
 
 ## 4. 输入栏 / Composer 写法
 
 ### 4.1 键盘收起
-- 保留 `safe-area-bottom` 或 `env(safe-area-inset-bottom, 0px)`。
+- 保留 `safe-area-bottom-nav` 或 `env(safe-area-inset-bottom, 0px)`。
 
 ### 4.2 键盘弹起
 - 移除输入栏自身底部安全区，让输入栏直接贴住键盘顶部。

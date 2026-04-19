@@ -3,6 +3,7 @@ import { ChevronLeft } from 'lucide-react';
 import { motion } from 'motion/react';
 import React, { useMemo, useState } from 'react';
 import { APP_CLOSE_MOTION, APP_OPEN_MOTION } from '../../../core/appOpenMotion';
+import { useMobileViewportPageStyle } from '../../../core/mobileViewport';
 import { useMyCardsSnapshotBridge } from '../../shared/business/contacts/myCardsSnapshotBridge';
 import { useContactsSnapshotBridge } from '../../shared/business/contacts/snapshotBridge';
 import { emitCommerceRoleChanged } from '../../shared/business/commerce/roleContext';
@@ -71,6 +72,7 @@ const runWithRuntimeRole = <T,>(roleId: string, runner: () => T): T => {
 };
 
 export const DailyScriptApp: React.FC<DailyScriptAppProps> = ({ onClose }) => {
+  const viewportPageStyle = useMobileViewportPageStyle();
   const { settings } = useGlobalSettingsStore();
 
   const plans = useDailyScriptStore((state) => state.plans);
@@ -671,9 +673,10 @@ export const DailyScriptApp: React.FC<DailyScriptAppProps> = ({ onClose }) => {
       {...APP_OPEN_MOTION}
       exit={APP_CLOSE_MOTION}
       transition={{ type: 'spring', damping: 20, stiffness: 220 }}
-      className="absolute inset-0 z-50 flex flex-col bg-gradient-to-b from-indigo-50 via-white to-rose-50 text-slate-800"
+      className="absolute left-0 right-0 z-50 flex min-h-0 flex-col overflow-hidden bg-gradient-to-b from-indigo-50 via-white to-rose-50 text-slate-800"
+      style={viewportPageStyle}
     >
-      <header className="pt-11 px-3 pb-3 bg-white/70 border-b border-indigo-100 backdrop-blur">
+      <header className="shrink-0 pt-11 px-3 pb-3 bg-white/70 border-b border-indigo-100 backdrop-blur">
         <div className="flex items-center">
           <button
             type="button"
@@ -732,7 +735,7 @@ export const DailyScriptApp: React.FC<DailyScriptAppProps> = ({ onClose }) => {
           </div>
         </div>
       </header>
-      <main className="flex-1 overflow-y-auto px-4 pt-3 pb-6 space-y-3">
+      <main className="flex-1 min-h-0 overflow-y-auto px-4 pt-3 pb-6 space-y-3">
         {view === 'roles' ? (
           <RoleListView
             roleOptions={roleOptions}
