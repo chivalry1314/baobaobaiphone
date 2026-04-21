@@ -66,6 +66,7 @@ export interface CommerceStore {
   typeName?: string;
   name: string;
   slogan: string;
+  description?: string;
   theme: string;
   logo?: string;
   cover?: string;

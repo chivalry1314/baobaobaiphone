@@ -21,6 +21,7 @@ interface ShoppingMoviesProps {
   onSelectMovie: (movie: Movie) => void;
   storeSignboard?: string;
   storeTypeName?: string;
+  storeDescription?: string;
   storeLogo?: string;
   storeCover?: string;
   storeTheme?: string;
@@ -36,6 +37,7 @@ export const ShoppingMovies: React.FC<ShoppingMoviesProps> = ({
   onSelectMovie,
   storeSignboard,
   storeTypeName,
+  storeDescription,
   storeLogo,
   storeCover,
   storeTheme,
@@ -55,6 +57,7 @@ export const ShoppingMovies: React.FC<ShoppingMoviesProps> = ({
   );
   const storeTitle = (storeSignboard || '淘票票').trim() || '淘票票';
   const storeSubtitle = (storeTypeName || '选片购票 · 电子票券').trim() || '选片购票 · 电子票券';
+  const storeDescriptionText = (storeDescription || '').trim();
   const storeAvatarText = storeTitle.slice(0, 2).toUpperCase();
   const heroBackground = storeCover
     ? toStoreBackgroundImage(storeCover, storeTheme || 'linear-gradient(135deg, #a78bfa, #fb7185)')
@@ -75,7 +78,12 @@ export const ShoppingMovies: React.FC<ShoppingMoviesProps> = ({
             </div>
             <div className={styles.movieStoreHeroText}>
               <strong>{storeTitle}</strong>
-              <span>{storeSubtitle}</span>
+              <p className={styles.movieStoreHeroMetaLine}>
+                <span>{storeSubtitle}</span>
+                {storeDescriptionText ? (
+                  <span className={styles.movieStoreHeroMetaDescription}> · {storeDescriptionText}</span>
+                ) : null}
+              </p>
             </div>
           </div>
         </div>

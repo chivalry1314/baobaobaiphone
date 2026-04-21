@@ -999,6 +999,7 @@ export const ShoppingApp: React.FC<ShoppingAppProps> = ({ onClose }) => {
             kind="dessert"
             storeName={store.name}
             storeTypeName={store.typeName}
+            storeDescription={store.description}
             storeSignboard={store.signboard}
             storeDecoration={store.decoration}
             storeLogo={store.logo}
@@ -1034,6 +1035,7 @@ export const ShoppingApp: React.FC<ShoppingAppProps> = ({ onClose }) => {
             kind="flower"
             storeName={store.name}
             storeTypeName={store.typeName}
+            storeDescription={store.description}
             storeSignboard={store.signboard}
             storeDecoration={store.decoration}
             storeLogo={store.logo}
@@ -1097,6 +1099,7 @@ export const ShoppingApp: React.FC<ShoppingAppProps> = ({ onClose }) => {
             onQueryChange={(value) => setMovieQuery(value)}
             storeSignboard={store.signboard}
             storeTypeName={store.typeName}
+            storeDescription={store.description}
             storeLogo={store.logo}
             storeCover={store.cover}
             storeTheme={store.theme}

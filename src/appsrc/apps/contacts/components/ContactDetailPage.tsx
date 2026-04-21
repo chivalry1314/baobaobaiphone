@@ -106,11 +106,11 @@ export const ContactDetailPage: React.FC<ContactDetailPageProps> = ({
         onScroll={handleBodyScroll}
       >
         <div
-          className={`sticky top-0 z-20 pt-1 pb-2 transition-all duration-200 ${
+          className={`sticky top-0 z-20 h-0 overflow-visible transition-all duration-200 ${
             showCompactHeader ? 'opacity-100 translate-y-0' : 'opacity-0 -translate-y-2 pointer-events-none'
           }`}
         >
-          <div className="h-12 rounded-2xl bg-white/95 backdrop-blur border border-white/80 shadow-[0_10px_24px_-20px_rgba(15,23,42,0.55)] px-3.5 flex items-center gap-3">
+          <div className="mt-1 h-12 rounded-2xl bg-white/95 backdrop-blur border border-white/80 shadow-[0_10px_24px_-20px_rgba(15,23,42,0.55)] px-3.5 flex items-center gap-3">
             <div className="w-8 h-8 rounded-full overflow-hidden bg-slate-100 flex items-center justify-center text-sm font-semibold text-slate-700">
               {contact.avatar ? (
                 <img src={contact.avatar} alt={contact.name} className="w-full h-full object-cover" />
@@ -124,7 +124,7 @@ export const ContactDetailPage: React.FC<ContactDetailPageProps> = ({
           </div>
         </div>
 
-        <div className="pt-1 min-h-full flex flex-col">
+        <div className="pt-4 min-h-full flex flex-col">
           <div className="rounded-[28px] bg-gradient-to-b from-[#EBE4EC] to-[#F8F6FA] px-5 pt-6 pb-5 shadow-[0_16px_36px_-28px_rgba(15,23,42,0.45)]">
             <div className="flex flex-col items-center">
               <div className="w-24 h-24 rounded-full overflow-hidden bg-slate-100 flex items-center justify-center text-3xl font-semibold text-slate-700 border-[5px] border-white">
@@ -235,7 +235,7 @@ export const ContactDetailPage: React.FC<ContactDetailPageProps> = ({
 
       <div className="shrink-0 bg-white/95 backdrop-blur border-t border-slate-200">
         <div
-          className="min-h-[84px] flex items-start justify-around pt-2"
+          className="min-h-[84px] flex items-start justify-around pt-3"
           style={{ paddingBottom: 'calc(env(safe-area-inset-bottom, 0px) + 12px)' }}
         >
           <button className="w-20 py-0.5 flex flex-col items-center gap-1 text-slate-500">

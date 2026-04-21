@@ -144,6 +144,22 @@
   color: rgba(255, 255, 255, 0.9);
 }
 
+.storeHeroMetaLine {
+  margin: 6px 0 0;
+  color: rgba(255, 255, 255, 0.9);
+  font-size: 12px;
+  line-height: 1.4;
+  display: -webkit-box;
+  -webkit-box-orient: vertical;
+  -webkit-line-clamp: 2;
+  overflow: hidden;
+}
+
+.storeHeroMetaDescription {
+  color: rgba(255, 255, 255, 0.9);
+  font-style: normal;
+}
+
 .storeHeroEditableInput {
   width: min(220px, 100%);
   border: 1px dashed rgba(255, 255, 255, 0.44);
@@ -275,6 +291,120 @@
   font-size: 12px;
   cursor: pointer;
   flex-shrink: 0;
+}
+
+.storeViewAiGenerateButton {
+  border: none;
+  background: #4f8df7;
+  color: #ffffff;
+  height: 36px;
+  border-radius: 18px;
+  padding: 0 14px;
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  font-size: 12px;
+  font-weight: 600;
+  cursor: pointer;
+  flex-shrink: 0;
+}
+
+.storeViewAiGenerateButton:disabled {
+  cursor: not-allowed;
+  opacity: 0.68;
+}
+
+.storeAiCountOverlay {
+  position: absolute;
+  inset: 0;
+  z-index: 140;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 18px;
+}
+
+.storeAiCountBackdrop {
+  position: absolute;
+  inset: 0;
+  border: none;
+  background: rgba(15, 23, 42, 0.32);
+}
+
+.storeAiCountDialog {
+  position: relative;
+  z-index: 1;
+  width: min(100%, 320px);
+  border-radius: 22px;
+  background: #fffaf6;
+  box-shadow: 0 22px 44px rgba(15, 23, 42, 0.16);
+  padding: 20px 18px 18px;
+}
+
+.storeAiCountDialog h3 {
+  margin: 0;
+  color: #3e2b20;
+  font-size: 18px;
+  font-weight: 700;
+}
+
+.storeAiCountDialog p {
+  margin: 8px 0 0;
+  color: #8a6f5b;
+  font-size: 13px;
+  line-height: 1.5;
+}
+
+.storeAiCountGrid {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 10px;
+  margin-top: 16px;
+}
+
+.storeAiCountOption {
+  border: 1px solid #ead8ca;
+  background: #ffffff;
+  color: #7b5f4d;
+  height: 40px;
+  border-radius: 14px;
+  font-size: 13px;
+  font-weight: 600;
+  cursor: pointer;
+}
+
+.storeAiCountOptionActive {
+  border-color: #bb8b64;
+  background: #f5e3d3;
+  color: #6f4528;
+  box-shadow: 0 0 0 2px rgba(187, 139, 100, 0.14);
+}
+
+.storeAiCountActions {
+  margin-top: 18px;
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 10px;
+}
+
+.storeAiCountActions button {
+  height: 42px;
+  border-radius: 14px;
+  font-size: 14px;
+  font-weight: 600;
+  cursor: pointer;
+}
+
+.storeAiCountActions button:first-child {
+  border: 1px solid #ead8ca;
+  background: #ffffff;
+  color: #7b5f4d;
+}
+
+.storeAiCountActions button:last-child {
+  border: none;
+  background: linear-gradient(135deg, #cfab87 0%, #b98963 100%);
+  color: #ffffff;
 }
 
 .storeViewDecorateButton {
@@ -2893,10 +3023,37 @@
   appearance: none;
 }
 
+.storeCreateField textarea {
+  border: 1px solid #dbe1ea;
+  border-radius: 8px;
+  color: #1f2937;
+  font-size: 16px;
+  outline: none;
+  background: #ffffff;
+  min-height: 78px;
+  padding: 9px 10px;
+  resize: none;
+  line-height: 1.5;
+}
+
 .storeCreateField input:focus,
-.storeCreateField select:focus {
+.storeCreateField select:focus,
+.storeCreateField textarea:focus {
   border-color: #4e8cff;
   box-shadow: 0 0 0 2px rgba(78, 140, 255, 0.14);
+}
+
+.storeCreateFieldTitleRow {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+}
+
+.storeCreateFieldMeta {
+  color: #94a3b8;
+  font-size: 11px;
+  font-weight: 500;
 }
 
 .storeCreateField em {

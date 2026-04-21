@@ -150,9 +150,21 @@
   line-height: 1.2;
 }
 
-.movieStoreHeroText span {
+.movieStoreHeroMetaLine {
+  margin: 0;
   color: rgba(255, 255, 255, 0.88);
   font-size: 12px;
+  line-height: 1.4;
+  display: -webkit-box;
+  -webkit-box-orient: vertical;
+  -webkit-line-clamp: 2;
+  overflow: hidden;
+}
+
+.movieStoreHeroMetaDescription {
+  font-weight: 400;
+  font-style: normal;
+  color: rgba(255, 255, 255, 0.84);
 }
 
 .sectionHeader h2 {
@@ -542,12 +554,23 @@
   color: rgba(255, 255, 255, 0.92);
 }
 
-.storeGoodsMeta strong {
+.storeGoodsMetaLine {
   display: block;
   margin-top: 6px;
   font-size: 12px;
   color: rgba(255, 255, 255, 0.82);
   font-weight: 500;
+  line-height: 1.4;
+  display: -webkit-box;
+  -webkit-box-orient: vertical;
+  -webkit-line-clamp: 2;
+  overflow: hidden;
+}
+
+.storeGoodsMetaDescription {
+  font-weight: 400;
+  font-style: normal;
+  color: rgba(255, 255, 255, 0.84);
 }
 
 .storeGoodsStars {

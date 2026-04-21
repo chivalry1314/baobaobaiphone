@@ -36,6 +36,7 @@ interface ShoppingProductListProps {
   kind: GoodsKind;
   storeName: string;
   storeTypeName?: string;
+  storeDescription?: string;
   storeSignboard?: string;
   storeDecoration?: string;
   storeLogo?: string;
@@ -60,6 +61,7 @@ export const ShoppingProductList: React.FC<ShoppingProductListProps> = ({
   kind,
   storeName,
   storeTypeName,
+  storeDescription,
   storeSignboard,
   storeDecoration,
   storeLogo,
@@ -79,6 +81,7 @@ export const ShoppingProductList: React.FC<ShoppingProductListProps> = ({
 }) => {
   const storeTitle = resolveStoreTitle(storeSignboard, storeName);
   const storeSubTitle = resolveStoreTitle(storeTypeName, storeName);
+  const storeDescriptionText = normalizeText(storeDescription);
   const storeBadge = resolveStoreBadge(storeDecoration);
   const storeAvatarText = storeTitle.slice(0, 2).toUpperCase();
   const storeAvatarImage = normalizeText(storeLogo);
@@ -126,7 +129,12 @@ export const ShoppingProductList: React.FC<ShoppingProductListProps> = ({
                 <span>{resolvedHeroRatingLabels[1]}</span>
                 <span>{resolvedHeroRatingLabels[2]}</span>
               </p>
-              <strong>{storeSubTitle}</strong>
+              <p className={styles.storeGoodsMetaLine}>
+                <span>{storeSubTitle}</span>
+                {storeDescriptionText ? (
+                  <span className={styles.storeGoodsMetaDescription}> · {storeDescriptionText}</span>
+                ) : null}
+              </p>
             </div>
             <button type="button" className={styles.storeGoodsActionBtn} aria-label="联系卖家" title="联系卖家">
               <MessageCircle size={15} />

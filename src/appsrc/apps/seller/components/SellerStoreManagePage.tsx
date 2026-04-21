@@ -66,6 +66,7 @@ type CreateStoreForm = {
   shopName: string;
   storeType: string;
   shopLogo: string;
+  shopDescription: string;
   ownerName: string;
   phone: string;
   verifyCode: string;
@@ -94,6 +95,7 @@ const EMPTY_CREATE_STORE_FORM: CreateStoreForm = {
   shopName: '',
   storeType: '',
   shopLogo: '',
+  shopDescription: '',
   ownerName: '',
   phone: '',
   verifyCode: '',
@@ -527,9 +529,11 @@ export const SellerStoreManagePage: React.FC<SellerStoreManagePageProps> = ({
     const errors: CreateStoreErrors = {};
     const phone = form.phone.trim();
     const verifyCode = form.verifyCode.trim();
+    const shopDescription = form.shopDescription.trim();
     if (!form.shopName.trim()) errors.shopName = '请填写店铺名称';
     if (!form.storeType.trim()) errors.storeType = '请选择店铺类型';
     if (!form.shopLogo.trim()) errors.shopLogo = '请上传店铺 Logo';
+    if (shopDescription.length > 60) errors.shopDescription = '店铺描述不能超过 60 字';
     if (!form.ownerName.trim()) errors.ownerName = '请填写经营者姓名';
     if (!phone) errors.phone = '请填写手机号';
     else if (!/^1\d{10}$/.test(phone)) errors.phone = '请输入正确的手机号码';
@@ -633,6 +637,7 @@ export const SellerStoreManagePage: React.FC<SellerStoreManagePageProps> = ({
         slogan: draft.slogan,
         theme: draft.theme,
         logo: createStoreForm.shopLogo.trim(),
+        description: createStoreForm.shopDescription.trim(),
         cover: draft.cover,
         signboard: createStoreForm.shopName.trim(),
         decoration: draft.decoration,
@@ -1560,6 +1565,24 @@ export const SellerStoreManagePage: React.FC<SellerStoreManagePageProps> = ({
                     )}
                   </div>
                   {createStoreErrors.shopLogo ? <em>{createStoreErrors.shopLogo}</em> : null}
+                </label>
+                <label className={styles.storeCreateField}>
+                  <div className={styles.storeCreateFieldTitleRow}>
+                    <span>店铺描述</span>
+                    <span className={styles.storeCreateFieldMeta}>
+                      {createStoreForm.shopDescription.length}/60
+                    </span>
+                  </div>
+                  <textarea
+                    value={createStoreForm.shopDescription}
+                    maxLength={60}
+                    onChange={(e) => {
+                      setCreateStoreForm((prev) => ({ ...prev, shopDescription: e.target.value }));
+                      setCreateStoreErrors((prev) => ({ ...prev, shopDescription: undefined }));
+                    }}
+                    placeholder="请输入店铺描述（选填，最多 60 字）"
+                  />
+                  {createStoreErrors.shopDescription ? <em>{createStoreErrors.shopDescription}</em> : null}
                 </label>
               </section>
 

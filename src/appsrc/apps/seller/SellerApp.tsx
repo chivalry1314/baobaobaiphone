@@ -65,8 +65,13 @@ import {
   useKeyboardViewportStabilizer,
   useMobileViewportPageStyle,
 } from '../../../core/mobileViewport';
+import { getGlobalSettingsSnapshot } from '@baobaobaiOS/sdk';
 import styles from './SellerApp.module.css';
 import type { SellerAppProps } from './types';
+import {
+  formatSellerProductGenerationError,
+  generateSellerProducts,
+} from './aiProductGenerator';
 
 type DashboardStat = {
   id: string;
@@ -365,6 +370,9 @@ export const SellerApp: React.FC<SellerAppProps> = ({ onClose }) => {
   const [draggingDecorationProductId, setDraggingDecorationProductId] = React.useState<string | null>(null);
   const [decorationDropTargetId, setDecorationDropTargetId] = React.useState<string | null>(null);
   const [movieStoreQuery, setMovieStoreQuery] = React.useState('');
+  const [isAiGeneratingProducts, setIsAiGeneratingProducts] = React.useState(false);
+  const [isAiProductCountDialogVisible, setIsAiProductCountDialogVisible] = React.useState(false);
+  const [aiProductCount, setAiProductCount] = React.useState(6);
   const publishImageInputRef = React.useRef<HTMLInputElement | null>(null);
   const publishContentScrollRef = React.useRef<HTMLElement | null>(null);
   const storeDecorationImageInputRef = React.useRef<HTMLInputElement | null>(null);
@@ -894,6 +902,61 @@ export const SellerApp: React.FC<SellerAppProps> = ({ onClose }) => {
     [updateActiveStoreProducts]
   );
 
+  const handleGenerateAiProducts = React.useCallback(async (count: number) => {
+    if (!activeStore || isAiGeneratingProducts) return;
+    setIsAiProductCountDialogVisible(false);
+    setIsAiGeneratingProducts(true);
+    try {
+      const settings = getGlobalSettingsSnapshot();
+      const drafts = await generateSellerProducts({
+        settings,
+        store: activeStore,
+        categoryOptions: publishCategories,
+        count,
+      });
+
+      const now = Date.now();
+      const createdProducts: ProductItem[] = drafts.map((draft, index) => ({
+        id: `sp-ai-${(now + index).toString(36)}-${Math.random().toString(36).slice(2, 6)}`,
+        name: draft.title,
+        price: draft.price,
+        desc:
+          draft.desc.trim() ||
+          (activeStore.kind === 'movie' ? draft.category || '影片介绍' : `${draft.category || '商品'}商品`),
+        img:
+          draft.imageDataUrl ||
+          activeStore.logo?.trim() ||
+          activeStore.cover?.trim() ||
+          activeStore.theme ||
+          '',
+        stock: Math.max(1, Math.floor(Number(draft.stock) || 0)),
+        storeId: activeStore.id,
+        isSelected: true,
+      }));
+
+      await updateActiveStoreProducts((items) => [...items, ...createdProducts]);
+
+      const nextCategories = [
+        ...new Set([
+          ...publishCategories,
+          ...drafts.map((item) => item.category.trim()).filter(Boolean),
+        ]),
+      ];
+      setPublishCategories(nextCategories);
+
+      const generatedImageCount = drafts.filter((item) => Boolean(item.imageDataUrl)).length;
+      window.alert(
+        `已为${activeStore.signboard || activeStore.name || '店铺'}生成 ${createdProducts.length} 个商品${
+          generatedImageCount > 0 ? `，其中 ${generatedImageCount} 个带有 AI 主图` : ''
+        }`
+      );
+    } catch (error) {
+      window.alert(formatSellerProductGenerationError(error));
+    } finally {
+      setIsAiGeneratingProducts(false);
+    }
+  }, [activeStore, isAiGeneratingProducts, publishCategories, updateActiveStoreProducts]);
+
   const handlePublishNow = React.useCallback(async () => {
     if (!activeStore) return;
     if (!isPublishInfoComplete(publishForm)) {
@@ -1391,6 +1454,7 @@ export const SellerApp: React.FC<SellerAppProps> = ({ onClose }) => {
     const storeTypeLabel = isStoreDecorationEditing
       ? storeDecorationDraft?.typeNameValue.trim() || activeStore?.typeName || '店铺'
       : activeStore?.typeName || '店铺';
+    const storeDescription = (activeStore?.description || '').trim();
     const storeAvatarText = storeTitle.slice(0, 2).toUpperCase();
     const visibleStoreDraft = !isStoreDecorationEditing ? storeDraft : null;
     const storeHeroBackground = isStoreDecorationEditing ? draftStoreHeroBackground : publishedStoreHeroBackground;
@@ -1492,6 +1556,14 @@ export const SellerApp: React.FC<SellerAppProps> = ({ onClose }) => {
               </>
             ) : (
               <>
+                <button
+                  type="button"
+                  className={styles.storeViewAiGenerateButton}
+                  onClick={() => setIsAiProductCountDialogVisible(true)}
+                  disabled={isAiGeneratingProducts}
+                >
+                  {isAiGeneratingProducts ? '生成中...' : 'AI生成商品'}
+                </button>
                 {!isMovieStore ? (
                   <button type="button" className={styles.ghostPill} onClick={openPublishPage}>
                     发布商品
@@ -1521,6 +1593,7 @@ export const SellerApp: React.FC<SellerAppProps> = ({ onClose }) => {
                 onQueryChange={setMovieStoreQuery}
                 storeSignboard={storeTitle}
                 storeTypeName={storeTypeLabel}
+                storeDescription={storeDescription}
                 storeLogo={storeAvatarImage}
                 storeCover={activeStore?.cover}
                 storeTheme={activeStore?.theme}
@@ -1950,7 +2023,12 @@ export const SellerApp: React.FC<SellerAppProps> = ({ onClose }) => {
                           placeholder="输入副标题"
                         />
                       ) : (
-                        <p className={styles.storeMeta}>{storeTypeLabel}</p>
+                        <p className={styles.storeHeroMetaLine}>
+                          <span>{storeTypeLabel}</span>
+                          {storeDescription ? (
+                            <span className={styles.storeHeroMetaDescription}> · {storeDescription}</span>
+                          ) : null}
+                        </p>
                       )}
                     </div>
                   </div>
@@ -2309,6 +2387,42 @@ export const SellerApp: React.FC<SellerAppProps> = ({ onClose }) => {
             </>
           )}
         </main>
+        {isAiProductCountDialogVisible ? (
+          <div className={styles.storeAiCountOverlay} aria-modal="true" role="dialog">
+            <button
+              type="button"
+              className={styles.storeAiCountBackdrop}
+              onClick={() => setIsAiProductCountDialogVisible(false)}
+              aria-label="关闭数量选择"
+            />
+            <div className={styles.storeAiCountDialog}>
+              <h3>选择生成数量</h3>
+              <p>根据当前店铺信息生成商品与主图，建议 5-10 个。</p>
+              <div className={styles.storeAiCountGrid}>
+                {[5, 6, 7, 8, 9, 10].map((count) => (
+                  <button
+                    key={`ai-product-count-${count}`}
+                    type="button"
+                    className={`${styles.storeAiCountOption} ${
+                      aiProductCount === count ? styles.storeAiCountOptionActive : ''
+                    }`}
+                    onClick={() => setAiProductCount(count)}
+                  >
+                    {count}个
+                  </button>
+                ))}
+              </div>
+              <div className={styles.storeAiCountActions}>
+                <button type="button" onClick={() => setIsAiProductCountDialogVisible(false)}>
+                  取消
+                </button>
+                <button type="button" onClick={() => void handleGenerateAiProducts(aiProductCount)}>
+                  开始生成
+                </button>
+              </div>
+            </div>
+          </div>
+        ) : null}
         {isStoreDecorationEditing && isStoreDecorationPanelVisible ? (
           <div className={styles.storeDecorationConfigOverlay} aria-modal="true" role="dialog">
             <div className={styles.storeDecorationConfigPanel}>
@@ -2432,6 +2546,7 @@ export const SellerApp: React.FC<SellerAppProps> = ({ onClose }) => {
                       onQueryChange={noop}
                       storeSignboard={storeTitle}
                       storeTypeName={storeTypeLabel}
+                      storeDescription={storeDescription}
                       storeLogo={draftStoreLogo}
                       storeCover={draftStoreCover}
                       storeTheme={draftStoreTheme}
@@ -2455,6 +2570,7 @@ export const SellerApp: React.FC<SellerAppProps> = ({ onClose }) => {
                     kind={activeStore.kind === 'flower' ? 'flower' : 'dessert'}
                     storeName={activeStore.name}
                     storeTypeName={storeTypeLabel}
+                    storeDescription={storeDescription}
                     storeSignboard={storeTitle}
                     storeDecoration={activeStore.decoration}
                     storeLogo={draftStoreLogo}

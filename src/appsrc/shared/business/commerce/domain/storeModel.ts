@@ -235,6 +235,7 @@ export const normalizeStore = (input: Partial<CommerceStore>, index: number): Co
   const normalizedTypeName = normalizeText(input.typeName);
   const normalizedName = normalizeText(input.name);
   const normalizedSlogan = normalizeText(input.slogan);
+  const normalizedDescription = normalizeText(input.description);
   const normalizedSignboard = normalizeText(input.signboard);
   const normalizedDecoration = normalizeText(input.decoration);
   const normalizedDecorationConfig = normalizeStoreDecorationConfig(input.decorationConfig);
@@ -249,6 +250,7 @@ export const normalizeStore = (input: Partial<CommerceStore>, index: number): Co
     typeName: normalizedTypeName || fallback.name,
     name: normalizedName || fallback.name || '新店铺',
     slogan: normalizedSlogan || '欢迎光临',
+    description: normalizedDescription || '',
     theme: input.theme?.trim() || fallback.theme || '',
     logo: input.logo?.trim() || '',
     cover: input.cover?.trim() || '',
