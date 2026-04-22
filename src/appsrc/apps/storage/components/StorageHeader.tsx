@@ -1,5 +1,5 @@
 import React from 'react';
-import { ChevronLeft, Download, HardDrive, RotateCw, Trash2, X } from 'lucide-react';
+import { ChevronLeft, Database, Download, HardDrive, RotateCw, Trash2, X } from 'lucide-react';
 import type { StorageCategory } from '../types';
 import { formatTime } from '../utils';
 
@@ -11,10 +11,12 @@ interface StorageHeaderProps {
   canClearCategory: boolean;
   filteredFileCount: number;
   isExporting: boolean;
+  isBackupCenterOpen: boolean;
   onBack: () => void;
   onRefresh: () => void;
   onClear: () => void;
   onDownloadAll: () => void;
+  onToggleBackupCenter: () => void;
   onClose: () => void;
 }
 
@@ -26,10 +28,12 @@ export const StorageHeader: React.FC<StorageHeaderProps> = ({
   canClearCategory,
   filteredFileCount,
   isExporting,
+  isBackupCenterOpen,
   onBack,
   onRefresh,
   onClear,
   onDownloadAll,
+  onToggleBackupCenter,
   onClose,
 }) => {
   return (
@@ -85,6 +89,18 @@ export const StorageHeader: React.FC<StorageHeaderProps> = ({
           disabled={filteredFileCount === 0 || isExporting}
         >
           <Download size={18} />
+        </button>
+        <button
+          onClick={onToggleBackupCenter}
+          className={`p-2 rounded-full transition ${
+            isBackupCenterOpen
+              ? 'bg-sky-100 text-sky-700'
+              : 'hover:bg-slate-100/80 hover:text-slate-700'
+          }`}
+          aria-label="备份中心"
+          title="备份中心"
+        >
+          <Database size={18} />
         </button>
         <button onClick={onClose} className="p-2 rounded-full hover:bg-slate-100/80 hover:text-slate-900 transition">
           <X size={18} />
