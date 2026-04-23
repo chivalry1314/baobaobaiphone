@@ -1,8 +1,13 @@
-﻿import React from 'react';
+import React from 'react';
 import type { Address, ProductItem } from '../types';
 import type { GoodsKind, ShippingMode } from '../uiTypes';
 import { formatMoney, groupCartLines } from '../utils';
 import styles from '../ShoppingApp.module.css';
+
+type PayeeContactOption = {
+  id: string;
+  name: string;
+};
 
 const resolveStoreDecorationBadge = (value: string | undefined) => {
   const normalized = (value || '').trim();
@@ -27,10 +32,13 @@ interface ShoppingGoodsCheckoutProps {
   scheduleDate: string;
   scheduleTime: string;
   defaultAddress?: Address;
+  payeeContacts: PayeeContactOption[];
+  selectedPayeeContactId: string;
   onShippingModeChange: (mode: ShippingMode) => void;
   onScheduleDateChange: (value: string) => void;
   onScheduleTimeChange: (value: string) => void;
   onManageAddress: () => void;
+  onPayeeContactChange: (value: string) => void;
   onPlaceOrder: () => void;
   onBackToList: () => void;
 }
@@ -46,10 +54,13 @@ export const ShoppingGoodsCheckout: React.FC<ShoppingGoodsCheckoutProps> = ({
   scheduleDate,
   scheduleTime,
   defaultAddress,
+  payeeContacts,
+  selectedPayeeContactId,
   onShippingModeChange,
   onScheduleDateChange,
   onScheduleTimeChange,
   onManageAddress,
+  onPayeeContactChange,
   onPlaceOrder,
   onBackToList,
 }) => {
@@ -134,6 +145,23 @@ export const ShoppingGoodsCheckout: React.FC<ShoppingGoodsCheckoutProps> = ({
         )}
       </div>
 
+      <div className={styles.detailCard}>
+        <h3>代付人</h3>
+        {payeeContacts.length > 0 ? (
+          <div className={styles.formRow}>
+            <label>微信聊天</label>
+            <select value={selectedPayeeContactId} onChange={(e) => onPayeeContactChange(e.target.value)}>
+              {payeeContacts.map((contact) => (
+                <option key={contact.id} value={contact.id}>
+                  {contact.name}
+                </option>
+              ))}
+            </select>
+          </div>
+        ) : (
+          <p className={styles.muted}>微信聊天列表里还没有可选择的人。</p>
+        )}
+      </div>
       <div className={styles.detailCard}>
         <h3>商品明细</h3>
         <div className={styles.detailLines}>

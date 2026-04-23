@@ -11,7 +11,10 @@ import type {
 } from './types';
 import type { GoodsKind, Movie, Route, Screen, ShippingMode, TabKey } from './uiTypes';
 import { useShoppingStore } from './store';
+import { useWeChatFriendCharactersFromContacts } from '../WeChat/contactAdapter';
 import { useWeChatStore } from '../WeChat/store';
+import type { WeChatOrderPreview } from '../WeChat/types';
+import { PUSH_OPEN_APP_MESSAGE_TYPE } from '../../../core/push/webPush';
 import styles from './ShoppingApp.module.css';
 import { toMovie, toMovieStoreProducts } from './movies';
 import { addDays, formatDate, formatMoney, groupCartLines } from './utils';
@@ -165,15 +168,102 @@ const resolveMovieQtyDefault = (store: CommerceStore) => {
 };
 
 const toMoney2 = (value: number) => Math.round((value + Number.EPSILON) * 100) / 100;
+const ORDER_PREVIEW_ITEM_LIMIT = 3;
 
-type MergedPaymentMethod = 'wechat';
-type PaymentSheetTarget = 'merged-cart' | 'movie';
+type MergedPaymentMethod = 'wechat' | 'delegate';
+type PaymentSheetTarget = 'merged-cart' | 'movie' | 'order-detail' | 'movie-share';
+type PayeeContact = {
+  id: string;
+  name: string;
+  avatar?: string;
+};
 
-export const ShoppingApp: React.FC<ShoppingAppProps> = ({ onClose }) => {
+const getContactInitials = (name: string) => {
+  const normalized = name.trim();
+  if (!normalized) return '?';
+  return normalized.slice(0, 2).toUpperCase();
+};
+
+const buildOrderPreview = (
+  orders: Array<Pick<Order, 'lines' | 'meta'>>
+): WeChatOrderPreview => {
+  const storeNames = Array.from(
+    new Set(
+      orders
+        .map((order) => String(order.meta?.storeName ?? '').trim())
+        .filter(Boolean)
+    )
+  );
+  const itemMap = new Map<string, { name: string; qty: number }>();
+  let totalItemCount = 0;
+
+  orders.forEach((order) => {
+    order.lines.forEach((line) => {
+      const name = String(line.name ?? '').trim();
+      if (!name) return;
+      const qty = Number.isFinite(line.qty) && line.qty > 0 ? Math.round(line.qty) : 1;
+      totalItemCount += qty;
+      const found = itemMap.get(name);
+      if (found) {
+        found.qty += qty;
+        return;
+      }
+      itemMap.set(name, { name, qty });
+    });
+  });
+
+  return {
+    storeNames: storeNames.length > 0 ? storeNames : undefined,
+    items: Array.from(itemMap.values()).slice(0, ORDER_PREVIEW_ITEM_LIMIT),
+    totalItemCount,
+  };
+};
+
+type ShoppingLaunchState = {
+  tab: TabKey;
+  route: Route;
+  history: Route[];
+};
+
+const resolveShoppingLaunchState = (context?: ShoppingAppProps['context']): ShoppingLaunchState => {
+  const defaultState: ShoppingLaunchState = {
+    tab: 'home',
+    route: { tab: 'home', screen: 'home' },
+    history: [],
+  };
+  const params = context?.params;
+  const rawState = params?.shoppingState;
+  if (!rawState || typeof rawState !== 'object' || Array.isArray(rawState)) return defaultState;
+  const state = rawState as Partial<ShoppingLaunchState> & { route?: Partial<Route> };
+  const tab = state.tab === 'cart' || state.tab === 'orders' || state.tab === 'me' ? state.tab : 'home';
+  const routeTab = state.route?.tab;
+  const routeScreen = state.route?.screen;
+  const route =
+    routeTab && routeScreen
+      ? {
+          tab: routeTab as TabKey,
+          screen: routeScreen as Screen,
+          params: state.route?.params && typeof state.route.params === 'object' ? state.route.params : undefined,
+        }
+      : { tab, screen: getTabRoot(tab) };
+  const history = Array.isArray(state.history)
+    ? state.history
+        .filter((item): item is Route => Boolean(item && typeof item === 'object'))
+        .map((item) => ({
+          tab: (item as Route).tab,
+          screen: (item as Route).screen,
+          params: (item as Route).params,
+        }))
+    : [];
+  return { tab, route, history };
+};
+
+export const ShoppingApp: React.FC<ShoppingAppProps> = ({ onClose, context }) => {
+  const launchState = React.useMemo(() => resolveShoppingLaunchState(context), [context]);
   const contentRef = React.useRef<HTMLDivElement>(null);
-  const [tab, setTab] = React.useState<TabKey>('home');
-  const [route, setRoute] = React.useState<Route>({ tab: 'home', screen: 'home' });
-  const [history, setHistory] = React.useState<Route[]>([]);
+  const [tab, setTab] = React.useState<TabKey>(launchState.tab);
+  const [route, setRoute] = React.useState<Route>(launchState.route);
+  const [history, setHistory] = React.useState<Route[]>(launchState.history);
   const [stores, setStores] = React.useState<CommerceStore[]>([]);
   const [homeTopTab, setHomeTopTab] = React.useState<string>(DEFAULT_SHOPPING_HOME_TAB);
 
@@ -206,6 +296,11 @@ export const ShoppingApp: React.FC<ShoppingAppProps> = ({ onClose }) => {
   const [movieQty, setMovieQty] = React.useState(resolveMovieQtyDefault(defaultStores[2]));
   const [movieCinema, setMovieCinema] = React.useState(DEFAULT_STORE_MOVIE_CHECKOUT_LABELS[8]);
   const [movieSession, setMovieSession] = React.useState(DEFAULT_STORE_MOVIE_SESSION_OPTIONS[0]);
+  const wechatCharacters = useWeChatFriendCharactersFromContacts();
+  const wechatSessions = useWeChatStore((state) => state.wechatSessions);
+  const syncWeChatRoleContext = useWeChatStore((state) => state.syncWeChatRoleContext);
+  const [selectedPayeeContactId, setSelectedPayeeContactId] = React.useState('');
+  const [mergedPaymentSheetStage, setMergedPaymentSheetStage] = React.useState<'method' | 'payee'>('method');
 
   const [newAddrName, setNewAddrName] = React.useState('');
   const [newAddrPhone, setNewAddrPhone] = React.useState('');
@@ -218,12 +313,60 @@ export const ShoppingApp: React.FC<ShoppingAppProps> = ({ onClose }) => {
   const [selectedCartLineKeys, setSelectedCartLineKeys] = React.useState<Record<string, boolean>>({});
   const [paymentSheetTarget, setPaymentSheetTarget] = React.useState<PaymentSheetTarget | null>(null);
   const [pendingMovieStoreId, setPendingMovieStoreId] = React.useState<string | null>(null);
+  const [pendingOrderPaymentId, setPendingOrderPaymentId] = React.useState<string | null>(null);
+  const [pendingMovieShareOrderId, setPendingMovieShareOrderId] = React.useState<string | null>(null);
   const homeTopTabs = React.useMemo(() => resolveShoppingHomeTabs(stores), [stores]);
+  const payeeContacts = React.useMemo(
+    () => {
+      const characterById = new Map(
+        wechatCharacters.map((character) => [character.id.trim(), character] as const)
+      );
+      const seen = new Set<string>();
+      return wechatSessions
+        .map((session) => {
+          const characterId = session.characterId.trim();
+          if (!characterId) return null;
+          if (seen.has(characterId)) return null;
+          if (!Array.isArray(session.messages) || session.messages.length === 0) return null;
+          const character = characterById.get(characterId);
+          if (!character) return null;
+          const name = character.name.trim();
+          if (!name) return null;
+          seen.add(characterId);
+          return {
+            id: characterId,
+            name,
+            avatar: character.avatar?.trim() || '',
+          };
+        })
+        .filter((contact): contact is PayeeContact => Boolean(contact));
+    },
+    [wechatCharacters, wechatSessions]
+  );
+  const selectedPayeeContact = React.useMemo(
+    () => payeeContacts.find((contact) => contact.id === selectedPayeeContactId),
+    [payeeContacts, selectedPayeeContactId]
+  );
+
+
+  React.useEffect(() => {
+    syncWeChatRoleContext();
+  }, [syncWeChatRoleContext]);
 
   React.useEffect(() => {
     if (homeTopTabs.includes(homeTopTab)) return;
     setHomeTopTab(DEFAULT_SHOPPING_HOME_TAB);
   }, [homeTopTab, homeTopTabs]);
+
+  React.useEffect(() => {
+    if (payeeContacts.length === 0) {
+      if (selectedPayeeContactId !== '') setSelectedPayeeContactId('');
+      return;
+    }
+    if (selectedPayeeContactId && payeeContacts.some((contact) => contact.id === selectedPayeeContactId)) return;
+    setSelectedPayeeContactId(payeeContacts[0].id);
+  }, [payeeContacts, selectedPayeeContactId]);
+
 
   const refreshStores = React.useCallback(async () => {
     await hydrateCommerceData();
@@ -638,6 +781,7 @@ export const ShoppingApp: React.FC<ShoppingAppProps> = ({ onClose }) => {
       shippingMode === 'schedule' ? new Date(`${scheduleDate}T${scheduleTime}:00`).getTime() : now;
     const shipAt = Number.isFinite(scheduleAt) ? scheduleAt : now;
     const trackingId = `SF${Math.floor(100000000 + Math.random() * 900000000)}`;
+    const isDelegatePayment = Boolean(selectedPayeeContact);
 
     const newOrder: Order = {
       id: orderId,
@@ -654,6 +798,11 @@ export const ShoppingApp: React.FC<ShoppingAppProps> = ({ onClose }) => {
         storeId: store.id,
         storeName: store.name,
         storeCode: store.code,
+        paymentStatus: isDelegatePayment ? 'pending-pay' : 'paid',
+        payStatus: isDelegatePayment ? 'pending-pay' : 'paid',
+        status: isDelegatePayment ? '待付款' : '已付款',
+        payeeContactId: selectedPayeeContact?.id || '',
+        payeeName: selectedPayeeContact?.name || '',
       },
     };
 
@@ -664,6 +813,25 @@ export const ShoppingApp: React.FC<ShoppingAppProps> = ({ onClose }) => {
     setTab('orders');
     setHistory([{ tab: 'orders', screen: 'orders' }]);
     setRoute({ tab: 'orders', screen: 'order-detail', params: { orderId } });
+
+    if (selectedPayeeContact) {
+      const addressText = [(selectedCartAddress ?? defaultAddress)]
+        .filter(Boolean)
+        .map((item) => `${item.name} ${item.phone} ${item.address}`)
+        .join(' · ');
+      const shareText = [
+        `麻烦你帮我代付这笔${kind === 'dessert' ? '甜品' : '鲜花'}订单`,
+        `订单号：${orderId}`,
+        `店铺：${store.name}`,
+        `商品：${lines.map((line) => `${line.name} x${line.qty}`).join('，')}`,
+        `金额：${formatMoney(total)}`,
+        `配送：${shippingMode === 'schedule' ? `预约 ${scheduleDate} ${scheduleTime}` : '立即发货'}`,
+        addressText ? `收货地址：${addressText}` : '',
+      ]
+        .filter(Boolean)
+        .join('\n');
+      shareWechatOrder(shareText);
+    }
   };
 
   const payByWechatBalance = React.useCallback((amount: number, title: string) => {
@@ -681,14 +849,68 @@ export const ShoppingApp: React.FC<ShoppingAppProps> = ({ onClose }) => {
     return true;
   }, []);
 
-  const placeMergedGoodsOrders = React.useCallback((paymentMethod: MergedPaymentMethod) => {
+  const openApp = React.useCallback((appId: string, params?: Record<string, unknown>) => {
+    window.dispatchEvent(
+      new CustomEvent(PUSH_OPEN_APP_MESSAGE_TYPE, {
+        detail: {
+          appId,
+          params,
+        },
+      })
+    );
+  }, []);
+
+  const shareWechatMessage = React.useCallback((message: {
+    content: string;
+    type?: 'text' | 'order_request' | 'movie_ticket';
+    amount?: number;
+    orderRequestStatus?: 'pending' | 'accepted' | 'rejected';
+    orderIds?: string[];
+    orderPreview?: WeChatOrderPreview;
+    movieTicket?: {
+      orderId: string;
+      movieTitle: string;
+      cinema: string;
+      date: string;
+      time: string;
+      hall: string;
+      seat: string;
+      qty: number;
+      pickupCode: string;
+    };
+  }, targetContact?: PayeeContact) => {
+    const contact = targetContact ?? selectedPayeeContact;
+    if (!contact) return false;
+    const wechatStore = useWeChatStore.getState();
+    if (typeof wechatStore.syncWeChatRoleContext === 'function') {
+      wechatStore.syncWeChatRoleContext();
+    }
+    const sessionId = wechatStore.ensureWeChatSession(contact.id, { switchCurrent: true });
+    if (!sessionId) return false;
+    wechatStore.addWeChatMessage(sessionId, {
+      role: 'user',
+      content: message.content,
+      assistantReplyPending: true,
+      type: message.type || 'text',
+      amount: message.amount,
+      orderRequestStatus: message.orderRequestStatus,
+      orderIds: message.orderIds,
+      orderPreview: message.orderPreview,
+      movieTicket: message.movieTicket,
+    });
+    return true;
+  }, [selectedPayeeContact]);
+  const shareWechatOrder = React.useCallback((content: string, targetContact?: PayeeContact) => {
+    return shareWechatMessage({ content, type: 'text' }, targetContact);
+  }, [shareWechatMessage]);
+  const placeMergedGoodsOrders = React.useCallback((paymentMethod: MergedPaymentMethod, targetContact?: PayeeContact) => {
     if (mergedSelectedCartGroups.length === 0) {
       window.alert('请先勾选要结算的商品');
-      return;
+      return false;
     }
 
     const nextRoute: Route = { tab: 'cart', screen: 'cart' };
-    if (!ensureAddressOrGoAdd(nextRoute)) return;
+    if (!ensureAddressOrGoAdd(nextRoute)) return false;
 
     if (paymentMethod === 'wechat') {
       const uniqueStoreNames = Array.from(
@@ -704,7 +926,7 @@ export const ShoppingApp: React.FC<ShoppingAppProps> = ({ onClose }) => {
           : uniqueStoreNames.length === 1
             ? `${uniqueStoreNames[0]}支出`
             : `${uniqueStoreNames[0]}等${uniqueStoreNames.length}家店铺支出`;
-      if (!payByWechatBalance(mergedSelectedCartTotalAmount, billTitle)) return;
+      if (!payByWechatBalance(mergedSelectedCartTotalAmount, billTitle)) return false;
     }
 
     const now = Date.now();
@@ -716,6 +938,7 @@ export const ShoppingApp: React.FC<ShoppingAppProps> = ({ onClose }) => {
       const store = pickStore(stores, group.kind, group.storeId);
       const trackingId = `SF${Math.floor(100000000 + Math.random() * 900000000)}`;
       const orderId = `OD${(now + index).toString().slice(-10)}`;
+      const isDelegatePayment = paymentMethod === 'delegate';
       return {
         id: orderId,
         kind: group.kind,
@@ -727,7 +950,7 @@ export const ShoppingApp: React.FC<ShoppingAppProps> = ({ onClose }) => {
         })),
         total: group.total,
         createdAt: now + index,
-        address: selectedCartAddress ?? defaultAddress,
+        address: (selectedCartAddress ?? defaultAddress),
         meta: {
           shipMode: shippingMode,
           shipAt,
@@ -735,6 +958,12 @@ export const ShoppingApp: React.FC<ShoppingAppProps> = ({ onClose }) => {
           storeId: store.id,
           storeName: store.name,
           storeCode: store.code,
+          paymentStatus: isDelegatePayment ? 'pending-pay' : 'paid',
+          payStatus: isDelegatePayment ? 'pending-pay' : 'paid',
+          status: isDelegatePayment ? '待付款' : '已付款',
+          delegateStatus: isDelegatePayment ? 'pending' : '',
+          payeeContactId: (targetContact ?? selectedPayeeContact)?.id || '',
+          payeeName: (targetContact ?? selectedPayeeContact)?.name || '',
         },
       };
     });
@@ -745,6 +974,50 @@ export const ShoppingApp: React.FC<ShoppingAppProps> = ({ onClose }) => {
     setTab('orders');
     setHistory([]);
     setRoute({ tab: 'orders', screen: 'orders' });
+
+    const payeeContact = targetContact ?? selectedPayeeContact;
+    if (payeeContact) {
+      if (paymentMethod === 'delegate') {
+        shareWechatMessage(
+          {
+            content: '有一笔订单等你支付~',
+            type: 'order_request',
+            amount: mergedSelectedCartTotalAmount,
+            orderRequestStatus: 'pending',
+            orderIds: nextOrders.map((order) => order.id),
+            orderPreview: buildOrderPreview(nextOrders),
+          },
+          payeeContact
+        );
+        openApp('wechat', {
+          openChatCharacterId: payeeContact.id,
+          returnAppId: 'shopping',
+          returnParams: {
+            shoppingState: {
+              tab: 'cart',
+              route: { tab: 'cart', screen: 'cart' },
+              history: [],
+            },
+          },
+        });
+      } else {
+        const shareText = [
+          '麻烦你帮我代付这次购物结算',
+          `共 ${nextOrders.length} 笔订单，合计 ${formatMoney(mergedSelectedCartTotalAmount)}`,
+          ...nextOrders.map((order) => {
+            const lineText = order.lines.map((line) => `${line.name} x${line.qty}`).join('，');
+            return `${order.title}：${lineText}，${formatMoney(order.total)}`;
+          }),
+          (selectedCartAddress ?? defaultAddress)
+            ? `收货地址：${((selectedCartAddress ?? defaultAddress))?.name} ${((selectedCartAddress ?? defaultAddress))?.phone} ${((selectedCartAddress ?? defaultAddress))?.address}`
+            : '',
+        ]
+          .filter(Boolean)
+          .join('\n');
+        shareWechatOrder(shareText, payeeContact);
+      }
+    }
+    return true;
   }, [
     selectedCartAddress,
     defaultAddress,
@@ -758,7 +1031,31 @@ export const ShoppingApp: React.FC<ShoppingAppProps> = ({ onClose }) => {
     shippingMode,
     stores,
     payByWechatBalance,
+    selectedPayeeContact,
+    openApp,
+    shareWechatMessage,
+    shareWechatOrder,
   ]);
+
+  const openOrderDetailPaymentSheet = React.useCallback((orderId: string) => {
+    const targetOrder = orders.find((item) => item.id === orderId);
+    if (!targetOrder) return;
+    setPendingMovieStoreId(null);
+    setPendingOrderPaymentId(orderId);
+    setPendingMovieShareOrderId(null);
+    setMergedPaymentSheetStage('method');
+    setPaymentSheetTarget('order-detail');
+  }, [orders]);
+
+  const openMovieShareSheet = React.useCallback((orderId: string) => {
+    const targetOrder = orders.find((item) => item.id === orderId && item.kind === 'movie');
+    if (!targetOrder) return;
+    setPendingMovieStoreId(null);
+    setPendingOrderPaymentId(null);
+    setPendingMovieShareOrderId(orderId);
+    setMergedPaymentSheetStage('payee');
+    setPaymentSheetTarget('movie-share');
+  }, [orders]);
 
   const openMergedPaymentSheet = React.useCallback(() => {
     if (mergedCartGroups.length === 0) return;
@@ -769,12 +1066,17 @@ export const ShoppingApp: React.FC<ShoppingAppProps> = ({ onClose }) => {
     const nextRoute: Route = { tab: 'cart', screen: 'cart' };
     if (!ensureAddressOrGoAdd(nextRoute)) return;
     setPendingMovieStoreId(null);
+    setPendingOrderPaymentId(null);
+    setPendingMovieShareOrderId(null);
+    setMergedPaymentSheetStage('method');
     setPaymentSheetTarget('merged-cart');
   }, [ensureAddressOrGoAdd, mergedCartGroups.length, mergedSelectedCartGroups.length]);
 
   const openMoviePaymentSheet = React.useCallback((store: CommerceStore) => {
     if (!selectedMovie) return;
     setPendingMovieStoreId(store.id);
+    setPendingOrderPaymentId(null);
+    setPendingMovieShareOrderId(null);
     setPaymentSheetTarget('movie');
   }, [selectedMovie]);
 
@@ -825,6 +1127,164 @@ export const ShoppingApp: React.FC<ShoppingAppProps> = ({ onClose }) => {
     payByWechatBalance,
     selectedMovie,
   ]);
+
+  const placeOrderDetailPayment = React.useCallback((orderId: string, paymentMethod: MergedPaymentMethod, targetContact?: PayeeContact) => {
+    const targetOrder = orders.find((item) => item.id === orderId);
+    if (!targetOrder) return false;
+
+    const payeeContact = targetContact ?? selectedPayeeContact;
+    const storeName =
+      String(targetOrder.meta?.storeName ?? '').trim() ||
+      targetOrder.title.replace(/订单$|票据$/, '').trim() ||
+      '购物';
+
+    if (paymentMethod === 'wechat') {
+      if (!payByWechatBalance(targetOrder.total, `${storeName}支出`)) return false;
+      const now = Date.now();
+      setOrders((prev) =>
+        prev.map((order) =>
+          order.id === orderId
+            ? {
+                ...order,
+                meta: {
+                  ...order.meta,
+                  paymentStatus: 'paid',
+                  payStatus: 'paid',
+                  status: '已付款',
+                  delegateStatus: 'accepted',
+                  shipAt: now,
+                },
+              }
+            : order
+        )
+      );
+
+      setTab('orders');
+      if (targetOrder.kind === 'movie') {
+        setHistory([{ tab: 'orders', screen: 'orders' }]);
+        setRoute({ tab: 'orders', screen: 'order-detail', params: { orderId } });
+      } else {
+        setHistory([
+          { tab: 'orders', screen: 'orders' },
+          { tab: 'orders', screen: 'order-detail', params: { orderId } },
+        ]);
+        setRoute({ tab: 'orders', screen: 'logistics', params: { orderId } });
+      }
+      return true;
+    }
+
+    if (!payeeContact) {
+      window.alert('微信聊天列表里还没有可用于代付的人');
+      return false;
+    }
+
+    setSelectedPayeeContactId(payeeContact.id);
+    setOrders((prev) =>
+      prev.map((order) =>
+        order.id === orderId
+          ? {
+              ...order,
+              meta: {
+                ...order.meta,
+                paymentStatus: 'pending-pay',
+                payStatus: 'pending-pay',
+                status: '待付款',
+                delegateStatus: 'pending',
+                payeeContactId: payeeContact.id,
+                payeeName: payeeContact.name,
+              },
+            }
+          : order
+      )
+    );
+
+    const shared = shareWechatMessage(
+      {
+        content: '有一笔订单等你支付~',
+        type: 'order_request',
+        amount: targetOrder.total,
+        orderRequestStatus: 'pending',
+        orderIds: [orderId],
+        orderPreview: buildOrderPreview([targetOrder]),
+      },
+      payeeContact
+    );
+    if (!shared) return false;
+
+    openApp('wechat', {
+      openChatCharacterId: payeeContact.id,
+      returnAppId: 'shopping',
+      returnParams: {
+        shoppingState: {
+          tab: 'orders',
+          route: { tab: 'orders', screen: 'order-detail', params: { orderId } },
+          history: [{ tab: 'orders', screen: 'orders' }],
+        },
+      },
+    });
+    return true;
+  }, [openApp, orders, payByWechatBalance, selectedPayeeContact, setOrders, shareWechatMessage]);
+
+  const shareMovieTicketOrder = React.useCallback((orderId: string, targetContact?: PayeeContact) => {
+    const targetOrder = orders.find((item) => item.id === orderId && item.kind === 'movie');
+    if (!targetOrder) return false;
+    const contact = targetContact ?? selectedPayeeContact;
+    if (!contact) {
+      window.alert('微信聊天列表里还没有可分享的人');
+      return false;
+    }
+
+    const pickupCode = (() => {
+      const storedCode = String(targetOrder.meta?.pickupCode ?? '').trim();
+      if (/^\d{6}$/.test(storedCode)) return storedCode;
+      const digits = targetOrder.id.replace(/\D/g, '');
+      if (digits.length >= 6) return digits.slice(-6);
+      return digits.padStart(6, '0').slice(-6) || '462800';
+    })();
+
+    setSelectedPayeeContactId(contact.id);
+    const shared = shareWechatMessage(
+      {
+        content: '电影票票据',
+        type: 'movie_ticket',
+        amount: targetOrder.total,
+        movieTicket: {
+          orderId: targetOrder.id,
+          movieTitle: String(targetOrder.meta?.movieTitle ?? ''),
+          cinema: String(targetOrder.meta?.cinema ?? ''),
+          date: String(targetOrder.meta?.date ?? ''),
+          time: String(targetOrder.meta?.time ?? ''),
+          hall: String(targetOrder.meta?.hall ?? ''),
+          seat: String(targetOrder.meta?.seat ?? ''),
+          qty: targetOrder.lines[0]?.qty ?? 1,
+          pickupCode,
+        },
+      },
+      contact
+    );
+    if (!shared) return false;
+
+    openApp('wechat', {
+      openChatCharacterId: contact.id,
+      returnAppId: 'shopping',
+      returnParams: {
+        shoppingState: {
+          tab: 'orders',
+          route: { tab: 'orders', screen: 'order-detail', params: { orderId } },
+          history: [{ tab: 'orders', screen: 'orders' }],
+        },
+      },
+    });
+    return true;
+  }, [openApp, orders, selectedPayeeContact, shareWechatOrder]);
+
+  const closePaymentSheet = React.useCallback(() => {
+    setPaymentSheetTarget(null);
+    setPendingMovieStoreId(null);
+    setPendingOrderPaymentId(null);
+    setPendingMovieShareOrderId(null);
+    setMergedPaymentSheetStage('method');
+  }, []);
 
   const activeMovieProducts = React.useMemo(() => {
     const scopedProducts = movieProducts.filter(
@@ -1080,6 +1540,9 @@ export const ShoppingApp: React.FC<ShoppingAppProps> = ({ onClose }) => {
             scheduleDate={scheduleDate}
             scheduleTime={scheduleTime}
             defaultAddress={defaultAddress}
+            payeeContacts={payeeContacts}
+            selectedPayeeContactId={selectedPayeeContactId}
+            onPayeeContactChange={(value) => setSelectedPayeeContactId(value)}
             onShippingModeChange={(mode) => setShippingMode(mode)}
             onScheduleDateChange={(value) => setScheduleDate(value)}
             onScheduleTimeChange={(value) => setScheduleTime(value)}
@@ -1155,6 +1618,8 @@ export const ShoppingApp: React.FC<ShoppingAppProps> = ({ onClose }) => {
             order={order}
             onBackOrders={() => switchTab('orders')}
             onViewLogistics={(id) => go('logistics', { orderId: id })}
+            onOpenPaymentOptions={openOrderDetailPaymentSheet}
+            onShareMovieTicket={openMovieShareSheet}
           />
         );
       }
@@ -1292,43 +1757,187 @@ export const ShoppingApp: React.FC<ShoppingAppProps> = ({ onClose }) => {
       {paymentSheetTarget ? (
         <div
           className={styles.paymentSheetOverlay}
-          onClick={() => {
-            setPaymentSheetTarget(null);
-            setPendingMovieStoreId(null);
-          }}
+          onClick={closePaymentSheet}
           role="presentation"
         >
           <div className={styles.paymentSheetPanel} onClick={(event) => event.stopPropagation()} role="dialog" aria-modal="true">
-            <button
-              type="button"
-              className={styles.paymentSheetOption}
-              onClick={() => {
-                const target = paymentSheetTarget;
-                const movieStoreId = pendingMovieStoreId;
-                setPaymentSheetTarget(null);
-                setPendingMovieStoreId(null);
-                if (target === 'merged-cart') {
-                  placeMergedGoodsOrders('wechat');
-                  return;
-                }
-                if (target === 'movie' && movieStoreId) {
-                  const movieStore = pickStore(stores, 'movie', movieStoreId);
-                  placeMovieOrder(movieStore, 'wechat');
-                }
-              }}
-            >
-              微信支付
-            </button>
-            <button
-              type="button"
-              className={styles.paymentSheetCancel}
-              onClick={() => {
-                setPaymentSheetTarget(null);
-                setPendingMovieStoreId(null);
-              }}
-            >
-              取消
-            </button>
+            {(paymentSheetTarget === 'merged-cart' || paymentSheetTarget === 'order-detail' || paymentSheetTarget === 'movie-share') &&
+            mergedPaymentSheetStage === 'payee' ? (
+              <div className={styles.paymentSheetStage}>
+                <div className={styles.paymentSheetHeader}>
+                  <strong className={styles.paymentSheetTitle}>
+                    {paymentSheetTarget === 'movie-share' ? '选择微信联系人' : '选择代付联系人'}
+                  </strong>
+                  <span className={styles.paymentSheetSubtitle}>
+                    {paymentSheetTarget === 'movie-share' ? '从微信聊天列表里选择一个聊天框分享票据信息' : '从微信聊天列表里选一个头像和人名'}
+                  </span>
+                </div>
+                {payeeContacts.length > 0 ? (
+                  <div className={styles.paymentSheetContactList}>
+                    {payeeContacts.map((contact) => (
+                      <button
+                        key={contact.id}
+                        type="button"
+                        className={styles.paymentSheetContactItem}
+                        onClick={() => {
+                          setSelectedPayeeContactId(contact.id);
+                          const succeeded =
+                            paymentSheetTarget === 'merged-cart'
+                              ? placeMergedGoodsOrders('delegate', contact)
+                              : paymentSheetTarget === 'movie-share'
+                                ? pendingMovieShareOrderId
+                                  ? shareMovieTicketOrder(pendingMovieShareOrderId, contact)
+                                  : false
+                              : pendingOrderPaymentId
+                                ? placeOrderDetailPayment(pendingOrderPaymentId, 'delegate', contact)
+                                : false;
+                          if (succeeded !== false) closePaymentSheet();
+                        }}
+                      >
+                        <span className={styles.paymentSheetContactAvatar}>
+                          {contact.avatar ? (
+                            <img
+                              src={contact.avatar}
+                              alt={contact.name}
+                              className={styles.paymentSheetContactAvatarImage}
+                            />
+                          ) : (
+                            <span>{getContactInitials(contact.name)}</span>
+                          )}
+                        </span>
+                        <span className={styles.paymentSheetContactName}>{contact.name}</span>
+                      </button>
+                    ))}
+                  </div>
+                ) : (
+                  <div className={styles.paymentSheetEmpty}>
+                    {paymentSheetTarget === 'movie-share'
+                      ? '微信聊天列表里还没有可分享的人。'
+                      : '微信聊天列表里还没有可用于代付的人。'}
+                  </div>
+                )}
+                <div className={styles.paymentSheetFooter}>
+                  {paymentSheetTarget !== 'movie-share' ? (
+                    <button
+                      type="button"
+                      className={styles.paymentSheetSecondaryAction}
+                      onClick={() => setMergedPaymentSheetStage('method')}
+                    >
+                      返回支付方式
+                    </button>
+                  ) : (
+                    <button
+                      type="button"
+                      className={styles.paymentSheetSecondaryAction}
+                      onClick={closePaymentSheet}
+                    >
+                      关闭
+                    </button>
+                  )}
+                  <button type="button" className={styles.paymentSheetCancel} onClick={closePaymentSheet}>
+                    取消
+                  </button>
+                </div>
+              </div>
+            ) : paymentSheetTarget === 'merged-cart' ? (
+              <>
+                <button
+                  type="button"
+                  className={styles.paymentSheetOption}
+                  onClick={() => {
+                    const succeeded = placeMergedGoodsOrders('wechat');
+                    if (succeeded !== false) closePaymentSheet();
+                  }}
+                >
+                  微信支付
+                </button>
+                <button
+                  type="button"
+                  className={styles.paymentSheetOption}
+                  onClick={() => {
+                    if (payeeContacts.length === 0) {
+                      window.alert('微信聊天列表里还没有可用于代付的人');
+                      return;
+                    }
+                    setMergedPaymentSheetStage('payee');
+                  }}
+                >
+                  由他代付
+                </button>
+                <button type="button" className={styles.paymentSheetCancel} onClick={closePaymentSheet}>
+                  取消
+                </button>
+              </>
+            ) : paymentSheetTarget === 'order-detail' ? (
+              <>
+                <button
+                  type="button"
+                  className={styles.paymentSheetOption}
+                  onClick={() => {
+                    if (!pendingOrderPaymentId) return;
+                    const succeeded = placeOrderDetailPayment(pendingOrderPaymentId, 'wechat');
+                    if (succeeded !== false) closePaymentSheet();
+                  }}
+                >
+                  微信支付
+                </button>
+                <button
+                  type="button"
+                  className={styles.paymentSheetOption}
+                  onClick={() => {
+                    if (payeeContacts.length === 0) {
+                      window.alert('微信聊天列表里还没有可用于代付的人');
+                      return;
+                    }
+                    setMergedPaymentSheetStage('payee');
+                  }}
+                >
+                  由他代付
+                </button>
+                <button type="button" className={styles.paymentSheetCancel} onClick={closePaymentSheet}>
+                  取消
+                </button>
+              </>
+            ) : paymentSheetTarget === 'movie-share' ? (
+              <>
+                <button
+                  type="button"
+                  className={styles.paymentSheetOption}
+                  onClick={() => {
+                    if (payeeContacts.length === 0) {
+                      window.alert('微信聊天列表里还没有可分享的人');
+                      return;
+                    }
+                    setMergedPaymentSheetStage('payee');
+                  }}
+                >
+                  选择微信联系人
+                </button>
+                <button type="button" className={styles.paymentSheetCancel} onClick={closePaymentSheet}>
+                  取消
+                </button>
+              </>
+            ) : (
+              <>
+                <button
+                  type="button"
+                  className={styles.paymentSheetOption}
+                  onClick={() => {
+                    const movieStoreId = pendingMovieStoreId;
+                    closePaymentSheet();
+                    if (movieStoreId) {
+                      const movieStore = pickStore(stores, 'movie', movieStoreId);
+                      placeMovieOrder(movieStore, 'wechat');
+                    }
+                  }}
+                >
+                  微信支付
+                </button>
+                <button type="button" className={styles.paymentSheetCancel} onClick={closePaymentSheet}>
+                  取消
+                </button>
+              </>
+            )}
           </div>
         </div>
       ) : null}

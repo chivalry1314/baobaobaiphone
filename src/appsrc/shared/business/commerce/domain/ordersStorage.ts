@@ -75,3 +75,27 @@ export const appendShoppingOrderToStorage = async (order: Order): Promise<Order[
 
   return nextOrders;
 };
+
+export const updateShoppingOrdersInStorage = async (
+  updater: (orders: Order[]) => Order[]
+): Promise<Order[]> => {
+  const roleId = resolveRoleId();
+  let nextOrders: Order[] = [];
+
+  await updateRecord<unknown, ShoppingRoleStateRecord>(
+    shoppingRoleStateStore,
+    roleId,
+    (current) => {
+      const currentState = normalizeRoleStateRecord(current);
+      const currentOrders = normalizeOrdersFromRecord(currentState);
+      nextOrders = updater(currentOrders);
+
+      return {
+        ...currentState,
+        orders: nextOrders,
+      };
+    }
+  );
+
+  return nextOrders;
+};

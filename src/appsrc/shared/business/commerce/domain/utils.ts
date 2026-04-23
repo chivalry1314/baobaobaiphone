@@ -60,7 +60,17 @@ export const resolveOrderStoreId = (order: Order): string | undefined => {
   return undefined;
 };
 
+export const isOrderPendingPayment = (order: Order) => {
+  const paymentStatus = String(
+    order.meta?.paymentStatus ?? order.meta?.payStatus ?? order.meta?.status ?? ''
+  ).trim();
+  return ['unpaid', 'pending', 'pending-pay', 'to-pay', 'paying', '待付款'].includes(paymentStatus);
+};
+
 export const getOrderStatus = (order: Order) => {
+  if (isOrderPendingPayment(order)) {
+    return '待付款';
+  }
   if (order.kind === 'movie') return '已出票';
   const shipAt = Number(order.meta?.shipAt ?? order.createdAt);
   const now = Date.now();
@@ -73,10 +83,22 @@ export const getOrderStatus = (order: Order) => {
 
 export const isOrderInTransit = (order: Order) => {
   if (order.kind === 'movie') return false;
+  if (isOrderPendingPayment(order)) return false;
   return getOrderStatus(order) !== '已送达';
 };
 
+export const hasOrderLogistics = (order: Order) => {
+  if (order.kind === 'movie') return false;
+  return !isOrderPendingPayment(order);
+};
+
 export const getLogisticsSteps = (order: Order): LogisticsInfo => {
+  if (!hasOrderLogistics(order)) {
+    return {
+      steps: [],
+      activeIndex: -1,
+    };
+  }
   const shipAt = Number(order.meta?.shipAt ?? order.createdAt);
   const steps = [
     { label: '订单已确认', at: order.createdAt },

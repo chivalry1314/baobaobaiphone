@@ -1,6 +1,6 @@
 import React from 'react';
 import type { Order } from '../types';
-import { formatDateTime, getLogisticsSteps, getOrderStatus } from '../utils';
+import { formatDateTime, getLogisticsSteps, getOrderStatus, hasOrderLogistics } from '../utils';
 import styles from '../ShoppingApp.module.css';
 
 interface ShoppingLogisticsProps {
@@ -22,32 +22,39 @@ export const ShoppingLogistics: React.FC<ShoppingLogisticsProps> = ({ order, onB
     );
   }
 
+  const canShowLogistics = hasOrderLogistics(order);
   const { steps, activeIndex } = getLogisticsSteps(order);
 
   return (
     <section className={styles.section}>
       <div className={styles.detailCard}>
         <h3>物流详情</h3>
-        <div className={styles.logisticsHeaderRow}>
-          <div className={styles.logisticsTitle}>
-            <strong>{getOrderStatus(order)}</strong>
-            <span>运单号 {String(order.meta?.trackingId ?? '--')}</span>
-          </div>
-        </div>
-        <div className={styles.timelineBig}>
-          {steps.map((step, idx) => (
-            <div
-              key={step.label}
-              className={`${styles.timelineBigItem} ${idx <= activeIndex ? styles.timelineOn : ''}`}
-            >
-              <div className={styles.timelineDot} />
-              <div className={styles.timelineText}>
-                <strong>{step.label}</strong>
-                <span>{formatDateTime(step.at)}</span>
+        {canShowLogistics ? (
+          <>
+            <div className={styles.logisticsHeaderRow}>
+              <div className={styles.logisticsTitle}>
+                <strong>{getOrderStatus(order)}</strong>
+                <span>运单号 {String(order.meta?.trackingId ?? '--')}</span>
               </div>
             </div>
-          ))}
-        </div>
+            <div className={styles.timelineBig}>
+              {steps.map((step, idx) => (
+                <div
+                  key={step.label}
+                  className={`${styles.timelineBigItem} ${idx <= activeIndex ? styles.timelineOn : ''}`}
+                >
+                  <div className={styles.timelineDot} />
+                  <div className={styles.timelineText}>
+                    <strong>{step.label}</strong>
+                    <span>{formatDateTime(step.at)}</span>
+                  </div>
+                </div>
+              ))}
+            </div>
+          </>
+        ) : (
+          <p className={styles.muted}>订单待付款时不会发货，暂无物流信息。</p>
+        )}
       </div>
     </section>
   );

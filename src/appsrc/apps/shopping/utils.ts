@@ -6,6 +6,8 @@ export {
   getLogisticsSteps,
   getOrderStatus,
   groupCartLines,
+  hasOrderLogistics,
+  isOrderPendingPayment,
   isOrderInTransit,
   resolveOrderStoreId,
 } from '../../shared/business/commerce/domain/utils';

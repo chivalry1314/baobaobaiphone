@@ -19,14 +19,40 @@ export interface WeChatMessage {
   content: string;
   timestamp: number;
   quoteText?: string;
-  type?: 'text' | 'transfer' | 'transfer_accepted' | 'pat' | 'voice' | 'image';
+  assistantReplyPending?: boolean;
+  type?: 'text' | 'transfer' | 'transfer_accepted' | 'pat' | 'voice' | 'image' | 'order_request' | 'movie_ticket';
   amount?: number;
+  orderRequestStatus?: 'pending' | 'accepted' | 'rejected';
+  orderIds?: string[];
+  orderPreview?: WeChatOrderPreview;
+  movieTicket?: {
+    orderId: string;
+    movieTitle: string;
+    cinema: string;
+    date: string;
+    time: string;
+    hall: string;
+    seat: string;
+    qty: number;
+    pickupCode: string;
+  };
   voiceAudioDataUrl?: string;
   voiceDurationSeconds?: number;
   voiceTranscriptText?: string;
   voiceTranscriptVisible?: boolean;
   imageDataUrl?: string;
   imageMimeType?: string;
+}
+
+export interface WeChatOrderPreviewItem {
+  name: string;
+  qty: number;
+}
+
+export interface WeChatOrderPreview {
+  storeNames?: string[];
+  items: WeChatOrderPreviewItem[];
+  totalItemCount?: number;
 }
 
 export interface WeChatSession {
@@ -173,6 +199,7 @@ export interface WeChatContactsProps {
 export interface WeChatChatViewProps {
   characterId: string;
   onBack: () => void;
+  onReturnToShopping?: () => void;
   restoreVoiceCallSignal?: number;
   onVoiceCallUiStateChange?: (state: WeChatVoiceCallUiState) => void;
   readOnly?: boolean;

@@ -130,9 +130,50 @@ const clampRecentMessageCount = (value: number): number =>
 const clampMemoryReferenceCount = (value: number): number =>
   Math.max(0, Math.min(40, Math.round(value)));
 
+const formatOrderPreviewForMemory = (message: Pick<WeChatMessage, 'orderPreview'>): string => {
+  const previewItems = Array.isArray(message.orderPreview?.items)
+    ? message.orderPreview.items.filter((item) => item.name.trim())
+    : [];
+  if (previewItems.length === 0) return '';
+  const previewedCount = previewItems.reduce((sum, item) => sum + Math.max(0, Number(item.qty) || 0), 0);
+  const totalItemCount = Math.max(0, Number(message.orderPreview?.totalItemCount) || 0);
+  const remainingItemCount = Math.max(0, totalItemCount - previewedCount);
+  const storeNames = Array.isArray(message.orderPreview?.storeNames)
+    ? message.orderPreview.storeNames.map((item) => item.trim()).filter(Boolean)
+    : [];
+  const itemText = previewItems.map((item) => `${item.name}x${item.qty}`).join('、');
+  const moreText = remainingItemCount > 0 ? ` 等${remainingItemCount}件商品` : '';
+  const storeText =
+    storeNames.length === 0
+      ? ''
+      : storeNames.length === 1
+        ? ` 店铺：${storeNames[0]}`
+        : ` 店铺：${storeNames[0]}等${storeNames.length}家店铺`;
+  return ` 商品：${itemText}${moreText}${storeText}`;
+};
+
 const normalizeMessageContentForMemory = (
   message: Omit<WeChatMessage, 'id' | 'timestamp'>
 ): string => {
+  if (message.type === 'order_request' && typeof message.amount === 'number') {
+    const actionText =
+      message.orderRequestStatus === 'accepted'
+        ? '已同意代付'
+        : message.orderRequestStatus === 'rejected'
+          ? '已拒绝代付'
+          : '有一笔订单等你支付';
+    const orderIdsText =
+      Array.isArray(message.orderIds) && message.orderIds.length > 0
+        ? ` 订单号：${message.orderIds.join('、')}`
+        : '';
+    return `${actionText} ¥${message.amount.toFixed(2)}${orderIdsText}${formatOrderPreviewForMemory(message)}`;
+  }
+
+  if (message.type === 'movie_ticket' && message.movieTicket) {
+    const ticket = message.movieTicket;
+    return `分享电影票：${ticket.movieTitle}，影院${ticket.cinema}，日期${ticket.date} ${ticket.time}，${ticket.hall}，座位${ticket.seat}，${ticket.qty}张，取票码${ticket.pickupCode}`;
+  }
+
   if (message.type === 'image') {
     const caption = message.content.trim();
     if (caption && caption !== WECHAT_IMAGE_PLACEHOLDER) {

@@ -2,6 +2,7 @@ import React, { useCallback, useEffect, useState } from 'react';
 import { AnimatePresence, motion } from 'motion/react';
 import { ChevronLeft, Phone, Plus } from 'lucide-react';
 import { APP_CLOSE_MOTION, APP_OPEN_MOTION } from '../../../core/appOpenMotion';
+import { PUSH_OPEN_APP_MESSAGE_TYPE } from '../../../core/push/webPush';
 import { useStoredActiveRoleId } from '../contacts/activeRole';
 import { isContactRoleId } from '../../shared/business/roleIdentity';
 import { clearRuntimeActiveRoleId, useRoleRuntimeStore } from '../../shared/business/roleRuntime';
@@ -59,6 +60,13 @@ export const WeChatApp: React.FC<WeChatAppProps> = ({ onClose, context }) => {
   const [restoreVoiceCallSignal, setRestoreVoiceCallSignal] = useState(0);
   const [voiceCallStartedAt, setVoiceCallStartedAt] = useState<number | null>(null);
   const [voiceCallElapsedSeconds, setVoiceCallElapsedSeconds] = useState(0);
+  const directLaunchCharacterId =
+    typeof context?.params?.openChatCharacterId === 'string'
+      ? context.params.openChatCharacterId.trim()
+      : '';
+  const returnAppId =
+    typeof context?.params?.returnAppId === 'string' ? context.params.returnAppId.trim() : '';
+  const returnAppParams = (context?.params?.returnParams as Record<string, unknown> | undefined) || undefined;
 
   const isVoiceCallActive = Boolean(voiceCallUiState?.active);
   const showVoiceCallFloatingEntry = Boolean(
@@ -78,6 +86,13 @@ export const WeChatApp: React.FC<WeChatAppProps> = ({ onClose, context }) => {
   useEffect(() => {
     syncWeChatRoleContext();
   }, [effectiveRoleId, syncWeChatRoleContext]);
+
+  useEffect(() => {
+    if (!directLaunchCharacterId) return;
+    setActiveTab('chat');
+    setSelectedCharacterId(directLaunchCharacterId);
+    setCurrentView('chat');
+  }, [directLaunchCharacterId]);
 
   useEffect(() => {
     if (!isInspectorContactRoleMode) return;
@@ -138,6 +153,18 @@ export const WeChatApp: React.FC<WeChatAppProps> = ({ onClose, context }) => {
     },
     [isVoiceCallActive, selectedCharacterId]
   );
+
+  const handleReturnToShopping = useCallback(() => {
+    if (!returnAppId) return;
+    window.dispatchEvent(
+      new CustomEvent(PUSH_OPEN_APP_MESSAGE_TYPE, {
+        detail: {
+          appId: returnAppId,
+          params: returnAppParams,
+        },
+      })
+    );
+  }, [returnAppId, returnAppParams]);
 
   const handleBack = () => {
     if (currentView === 'moments') {
@@ -449,6 +476,7 @@ export const WeChatApp: React.FC<WeChatAppProps> = ({ onClose, context }) => {
             key="chat-view-persistent"
             characterId={selectedCharacterId}
             onBack={handleBack}
+            onReturnToShopping={returnAppId ? handleReturnToShopping : undefined}
             restoreVoiceCallSignal={restoreVoiceCallSignal}
             onVoiceCallUiStateChange={handleVoiceCallUiStateChange}
             readOnly={isInspectorContactRoleMode}

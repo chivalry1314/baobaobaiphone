@@ -47,6 +47,10 @@ const isPendingPay = (order: Order) => {
   return ['unpaid', 'pending', 'pending-pay', 'to-pay', 'paying', '待付款'].includes(rawStatus);
 };
 
+const isDelegateRejected = (order: Order) => {
+  return normalizeMetaStatus(order.meta?.delegateStatus) === 'rejected';
+};
+
 const isPendingShip = (order: Order) => {
   if (order.kind === 'movie') return false;
   return getOrderStatus(order) === '等待发货';
@@ -165,7 +169,7 @@ export const ShoppingOrders: React.FC<ShoppingOrdersProps> = ({
     }
     if (!isHorizontalDragRef.current) return;
     suppressClickRef.current = true;
-    const next = Math.max(0, Math.min(SWIPE_ACTION_WIDTH, dragBaseOffsetRef.current + deltaX));
+    const next = Math.max(0, Math.min(SWIPE_ACTION_WIDTH, dragBaseOffsetRef.current - deltaX));
     setDragOffset(next);
   };
 
@@ -179,7 +183,7 @@ export const ShoppingOrders: React.FC<ShoppingOrdersProps> = ({
     isHorizontalDragRef.current = false;
   };
 
-  const resolveOffset = (orderId: string) => {
+  const resolveReveal = (orderId: string) => {
     if (draggingOrderId === orderId) return dragOffset;
     return openOrderId === orderId ? SWIPE_ACTION_WIDTH : 0;
   };
@@ -239,7 +243,13 @@ export const ShoppingOrders: React.FC<ShoppingOrdersProps> = ({
                 }}
               >
                 <div className={styles.orderSwipeRow}>
-                  <div className={styles.orderSwipeActions}>
+                  <div
+                    className={styles.orderSwipeActions}
+                    style={{
+                      transform: `translateX(${SWIPE_ACTION_WIDTH - resolveReveal(order.id)}px)`,
+                      transition: draggingOrderId === order.id ? 'none' : 'transform 0.2s ease',
+                    }}
+                  >
                     <button
                       type="button"
                       className={styles.orderSwipeActionDanger}
@@ -269,7 +279,7 @@ export const ShoppingOrders: React.FC<ShoppingOrdersProps> = ({
                     type="button"
                     className={styles.orderCard}
                     style={{
-                      transform: `translateX(${resolveOffset(order.id)}px)`,
+                      transform: `translateX(${-resolveReveal(order.id)}px)`,
                       transition: draggingOrderId === order.id ? 'none' : 'transform 0.2s ease',
                       touchAction: 'pan-y'
                     }}
@@ -309,6 +319,9 @@ export const ShoppingOrders: React.FC<ShoppingOrdersProps> = ({
                       <div className={styles.orderTitle}>
                         <strong>{order.title}</strong>
                         <span>{getOrderStatus(order)}</span>
+                        {isPendingPay(order) && isDelegateRejected(order) ? (
+                          <em className={styles.orderFailureTag}>代付失败</em>
+                        ) : null}
                       </div>
                       <div className={styles.orderMeta}>{formatDateTime(order.createdAt)}</div>
                     </div>

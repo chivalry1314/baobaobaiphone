@@ -13,7 +13,7 @@ import type { DesktopItem } from './core/stores/types';
 import { useDesktopCoreStore } from './core/stores/desktop/store';
 import { hasCoreStoresHydrated, onCoreStoresHydrated } from './core/stores/hydration';
 import { useSettingsCoreStore } from './core/stores/settings/store';
-import { ensureWebPushSubscription, isPushOpenAppMessage } from './core/push/webPush';
+import { ensureWebPushSubscription, isPushOpenAppMessage, PUSH_OPEN_APP_MESSAGE_TYPE } from './core/push/webPush';
 import { isSystemAppId, SYSTEM_APP_IDS } from './core/systemApps';
 import { hasAppMarketHydrated, onAppMarketHydrated, useAppMarketStore } from './appsrc/apps/appmarket/store';
 import { getInstalledRuntimeMarketApps, isMarketAppId } from './appsrc/apps/appmarket/runtime';
@@ -657,6 +657,24 @@ export default function App() {
     navigator.serviceWorker.addEventListener('message', onServiceWorkerMessage);
     return () => {
       navigator.serviceWorker.removeEventListener('message', onServiceWorkerMessage);
+    };
+  }, [openApp]);
+
+  useEffect(() => {
+    if (typeof window === 'undefined') return;
+
+    const onOpenApp = (event: Event) => {
+      const customEvent = event as CustomEvent<unknown>;
+      const payload = customEvent.detail;
+      if (!isRecord(payload) || typeof payload.appId !== 'string') return;
+      const nextParams =
+        isRecord(payload.params) ? (payload.params as Record<string, unknown>) : undefined;
+      openApp(payload.appId, nextParams);
+    };
+
+    window.addEventListener(PUSH_OPEN_APP_MESSAGE_TYPE, onOpenApp as EventListener);
+    return () => {
+      window.removeEventListener(PUSH_OPEN_APP_MESSAGE_TYPE, onOpenApp as EventListener);
     };
   }, [openApp]);
 

@@ -238,7 +238,7 @@ const requestSellerProductDrafts = async (
 {"title":"商品标题","category":"类目","price":39.9,"stock":88,"desc":"商品描述","imagePrompt":"生图提示词"}
 
 要求：
-1. 商品必须适合这个店铺，风格统一但彼此有明显区分。
+1. 商品必须适合这个店铺，风格统一但彼此有明显区分。如果是电影院，只需要电影票，而不是周边商品。
 2. title 为 6-24 个中文字符，避免重复。
 3. category 优先从候选类目中选择，没有合适时可给出一个合理新类目。
 4. price 必须是正数，stock 必须是正整数。
@@ -365,7 +365,7 @@ export const generateSellerProducts = async ({
   categoryOptions,
   count = DEFAULT_AI_PRODUCT_COUNT,
 }: GenerateSellerProductsParams): Promise<SellerAiProductDraft[]> => {
-  const normalizedCount = Math.max(5, Math.min(10, Math.floor(count || DEFAULT_AI_PRODUCT_COUNT)));
+  const normalizedCount = Math.max(1, Math.min(50, Math.floor(count || DEFAULT_AI_PRODUCT_COUNT)));
   const drafts = await requestSellerProductDrafts(settings, store, categoryOptions, normalizedCount);
   return mapWithConcurrency(drafts, IMAGE_GENERATION_CONCURRENCY, async (draft) => {
     const imageDataUrl = await requestSellerProductImage(settings, draft.imagePrompt);

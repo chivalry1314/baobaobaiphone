@@ -4,6 +4,7 @@ import type {
   Order,
   ProductItem,
 } from '../../shared/business/commerce/domain/types';
+import type { AppContext } from '../../../core/sdk/types';
 
 export type {
   Address,
@@ -36,5 +37,6 @@ export interface ShoppingState {
 
 export interface ShoppingAppProps {
   onClose: () => void;
+  context?: AppContext;
 }
 

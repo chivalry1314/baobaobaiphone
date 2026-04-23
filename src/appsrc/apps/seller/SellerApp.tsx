@@ -373,6 +373,7 @@ export const SellerApp: React.FC<SellerAppProps> = ({ onClose }) => {
   const [isAiGeneratingProducts, setIsAiGeneratingProducts] = React.useState(false);
   const [isAiProductCountDialogVisible, setIsAiProductCountDialogVisible] = React.useState(false);
   const [aiProductCount, setAiProductCount] = React.useState(6);
+  const [aiProductCountInput, setAiProductCountInput] = React.useState('');
   const publishImageInputRef = React.useRef<HTMLInputElement | null>(null);
   const publishContentScrollRef = React.useRef<HTMLElement | null>(null);
   const storeDecorationImageInputRef = React.useRef<HTMLInputElement | null>(null);
@@ -956,6 +957,22 @@ export const SellerApp: React.FC<SellerAppProps> = ({ onClose }) => {
       setIsAiGeneratingProducts(false);
     }
   }, [activeStore, isAiGeneratingProducts, publishCategories, updateActiveStoreProducts]);
+
+  const startAiProductGeneration = React.useCallback(() => {
+    const customValue = aiProductCountInput.trim();
+    if (customValue) {
+      const parsed = Number(customValue);
+      if (!Number.isFinite(parsed) || parsed < 1) {
+        window.alert('请输入大于 0 的商品数量');
+        return;
+      }
+      void handleGenerateAiProducts(Math.min(50, Math.floor(parsed)));
+      return;
+    }
+
+    const count = Math.max(1, Math.floor(aiProductCount));
+    void handleGenerateAiProducts(count);
+  }, [aiProductCount, aiProductCountInput, handleGenerateAiProducts]);
 
   const handlePublishNow = React.useCallback(async () => {
     if (!activeStore) return;
@@ -1559,7 +1576,10 @@ export const SellerApp: React.FC<SellerAppProps> = ({ onClose }) => {
                 <button
                   type="button"
                   className={styles.storeViewAiGenerateButton}
-                  onClick={() => setIsAiProductCountDialogVisible(true)}
+                  onClick={() => {
+                    setAiProductCountInput('');
+                    setIsAiProductCountDialogVisible(true);
+                  }}
                   disabled={isAiGeneratingProducts}
                 >
                   {isAiGeneratingProducts ? '生成中...' : 'AI生成商品'}
@@ -1675,6 +1695,11 @@ export const SellerApp: React.FC<SellerAppProps> = ({ onClose }) => {
                         className={styles.movieDecorationHeroSubtitleInput}
                         placeholder="输入店铺副标题"
                       />
+                      {storeDescription ? (
+                        <p data-decoration-interactive="true" className={styles.storeHeroMetaLine}>
+                          {storeDescription}
+                        </p>
+                      ) : null}
                     </div>
                   </div>
                 </div>
@@ -2006,22 +2031,29 @@ export const SellerApp: React.FC<SellerAppProps> = ({ onClose }) => {
                         )}
                       </div>
                       {isStoreDecorationEditing ? (
-                        <input
-                          data-decoration-interactive="true"
-                          value={storeDecorationDraft?.typeNameValue || ''}
-                          onChange={(event) =>
-                            setStoreDecorationDraft((prev) =>
-                              prev
-                                ? {
-                                    ...prev,
-                                    typeNameValue: event.target.value,
-                                  }
-                                : prev
-                            )
-                          }
-                          className={styles.storeHeroEditableInput}
-                          placeholder="输入副标题"
-                        />
+                        <>
+                          <input
+                            data-decoration-interactive="true"
+                            value={storeDecorationDraft?.typeNameValue || ''}
+                            onChange={(event) =>
+                              setStoreDecorationDraft((prev) =>
+                                prev
+                                  ? {
+                                      ...prev,
+                                      typeNameValue: event.target.value,
+                                    }
+                                  : prev
+                              )
+                            }
+                            className={styles.storeHeroEditableInput}
+                            placeholder="输入副标题"
+                          />
+                          {storeDescription ? (
+                            <p data-decoration-interactive="true" className={styles.storeHeroMetaLine}>
+                              {storeDescription}
+                            </p>
+                          ) : null}
+                        </>
                       ) : (
                         <p className={styles.storeHeroMetaLine}>
                           <span>{storeTypeLabel}</span>
@@ -2397,26 +2429,42 @@ export const SellerApp: React.FC<SellerAppProps> = ({ onClose }) => {
             />
             <div className={styles.storeAiCountDialog}>
               <h3>选择生成数量</h3>
-              <p>根据当前店铺信息生成商品与主图，建议 5-10 个。</p>
+              <p>根据当前店铺信息生成商品与主图，建议 5-8 个，也可以手动输入数量。</p>
               <div className={styles.storeAiCountGrid}>
-                {[5, 6, 7, 8, 9, 10].map((count) => (
+                {[5, 6, 7, 8].map((count) => (
                   <button
                     key={`ai-product-count-${count}`}
                     type="button"
                     className={`${styles.storeAiCountOption} ${
-                      aiProductCount === count ? styles.storeAiCountOptionActive : ''
+                      !aiProductCountInput.trim() && aiProductCount === count
+                        ? styles.storeAiCountOptionActive
+                        : ''
                     }`}
-                    onClick={() => setAiProductCount(count)}
-                  >
-                    {count}个
-                  </button>
+                    onClick={() => {
+                      setAiProductCount(count);
+                      setAiProductCountInput('');
+                    }}
+                    >
+                      {count}个
+                    </button>
                 ))}
+                <input
+                  id="ai-product-count-custom"
+                  className={styles.storeAiCountCustomInput}
+                  type="number"
+                  min={1}
+                  step={1}
+                  inputMode="numeric"
+                  value={aiProductCountInput}
+                  placeholder="输入数量"
+                  onChange={(event) => setAiProductCountInput(event.target.value)}
+                />
               </div>
               <div className={styles.storeAiCountActions}>
                 <button type="button" onClick={() => setIsAiProductCountDialogVisible(false)}>
                   取消
                 </button>
-                <button type="button" onClick={() => void handleGenerateAiProducts(aiProductCount)}>
+                <button type="button" onClick={startAiProductGeneration}>
                   开始生成
                 </button>
               </div>

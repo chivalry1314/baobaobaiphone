@@ -380,6 +380,23 @@
   box-shadow: 0 0 0 2px rgba(187, 139, 100, 0.14);
 }
 
+.storeAiCountCustomInput {
+  width: 100%;
+  height: 42px;
+  border-radius: 14px;
+  border: 1px solid #ead8ca;
+  background: #ffffff;
+  color: #5f4636;
+  font-size: 14px;
+  padding: 0 12px;
+  outline: none;
+}
+
+.storeAiCountCustomInput:focus {
+  border-color: #bb8b64;
+  box-shadow: 0 0 0 2px rgba(187, 139, 100, 0.14);
+}
+
 .storeAiCountActions {
   margin-top: 18px;
   display: grid;

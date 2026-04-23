@@ -13,6 +13,8 @@ import { isLikelyVisionChatModel } from '../../../../core/modelCapabilities';
 import { wechatMemoryController } from '../memory';
 import { queryPersonalMemoryByApp } from '../../../../core/appMemoryCenter';
 import { getAppById } from '../../../../core/registry';
+import { useShoppingStore } from '../../shopping/store';
+import { updateShoppingOrdersInStorage } from '../../../shared/business/commerce/domain/ordersStorage';
 
 import { WeChatChatHeader } from './WeChatChatHeader';
 import { WeChatChatMessageItem } from './WeChatChatMessageItem';
@@ -110,7 +112,48 @@ const normalizePersonalProfileMemoryLimit = (value: number): number => {
   return Math.max(0, Math.min(24, Math.round(value)));
 };
 
+const formatOrderPreviewForMemory = (message: Pick<WeChatMessage, 'orderPreview'>): string => {
+  const previewItems = Array.isArray(message.orderPreview?.items)
+    ? message.orderPreview.items.filter((item) => item.name.trim())
+    : [];
+  if (previewItems.length === 0) return '';
+  const previewedCount = previewItems.reduce((sum, item) => sum + Math.max(0, Number(item.qty) || 0), 0);
+  const totalItemCount = Math.max(0, Number(message.orderPreview?.totalItemCount) || 0);
+  const remainingItemCount = Math.max(0, totalItemCount - previewedCount);
+  const storeNames = Array.isArray(message.orderPreview?.storeNames)
+    ? message.orderPreview.storeNames.map((item) => item.trim()).filter(Boolean)
+    : [];
+  const itemText = previewItems.map((item) => `${item.name}x${item.qty}`).join('、');
+  const moreText = remainingItemCount > 0 ? ` 等${remainingItemCount}件商品` : '';
+  const storeText =
+    storeNames.length === 0
+      ? ''
+      : storeNames.length === 1
+        ? ` 店铺：${storeNames[0]}`
+        : ` 店铺：${storeNames[0]}等${storeNames.length}家店铺`;
+  return ` 商品：${itemText}${moreText}${storeText}`;
+};
+
 const normalizeMessageContentForMemoryComparison = (message: WeChatMessage): string => {
+  if (message.type === 'order_request' && typeof message.amount === 'number') {
+    const actionText =
+      message.orderRequestStatus === 'accepted'
+        ? '已同意代付'
+        : message.orderRequestStatus === 'rejected'
+          ? '已拒绝代付'
+          : '待支付订单';
+    const orderIdsText =
+      Array.isArray(message.orderIds) && message.orderIds.length > 0
+        ? ` 订单号：${message.orderIds.join('、')}`
+        : '';
+    return `${actionText} ¥${message.amount.toFixed(2)}${orderIdsText}${formatOrderPreviewForMemory(message)}`;
+  }
+
+  if (message.type === 'movie_ticket' && message.movieTicket) {
+    const ticket = message.movieTicket;
+    return `分享电影票：${ticket.movieTitle}，影院${ticket.cinema}，日期${ticket.date} ${ticket.time}，${ticket.hall}，座位${ticket.seat}，${ticket.qty}张，取票码${ticket.pickupCode}`;
+  }
+
   if (message.type === 'image') {
     const caption = message.content.trim();
     if (caption && caption !== '[图片]') return `[图片] ${caption}`;
@@ -141,9 +184,34 @@ const isIOSViewportDevice = (): boolean => {
   return isIOSUserAgent || isMacTouchDevice;
 };
 
+const parseAssistantOrderDecision = (
+  rawReply: string
+): { action: 'accepted' | 'rejected' | null; content: string } => {
+  const normalized = rawReply.trim();
+  const match = normalized.match(/^\[(?:ORDER_REQUEST|代付决策)\s*:\s*(accepted|rejected|同意|拒绝)\]\s*/i);
+  if (!match) {
+    return {
+      action: null,
+      content: normalized,
+    };
+  }
+
+  const token = match[1].toLowerCase();
+  return {
+    action:
+      token === 'accepted' || token === '同意'
+        ? 'accepted'
+        : token === 'rejected' || token === '拒绝'
+          ? 'rejected'
+          : null,
+    content: normalized.slice(match[0].length).trim(),
+  };
+};
+
 export const WeChatChatView: React.FC<WeChatChatViewProps> = ({
   characterId,
   onBack,
+  onReturnToShopping,
   restoreVoiceCallSignal,
   onVoiceCallUiStateChange,
   readOnly = false,
@@ -239,6 +307,7 @@ export const WeChatChatView: React.FC<WeChatChatViewProps> = ({
   const voiceCallConnectTimerRef = useRef<number | null>(null);
   const voiceCallSpeakerEnabledRef = useRef(false);
   const lastRestoreVoiceCallSignalRef = useRef<number | null>(restoreVoiceCallSignal ?? null);
+  const handledAutoReplyMessageIdsRef = useRef<Set<string>>(new Set());
 
   const scrollRef = useRef<HTMLDivElement>(null);
   const bottomAnchorRef = useRef<HTMLDivElement>(null);
@@ -1358,6 +1427,9 @@ export const WeChatChatView: React.FC<WeChatChatViewProps> = ({
         content: messageItem.content,
         type: messageItem.type,
         amount: messageItem.amount,
+        orderRequestStatus: messageItem.orderRequestStatus,
+        orderIds: messageItem.orderIds,
+        movieTicket: messageItem.movieTicket,
         voiceAudioDataUrl: messageItem.voiceAudioDataUrl,
         voiceDurationSeconds: messageItem.voiceDurationSeconds,
         voiceTranscriptText: messageItem.voiceTranscriptText,
@@ -1499,6 +1571,23 @@ export const WeChatChatView: React.FC<WeChatChatViewProps> = ({
       }
 
       let content = m.content;
+      if (m.type === 'order_request') {
+        const actionText =
+          m.orderRequestStatus === 'accepted'
+            ? '已同意代付'
+            : m.orderRequestStatus === 'rejected'
+              ? '已拒绝代付'
+              : '有一笔订单待支付';
+        const orderIdsText =
+          Array.isArray(m.orderIds) && m.orderIds.length > 0
+            ? `；订单号：${m.orderIds.join('、')}`
+            : '';
+        const orderPreviewText = formatOrderPreviewForMemory(m).replace(/^ /, '；');
+        content = `[系统记录：${actionText}；金额：¥${Number(m.amount || 0).toFixed(2)}${orderIdsText}${orderPreviewText}]`;
+      }
+      if (m.type === 'movie_ticket' && m.movieTicket) {
+        content = `[系统记录：分享了一张电影票；电影：${m.movieTicket.movieTitle}；影院：${m.movieTicket.cinema}；时间：${m.movieTicket.date} ${m.movieTicket.time}；影厅：${m.movieTicket.hall}；座位：${m.movieTicket.seat}；数量：${m.movieTicket.qty}张；取票码：${m.movieTicket.pickupCode}]`;
+      }
       if (m.type === 'transfer') content = `[系统记录：用户向你发起了转账 ¥${m.amount}]`;
       if (m.type === 'transfer_accepted') content = `[系统记录：你已接收转账 ¥${m.amount}]`;
       if (m.type === 'pat') content = `[系统记录：${m.content}]`;
@@ -1520,6 +1609,11 @@ export const WeChatChatView: React.FC<WeChatChatViewProps> = ({
         systemPrompt += `背景：${worldBook.find(w => w.id === character.worldBookId)?.content}\n`;
       }
       systemPrompt += `\n要求：微信聊天语气，简短、口语化。直接输出内容，不带前缀。`;
+      systemPrompt += `\n如果聊天上下文里出现待支付的代付订单，并且你已经能根据上下文明确判断是否愿意代付：`;
+      systemPrompt += `\n愿意代付就在回复最前面输出 [ORDER_REQUEST:accepted]`;
+      systemPrompt += `\n不愿意代付就在回复最前面输出 [ORDER_REQUEST:rejected]`;
+      systemPrompt += `\n如果信息不足、还想继续问、或暂时不做决定，就不要输出这个标签。`;
+      systemPrompt += `\n标签后面继续正常聊天回复，不要解释标签本身。`;
 
       const response = await fetch(`${settings.baseUrl}/chat/completions`, {
         method: 'POST',
@@ -1531,8 +1625,32 @@ export const WeChatChatView: React.FC<WeChatChatViewProps> = ({
         })
       });
       if (!response.ok) throw new Error('API 失败');
-      const replyContent = (await response.json()).choices[0].message.content;
-      if (replyContent) {
+      const replyContentRaw = (await response.json()).choices[0].message.content;
+      if (replyContentRaw) {
+        const { action, content } = parseAssistantOrderDecision(replyContentRaw);
+        const replyContent =
+          content ||
+          (action === 'accepted'
+            ? '行，这单我来付。'
+            : action === 'rejected'
+              ? '这单我先不帮你付了。'
+              : '');
+
+        if (action) {
+          const latestPendingOrderRequest = [...(useWeChatStore.getState().wechatSessions.find((item) => item.id === sessionId)?.messages || [])]
+            .reverse()
+            .find(
+              (message) =>
+                message.role === 'user' &&
+                message.type === 'order_request' &&
+                message.orderRequestStatus === 'pending'
+            );
+          if (latestPendingOrderRequest) {
+            await applyOrderRequestAction(sessionId, latestPendingOrderRequest, action, { silent: true });
+          }
+        }
+
+        if (!replyContent) return;
         const replyMessage = await buildCharacterReplyMessage(replyContent);
         addWeChatMessage(sessionId, replyMessage);
         if (replyMessage.type === 'voice' && replyMessage.voiceAudioDataUrl) {
@@ -1548,6 +1666,26 @@ export const WeChatChatView: React.FC<WeChatChatViewProps> = ({
       scrollToBottom();
     }
   };
+
+  React.useEffect(() => {
+    if (readOnly) return;
+    if (!session) return;
+    const pendingMessage = [...messages]
+      .reverse()
+      .find(
+        (message) =>
+          message.role === 'user' &&
+          message.assistantReplyPending &&
+          !handledAutoReplyMessageIdsRef.current.has(message.id)
+      );
+    if (!pendingMessage) return;
+
+    handledAutoReplyMessageIdsRef.current.add(pendingMessage.id);
+    updateWeChatMessage(session.id, pendingMessage.id, {
+      assistantReplyPending: false,
+    });
+    void requestAssistantReply(session.id);
+  }, [messages, readOnly, requestAssistantReply, session, updateWeChatMessage]);
 
   const requestAssistantReplyForVoiceCall = async (userText: string) => {
     if (!character) return;
@@ -1819,6 +1957,81 @@ export const WeChatChatView: React.FC<WeChatChatViewProps> = ({
     await requestAssistantReply(sessionId);
   };
 
+  const applyOrderRequestAction = useCallback(
+    async (
+      sessionId: string,
+      message: WeChatMessage,
+      action: 'accepted' | 'rejected',
+      options?: { silent?: boolean }
+    ) => {
+      updateWeChatMessage(sessionId, message.id, {
+        orderRequestStatus: action,
+      });
+
+      const orderIds = Array.isArray(message.orderIds)
+        ? message.orderIds
+            .map((item) => (typeof item === 'string' ? item.trim() : ''))
+            .filter(Boolean)
+        : [];
+
+      if (orderIds.length > 0) {
+        const orderIdSet = new Set(orderIds);
+        const now = Date.now();
+        const nextOrders = await updateShoppingOrdersInStorage((orders) =>
+          orders.map((order) => {
+            if (!orderIdSet.has(order.id)) return order;
+            if (action === 'accepted') {
+              return {
+                ...order,
+                meta: {
+                  ...order.meta,
+                  paymentStatus: 'paid',
+                  payStatus: 'paid',
+                  status: '已付款',
+                  delegateStatus: 'accepted',
+                  shipAt: now,
+                },
+              };
+            }
+            return {
+              ...order,
+              meta: {
+                ...order.meta,
+                paymentStatus: 'pending-pay',
+                payStatus: 'pending-pay',
+                status: '待付款',
+                delegateStatus: 'rejected',
+              },
+            };
+          })
+        );
+        useShoppingStore.getState().setOrders(nextOrders);
+      }
+
+      if (!options?.silent) {
+        setToastMessage(action === 'accepted' ? '已同意代付' : '已拒绝代付');
+        window.setTimeout(() => setToastMessage(null), 1800);
+      }
+    },
+    [updateWeChatMessage]
+  );
+
+  const handleOrderRequestAction = useCallback(
+    (message: WeChatMessage, action: 'accepted' | 'rejected') => {
+      if (!session) return;
+      void (async () => {
+        try {
+          await applyOrderRequestAction(session.id, message, action);
+        } catch (error) {
+          console.error('[WeChatChatView] order request action failed:', error);
+          setToastMessage('订单状态更新失败，请稍后重试');
+          window.setTimeout(() => setToastMessage(null), 1800);
+        }
+      })();
+    },
+    [applyOrderRequestAction, session]
+  );
+
   const handleToggleVoiceInput = () => {
     if (isVoiceRecording) {
       stopVoiceRecognition(false);
@@ -2069,7 +2282,15 @@ export const WeChatChatView: React.FC<WeChatChatViewProps> = ({
       >
         
         {/* 顶部 Header */}
-        <WeChatChatHeader isSelectionMode={isSelectionMode} selectedCount={selectedMessageIds.length} characterName={character.name} isTyping={isTyping} onBack={onBack} onExitSelection={exitSelectionMode} />
+        <WeChatChatHeader
+          isSelectionMode={isSelectionMode}
+          selectedCount={selectedMessageIds.length}
+          characterName={character.name}
+          isTyping={isTyping}
+          onBack={onBack}
+          onReturnToShopping={onReturnToShopping}
+          onExitSelection={exitSelectionMode}
+        />
 
         {/* 消息列表内容 */}
         <div
@@ -2103,6 +2324,7 @@ export const WeChatChatView: React.FC<WeChatChatViewProps> = ({
                     onMessageClick={readOnly ? (event) => event.stopPropagation() : handleMessageClick}
                     onOpenMessageMenu={readOnly ? undefined : openMessageMenu}
                     onVoiceMessagePlay={readOnly ? undefined : handlePlayVoiceMessage}
+                    onOrderRequestAction={readOnly ? undefined : handleOrderRequestAction}
                     isVoicePlaying={playingVoiceMessageId === message.id}
                     onToggleSelection={readOnly ? () => undefined : toggleSelection}
                     onAvatarClick={readOnly ? undefined : handlePeerAvatarTap}

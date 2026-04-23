@@ -1,19 +1,38 @@
 import React from 'react';
-import { Film } from 'lucide-react';
+import { Film, Share2 } from 'lucide-react';
 import type { Order } from '../types';
-import { formatDateTime, formatMoney, getLogisticsSteps, getOrderStatus } from '../utils';
+import {
+  formatDateTime,
+  formatMoney,
+  getLogisticsSteps,
+  getOrderStatus,
+  hasOrderLogistics,
+  isOrderPendingPayment,
+} from '../utils';
 import styles from '../ShoppingApp.module.css';
 
 interface ShoppingOrderDetailProps {
   order?: Order;
   onBackOrders: () => void;
   onViewLogistics: (orderId: string) => void;
+  onOpenPaymentOptions?: (orderId: string) => void;
+  onShareMovieTicket?: (orderId: string) => void;
 }
+
+const resolvePickupCode = (order: Order) => {
+  const storedCode = String(order.meta?.pickupCode ?? '').trim();
+  if (/^\d{6}$/.test(storedCode)) return storedCode;
+  const digits = order.id.replace(/\D/g, '');
+  if (digits.length >= 6) return digits.slice(-6);
+  return digits.padStart(6, '0').slice(-6) || '462800';
+};
 
 export const ShoppingOrderDetail: React.FC<ShoppingOrderDetailProps> = ({
   order,
   onBackOrders,
-  onViewLogistics
+  onViewLogistics,
+  onOpenPaymentOptions,
+  onShareMovieTicket,
 }) => {
   if (!order) {
     return (
@@ -28,13 +47,19 @@ export const ShoppingOrderDetail: React.FC<ShoppingOrderDetailProps> = ({
     );
   }
 
+  const orderStatus = getOrderStatus(order);
+  const canShowLogistics = hasOrderLogistics(order);
+  const isPendingPayment = isOrderPendingPayment(order);
+  const delegateRejected = String(order.meta?.delegateStatus ?? '').trim().toLowerCase() === 'rejected';
+  const pickupCode = resolvePickupCode(order);
+
   return (
     <section className={styles.section}>
       <div className={styles.detailHeader}>
         <div>
           <h2>{order.title}</h2>
           <p>
-            {formatDateTime(order.createdAt)} · {getOrderStatus(order)}
+            {formatDateTime(order.createdAt)} · {orderStatus}
           </p>
         </div>
         <div className={styles.detailTotal}>{formatMoney(order.total)}</div>
@@ -47,9 +72,21 @@ export const ShoppingOrderDetail: React.FC<ShoppingOrderDetailProps> = ({
               <strong></strong>
               <p>{String(order.meta?.cinema ?? '')}</p>
             </div>
-            <div className={styles.cnTicketBadge}>
-              <Film size={18} />
-              <span>{order.id}</span>
+            <div className={styles.cnTicketHeaderRight}>
+              <div className={styles.cnTicketBadge}>
+                <Film size={18} />
+                <span>{order.id}</span>
+              </div>
+              {onShareMovieTicket ? (
+                <button
+                  type="button"
+                  className={styles.cnTicketShareBtn}
+                  onClick={() => onShareMovieTicket(order.id)}
+                  aria-label="分享票据"
+                >
+                  <Share2 size={16} />
+                </button>
+              ) : null}
             </div>
           </div>
           <div className={styles.cnTicketBody}>
@@ -80,7 +117,7 @@ export const ShoppingOrderDetail: React.FC<ShoppingOrderDetailProps> = ({
           </div>
           <div className={styles.cnTicketFooter}>
             <div className={styles.barcode} />
-            <div className={styles.cnTicketHint}>取票码 {Math.floor(100000 + Math.random() * 900000)}</div>
+            <div className={styles.cnTicketHint}>取票码 {pickupCode}</div>
           </div>
         </div>
       ) : (
@@ -115,36 +152,57 @@ export const ShoppingOrderDetail: React.FC<ShoppingOrderDetailProps> = ({
 
           <div className={styles.detailCard}>
             <h3>物流信息</h3>
-            <div className={styles.logisticsHeaderRow}>
-              <div className={styles.logisticsTitle}>
-                <strong>{getOrderStatus(order)}</strong>
-                <span>运单号 {String(order.meta?.trackingId ?? '--')}</span>
-              </div>
-              <button className={styles.smallBtn} onClick={() => onViewLogistics(order.id)}>
-                查看详情
-              </button>
-            </div>
-            <div className={styles.logistics}>
-              {(() => {
-                const { steps, activeIndex } = getLogisticsSteps(order);
-                return (
-                  <div className={styles.timeline}>
-                    {steps.slice(0, 4).map((step, idx) => (
-                      <div
-                        key={step.label}
-                        className={`${styles.timelineItem} ${idx <= activeIndex ? styles.timelineOn : ''}`}
-                      >
-                        <span>{step.label}</span>
-                        <em>{formatDateTime(step.at)}</em>
-                      </div>
-                    ))}
+            {canShowLogistics ? (
+              <>
+                <div className={styles.logisticsHeaderRow}>
+                  <div className={styles.logisticsTitle}>
+                    <strong>{orderStatus}</strong>
+                    <span>运单号 {String(order.meta?.trackingId ?? '--')}</span>
                   </div>
-                );
-              })()}
-            </div>
+                  <button className={styles.smallBtn} onClick={() => onViewLogistics(order.id)}>
+                    查看详情
+                  </button>
+                </div>
+                <div className={styles.logistics}>
+                  {(() => {
+                    const { steps, activeIndex } = getLogisticsSteps(order);
+                    return (
+                      <div className={styles.timeline}>
+                        {steps.slice(0, 4).map((step, idx) => (
+                          <div
+                            key={step.label}
+                            className={`${styles.timelineItem} ${idx <= activeIndex ? styles.timelineOn : ''}`}
+                          >
+                            <span>{step.label}</span>
+                            <em>{formatDateTime(step.at)}</em>
+                          </div>
+                        ))}
+                      </div>
+                    );
+                  })()}
+                </div>
+              </>
+            ) : (
+              <p className={styles.muted}>订单待付款时不会发货，暂无物流信息。</p>
+            )}
           </div>
         </>
       )}
+
+      {isPendingPayment && onOpenPaymentOptions ? (
+        <div className={styles.detailFooter}>
+          {delegateRejected ? (
+            <p className={styles.detailNotice}>当前订单代付失败，请重新选择支付方式。</p>
+          ) : null}
+          <button
+            type="button"
+            className={styles.detailPrimaryBtn}
+            onClick={() => onOpenPaymentOptions(order.id)}
+          >
+            合并支付
+          </button>
+        </div>
+      ) : null}
     </section>
   );
 };

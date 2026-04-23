@@ -30,6 +30,7 @@ interface WeChatChatMessageItemProps {
   onMessageClick: (e: React.MouseEvent, msg: WeChatMessage) => void;
   onOpenMessageMenu?: (message: WeChatMessage, clientX: number, clientY: number) => void;
   onVoiceMessagePlay?: (message: WeChatMessage) => void;
+  onOrderRequestAction?: (message: WeChatMessage, action: 'accepted' | 'rejected') => void;
   isVoicePlaying?: boolean;
   onToggleSelection: (messageId: string) => void;
   onAvatarClick?: (message: WeChatMessage, isUser: boolean) => void;
@@ -72,10 +73,12 @@ const normalizeStyle = (
 export const WeChatChatMessageItem: React.FC<WeChatChatMessageItemProps> = ({
   message, isUser, userAvatar, characterAvatar, characterName,
   selfBubblePreset, peerBubblePreset, customRenderConfig,
-  isSelected, isSelectionMode, isMenuOpen, onMessageClick, onOpenMessageMenu, onVoiceMessagePlay, isVoicePlaying, onToggleSelection, onAvatarClick
+  isSelected, isSelectionMode, isMenuOpen, onMessageClick, onOpenMessageMenu, onVoiceMessagePlay, onOrderRequestAction, isVoicePlaying, onToggleSelection, onAvatarClick
 }) => {
   const isPat = message.type === 'pat';
   const isTransfer = message.type === 'transfer' || message.type === 'transfer_accepted';
+  const isOrderRequest = message.type === 'order_request';
+  const isMovieTicket = message.type === 'movie_ticket' && Boolean(message.movieTicket);
   const isVoice = message.type === 'voice' && Boolean(message.voiceAudioDataUrl);
   const isImage = message.type === 'image' && Boolean(message.imageDataUrl);
   const imageCaption = message.content.trim();
@@ -92,8 +95,32 @@ export const WeChatChatMessageItem: React.FC<WeChatChatMessageItemProps> = ({
     isUser ? customRenderConfig?.selfTextStyle : customRenderConfig?.peerTextStyle
   );
   const isUsingCustomBubble = Boolean(customBubbleStyle);
-  const showTail = !isUsingCustomBubble && bubblePreset === 'wechat';
+  const showTail = !isUsingCustomBubble && bubblePreset === 'wechat' && !isOrderRequest && !isMovieTicket;
   const tailClass = isUser ? 'border-l-[#95ec69]' : 'border-r-white';
+  const movieTicket = message.movieTicket;
+  const orderPreviewItems = Array.isArray(message.orderPreview?.items)
+    ? message.orderPreview.items.filter((item) => item.name.trim())
+    : [];
+  const previewedItemCount = orderPreviewItems.reduce((sum, item) => sum + Math.max(0, Number(item.qty) || 0), 0);
+  const totalPreviewItemCount = Math.max(0, Number(message.orderPreview?.totalItemCount) || 0);
+  const remainingPreviewItemCount = Math.max(0, totalPreviewItemCount - previewedItemCount);
+  const orderPreviewStoreNames = Array.isArray(message.orderPreview?.storeNames)
+    ? message.orderPreview.storeNames.map((item) => item.trim()).filter(Boolean)
+    : [];
+  const orderPreviewStoreText =
+    orderPreviewStoreNames.length === 0
+      ? ''
+      : orderPreviewStoreNames.length === 1
+        ? orderPreviewStoreNames[0]
+        : `${orderPreviewStoreNames[0]}等${orderPreviewStoreNames.length}家店铺`;
+  const orderPreviewGridItems = orderPreviewItems.slice(0, 4);
+  const orderRemainingSummaryCount = Math.max(
+    remainingPreviewItemCount,
+    Math.max(0, orderPreviewItems.length - orderPreviewGridItems.length)
+  );
+  const orderAmountText = `¥${Number(message.amount || 0).toFixed(2)}`;
+  const isLongOrderAmount = orderAmountText.length >= 8;
+  const isVeryLongOrderAmount = orderAmountText.length >= 10;
 
   const openMenuByPoint = (clientX: number, clientY: number) => {
     if (onOpenMessageMenu) {
@@ -113,6 +140,13 @@ export const WeChatChatMessageItem: React.FC<WeChatChatMessageItemProps> = ({
     event.stopPropagation();
     if (onVoiceMessagePlay) {
       onVoiceMessagePlay(message);
+    }
+  };
+
+  const handleOrderRequestAction = (event: React.MouseEvent<HTMLButtonElement>, action: 'accepted' | 'rejected') => {
+    event.stopPropagation();
+    if (onOrderRequestAction) {
+      onOrderRequestAction(message, action);
     }
   };
 
@@ -187,9 +221,11 @@ export const WeChatChatMessageItem: React.FC<WeChatChatMessageItemProps> = ({
               className={`relative cursor-pointer ${isMenuOpen ? 'brightness-90' : ''} ${
                 isTransfer
                   ? `bg-[#F39B3A] text-white overflow-hidden ${message.type === 'transfer_accepted' ? 'opacity-95' : ''}` 
+                  : isOrderRequest || isMovieTicket
+                    ? 'overflow-hidden rounded-[18px] border border-[#EAECEF] bg-white shadow-[0_8px_20px_rgba(15,23,42,0.06)]'
                   : `${bubblePresetClass} ${isImage ? 'p-1.5' : 'px-3.5 py-2.5'}`
               }`}
-              style={!isTransfer ? customBubbleStyle : undefined}
+              style={!isTransfer && !isOrderRequest && !isMovieTicket ? customBubbleStyle : undefined}
             >
               {isTransfer ? (
                 <div className="flex flex-col w-[200px] sm:w-[220px]">
@@ -205,6 +241,133 @@ export const WeChatChatMessageItem: React.FC<WeChatChatMessageItemProps> = ({
                     </div>
                   </div>
                   <div className="bg-white/20 px-3 py-1 text-[11px] text-white/90">微信转账</div>
+                </div>
+              ) : isOrderRequest ? (
+                <div className="flex w-[244px] max-w-full flex-col bg-white">
+                  <div className="border-b border-[#E5E7EB] px-4 pb-3 pt-3">
+                    <div className="text-[17px] font-medium leading-tight text-[#1F2937]">
+                      {message.content.trim() || '有一笔订单等你支付~'}
+                    </div>
+                    <div className="mt-3 rounded-[16px] bg-[#F3F4F6] px-3 py-2.5">
+                      <div className="flex items-center justify-between gap-3">
+                        <div className="min-w-0 text-[12px] font-medium text-[#64748B]">订单金额</div>
+                        <div className="shrink-0 text-right">
+                          <div
+                            className="whitespace-nowrap font-semibold text-[#F97316]"
+                            style={{
+                              fontSize: isVeryLongOrderAmount ? '18px' : isLongOrderAmount ? '21px' : '24px',
+                              letterSpacing: isVeryLongOrderAmount ? '-0.03em' : '-0.02em',
+                              lineHeight: 1.1,
+                              textShadow: '0 1px 0 rgba(194, 65, 12, 0.18)',
+                            }}
+                          >
+                            {orderAmountText}
+                          </div>
+                        </div>
+                      </div>
+                      <div className="mt-2 border-t border-[#E5E7EB] pt-2">
+                        <div className="text-[12px] font-medium text-[#64748B]">订单详情:</div>
+                        <div className="mt-2 grid grid-cols-2 gap-x-3 gap-y-1 text-[13px] leading-[1.45] text-[#4B5563]">
+                          {orderPreviewGridItems.length > 0 ? (
+                            orderPreviewGridItems.map((item) => (
+                              <div key={item.name} className="truncate">
+                                • {item.name}
+                                {item.qty > 1 ? ` x${item.qty}` : ''}
+                              </div>
+                            ))
+                          ) : orderPreviewStoreText ? (
+                            <div className="col-span-2 truncate">• {orderPreviewStoreText}</div>
+                          ) : (
+                            <div className="col-span-2 truncate">• 待支付订单</div>
+                          )}
+                          {orderRemainingSummaryCount > 0 ? (
+                            <div className="col-span-2 truncate">• 其余{orderRemainingSummaryCount}件商品...</div>
+                          ) : null}
+                          {orderPreviewGridItems.length === 1 ? (
+                            <div className="opacity-0 select-none">占位</div>
+                          ) : null}
+                        </div>
+                      </div>
+                    </div>
+                  </div>
+                  {message.orderRequestStatus === 'accepted' ? (
+                    <div className="px-4 py-3 text-center text-[14px] font-medium text-[#16A34A]">已同意代付</div>
+                  ) : message.orderRequestStatus === 'rejected' ? (
+                    <div className="px-4 py-3 text-center text-[14px] font-medium text-[#DC2626]">已拒绝代付</div>
+                  ) : (
+                    <div className="grid grid-cols-2 divide-x divide-[#E5E7EB]">
+                      <button
+                        type="button"
+                        onClick={(event) => handleOrderRequestAction(event, 'accepted')}
+                        className="px-4 py-3 text-[15px] font-medium text-[#16A34A] active:bg-[#F0FDF4]"
+                      >
+                        同意
+                      </button>
+                      <button
+                        type="button"
+                        onClick={(event) => handleOrderRequestAction(event, 'rejected')}
+                        className="px-4 py-3 text-[15px] font-medium text-[#DC2626] active:bg-[#FEF2F2]"
+                      >
+                        拒绝
+                      </button>
+                    </div>
+                  )}
+                </div>
+              ) : isMovieTicket && movieTicket ? (
+                <div
+                  className="relative flex w-[238px] max-w-full flex-col overflow-hidden rounded-[20px] px-2.5 pb-2.5 pt-2.5 shadow-[0_12px_24px_rgba(30,64,175,0.24)]"
+                  style={{ background: 'linear-gradient(180deg, #3C8EFF 0%, #2B63C7 42%, #234790 100%)' }}
+                >
+                  <div className="pointer-events-none absolute inset-x-2.5 top-2.5 h-[14px] rounded-t-[14px] opacity-55" style={{ background: 'repeating-linear-gradient(90deg, rgba(255,255,255,0.22) 0px, rgba(255,255,255,0.22) 6px, transparent 6px, transparent 11px)' }} />
+                  <div className="relative h-5" />
+
+                  <div className="relative mx-1 rounded-[16px] bg-white px-3.5 pb-3.5 pt-3 shadow-[inset_0_0_0_1px_rgba(148,163,184,0.12)]">
+                    <div className="absolute -left-[10px] top-[98px] h-[20px] w-[20px] rounded-full bg-[#295AB7]" />
+                    <div className="absolute -right-[10px] top-[98px] h-[20px] w-[20px] rounded-full bg-[#295AB7]" />
+
+                    <div className="flex items-start justify-between gap-2.5">
+                      <div className="min-w-0">
+                        <div className="text-[12px] font-semibold tracking-[0.08em] text-[#1E3A8A]">银河系电影票根</div>
+                        <div className="mt-1 truncate text-[11px] text-[#64748B]">{movieTicket.cinema}</div>
+                      </div>
+                      <div className="shrink-0 text-right">
+                        <div className="text-[11px] text-[#94A3B8]">票价</div>
+                        <div className="mt-0.5 text-[18px] font-black tracking-[-0.02em] text-[#F97316]">
+                          ¥{Number(message.amount || 0).toFixed(2)}
+                        </div>
+                      </div>
+                    </div>
+
+                    <div className="mt-3 grid grid-cols-[40px_minmax(0,1fr)] gap-x-2 gap-y-1 text-[11px] leading-[1.4] text-[#0F172A]">
+                      <div className="text-[#64748B]">日期:</div>
+                      <div className="font-semibold">{movieTicket.date} {movieTicket.time}</div>
+                      <div className="text-[#64748B]">影院:</div>
+                      <div className="font-semibold">{movieTicket.cinema}</div>
+                      <div className="text-[#64748B]">厅号:</div>
+                      <div className="font-semibold">{movieTicket.hall}</div>
+                      <div className="text-[#64748B]">座位:</div>
+                      <div className="font-semibold">{movieTicket.seat}</div>
+                      <div className="text-[#64748B]">票数:</div>
+                      <div className="font-semibold">{movieTicket.qty} 张</div>
+                    </div>
+
+                    <div className="pointer-events-none my-3 flex items-center justify-center gap-10">
+                      <span className="h-1.5 w-1.5 rounded-full bg-[#F87171]" />
+                      <span className="h-1.5 w-1.5 rounded-full bg-[#F87171]" />
+                      <span className="h-1.5 w-1.5 rounded-full bg-[#F87171]" />
+                    </div>
+
+                    <div className="rounded-[12px] border border-dashed border-[#CBD5E1] px-3 py-2.5">
+                      <div className="flex items-center justify-between gap-2 text-[11px] text-[#64748B]">
+                        <span className="truncate">票号 {movieTicket.orderId}</span>
+                        <span className="shrink-0">取票码 {movieTicket.pickupCode}</span>
+                      </div>
+                    </div>
+                  </div>
+
+                  <div className="px-3 pt-2.5 text-center text-[11px] font-medium tracking-[0.08em] text-white/82">
+                    查看详情 &gt;
+                  </div>
                 </div>
               ) : isVoice ? (
                 <div
