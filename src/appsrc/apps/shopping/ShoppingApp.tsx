@@ -516,6 +516,8 @@ export const ShoppingApp: React.FC<ShoppingAppProps> = ({ onClose, context }) =>
   const contentRef = React.useRef<HTMLDivElement>(null);
   const deliveredGiftOrderIdsRef = React.useRef<Set<string>>(new Set());
   const shoppingEntryIntroTimeoutRef = React.useRef<number | null>(null);
+  const shoppingEntrySwipePointerIdRef = React.useRef<number | null>(null);
+  const shoppingEntrySwipeStartYRef = React.useRef<number | null>(null);
   const lastShoppingInteractionRef = React.useRef<{ key: string; timestamp: number }>({ key: '', timestamp: 0 });
   const shoppingCompanionDragOffsetRef = React.useRef({ x: 0, y: 0 });
   const [tab, setTab] = React.useState<TabKey>(launchState.tab);
@@ -987,6 +989,8 @@ export const ShoppingApp: React.FC<ShoppingAppProps> = ({ onClose, context }) =>
 
   const closeShoppingEntryIntro = React.useCallback(() => {
     setShoppingEntryIntroLeaving(true);
+    shoppingEntrySwipePointerIdRef.current = null;
+    shoppingEntrySwipeStartYRef.current = null;
     if (shoppingEntryIntroTimeoutRef.current !== null) {
       window.clearTimeout(shoppingEntryIntroTimeoutRef.current);
     }
@@ -997,6 +1001,19 @@ export const ShoppingApp: React.FC<ShoppingAppProps> = ({ onClose, context }) =>
       shoppingEntryIntroTimeoutRef.current = null;
     }, SHOPPING_ENTRY_INTRO_EXIT_MS);
   }, []);
+
+  const exitShoppingAppFromIntro = React.useCallback(() => {
+    setShoppingEntryIntroLeaving(true);
+    shoppingEntrySwipePointerIdRef.current = null;
+    shoppingEntrySwipeStartYRef.current = null;
+    if (shoppingEntryIntroTimeoutRef.current !== null) {
+      window.clearTimeout(shoppingEntryIntroTimeoutRef.current);
+    }
+    shoppingEntryIntroTimeoutRef.current = window.setTimeout(() => {
+      shoppingEntryIntroTimeoutRef.current = null;
+      onClose();
+    }, SHOPPING_ENTRY_INTRO_EXIT_MS);
+  }, [onClose]);
 
   const handleShoppingEntryChoice = React.useCallback((mode: ShoppingEntryMode) => {
     setShoppingEntryMode(mode);
@@ -1011,6 +1028,26 @@ export const ShoppingApp: React.FC<ShoppingAppProps> = ({ onClose, context }) =>
     }
     setShoppingEntryStage('contact');
   }, [closeShoppingEntryIntro, payeeContacts.length]);
+
+  const handleShoppingEntrySwipeStart = React.useCallback((event: React.PointerEvent<HTMLDivElement>) => {
+    if (shoppingEntryStage !== 'mode' || shoppingEntryIntroLeaving) return;
+    shoppingEntrySwipePointerIdRef.current = event.pointerId;
+    shoppingEntrySwipeStartYRef.current = event.clientY;
+    event.currentTarget.setPointerCapture(event.pointerId);
+  }, [shoppingEntryIntroLeaving, shoppingEntryStage]);
+
+  const handleShoppingEntrySwipeEnd = React.useCallback((event: React.PointerEvent<HTMLDivElement>) => {
+    if (shoppingEntrySwipePointerIdRef.current !== event.pointerId) return;
+    const startY = shoppingEntrySwipeStartYRef.current;
+    shoppingEntrySwipePointerIdRef.current = null;
+    shoppingEntrySwipeStartYRef.current = null;
+    if (event.currentTarget.hasPointerCapture(event.pointerId)) {
+      event.currentTarget.releasePointerCapture(event.pointerId);
+    }
+    if (startY !== null && startY - event.clientY >= 72) {
+      exitShoppingAppFromIntro();
+    }
+  }, [exitShoppingAppFromIntro]);
 
   const resetShippingSchedule = () => {
     setShippingMode('now');
@@ -2682,6 +2719,9 @@ export const ShoppingApp: React.FC<ShoppingAppProps> = ({ onClose, context }) =>
         {showShoppingEntryIntro ? (
           <motion.div
             className={styles.shoppingEntryIntro}
+            onPointerDown={handleShoppingEntrySwipeStart}
+            onPointerUp={handleShoppingEntrySwipeEnd}
+            onPointerCancel={handleShoppingEntrySwipeEnd}
             initial={false}
             animate={
               shoppingEntryIntroLeaving
@@ -2704,7 +2744,7 @@ export const ShoppingApp: React.FC<ShoppingAppProps> = ({ onClose, context }) =>
                     ? '选一个微信联系人，先把一起逛街邀请发出去。'
                     : shoppingEntryMode === 'together'
                       ? '和 TA 一起逛，甜度直接拉满。'
-                      : '先选个模式，再上滑进入首页。'}
+                      : '先选个模式，或者上滑退出 App。'}
                 </p>
               </div>
 
@@ -2824,6 +2864,16 @@ export const ShoppingApp: React.FC<ShoppingAppProps> = ({ onClose, context }) =>
                 </div>
               )}
             </motion.div>
+            {shoppingEntryStage === 'mode' ? (
+              <button
+                type="button"
+                className={styles.shoppingEntrySwipeHint}
+                aria-label="退出App"
+                onClick={exitShoppingAppFromIntro}
+              >
+                <span className={styles.shoppingEntryCloseIcon} aria-hidden="true" />
+              </button>
+            ) : null}
           </motion.div>
         ) : null}
 
