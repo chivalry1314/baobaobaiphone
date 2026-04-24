@@ -1003,16 +1003,13 @@ export const ShoppingApp: React.FC<ShoppingAppProps> = ({ onClose, context }) =>
   }, []);
 
   const exitShoppingAppFromIntro = React.useCallback(() => {
-    setShoppingEntryIntroLeaving(true);
     shoppingEntrySwipePointerIdRef.current = null;
     shoppingEntrySwipeStartYRef.current = null;
     if (shoppingEntryIntroTimeoutRef.current !== null) {
       window.clearTimeout(shoppingEntryIntroTimeoutRef.current);
-    }
-    shoppingEntryIntroTimeoutRef.current = window.setTimeout(() => {
       shoppingEntryIntroTimeoutRef.current = null;
-      onClose();
-    }, SHOPPING_ENTRY_INTRO_EXIT_MS);
+    }
+    onClose();
   }, [onClose]);
 
   const handleShoppingEntryChoice = React.useCallback((mode: ShoppingEntryMode) => {
@@ -2871,7 +2868,7 @@ export const ShoppingApp: React.FC<ShoppingAppProps> = ({ onClose, context }) =>
                 aria-label="退出App"
                 onClick={exitShoppingAppFromIntro}
               >
-                <span className={styles.shoppingEntryCloseIcon} aria-hidden="true" />
+                <span className={styles.shoppingEntrySwipeArrow} aria-hidden="true" />
               </button>
             ) : null}
           </motion.div>

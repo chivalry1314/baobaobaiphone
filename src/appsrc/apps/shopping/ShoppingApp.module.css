@@ -3130,43 +3130,24 @@
   bottom: calc(10px + env(safe-area-inset-bottom, 0px));
   transform: translateX(-50%);
   z-index: 3;
-  width: 54px;
-  height: 54px;
+  width: 32px;
+  height: 32px;
   border: none;
-  border-radius: 999px;
-  background: rgba(255, 255, 255, 0.9);
-  box-shadow: 0 12px 30px rgba(244, 114, 182, 0.18);
+  background: transparent;
+  box-shadow: none;
   display: grid;
   place-items: center;
   cursor: pointer;
   animation: shoppingEntrySwipeHintPulse 1.8s ease-in-out infinite;
 }
 
-.shoppingEntryCloseIcon {
+.shoppingEntrySwipeArrow {
   position: absolute;
   width: 18px;
   height: 18px;
-}
-
-.shoppingEntryCloseIcon::before,
-.shoppingEntryCloseIcon::after {
-  content: '';
-  position: absolute;
-  left: 50%;
-  top: 50%;
-  width: 18px;
-  height: 3px;
-  border-radius: 999px;
-  background: rgba(219, 39, 119, 0.92);
-  transform-origin: center;
-}
-
-.shoppingEntryCloseIcon::before {
-  transform: translate(-50%, -50%) rotate(45deg);
-}
-
-.shoppingEntryCloseIcon::after {
-  transform: translate(-50%, -50%) rotate(-45deg);
+  border-top: 3px solid rgba(219, 39, 119, 0.94);
+  border-left: 3px solid rgba(219, 39, 119, 0.94);
+  transform: rotate(45deg) translate(1px, 1px);
 }
 
 .shoppingCompanionFloating {
