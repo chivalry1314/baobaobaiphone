@@ -149,7 +149,7 @@ export const ShoppingGoodsCheckout: React.FC<ShoppingGoodsCheckoutProps> = ({
         <h3>代付人</h3>
         {payeeContacts.length > 0 ? (
           <div className={styles.formRow}>
-            <label>微信聊天</label>
+            <label>微信联系人</label>
             <select value={selectedPayeeContactId} onChange={(e) => onPayeeContactChange(e.target.value)}>
               {payeeContacts.map((contact) => (
                 <option key={contact.id} value={contact.id}>
@@ -159,7 +159,7 @@ export const ShoppingGoodsCheckout: React.FC<ShoppingGoodsCheckoutProps> = ({
             </select>
           </div>
         ) : (
-          <p className={styles.muted}>微信聊天列表里还没有可选择的人。</p>
+          <p className={styles.muted}>微信联系人里还没有可选择的人。</p>
         )}
       </div>
       <div className={styles.detailCard}>

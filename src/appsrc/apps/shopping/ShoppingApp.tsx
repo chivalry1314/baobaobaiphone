@@ -1,5 +1,6 @@
 import React from 'react';
 import { AnimatePresence, motion } from 'motion/react';
+import { useGlobalSettingsStore } from '@baobaobaiOS/sdk';
 import type {
   Address,
   CommerceStore,
@@ -11,13 +12,15 @@ import type {
 } from './types';
 import type { GoodsKind, Movie, Route, Screen, ShippingMode, TabKey } from './uiTypes';
 import { useShoppingStore } from './store';
+import { useContactsStore } from '../contacts/store';
 import { useWeChatFriendCharactersFromContacts } from '../WeChat/contactAdapter';
 import { useWeChatStore } from '../WeChat/store';
-import type { WeChatOrderPreview } from '../WeChat/types';
+import type { WeChatGiftDeliveryCard, WeChatOrderPreview } from '../WeChat/types';
 import { PUSH_OPEN_APP_MESSAGE_TYPE } from '../../../core/push/webPush';
+import type { GlobalSettings } from '../../../core/sdk/types';
 import styles from './ShoppingApp.module.css';
 import { toMovie, toMovieStoreProducts } from './movies';
-import { addDays, formatDate, formatMoney, groupCartLines } from './utils';
+import { addDays, formatDate, formatMoney, getOrderStatus, groupCartLines } from './utils';
 import {
   COMMERCE_ROLE_CHANGED_EVENT,
   defaultStores,
@@ -32,6 +35,7 @@ import {
   DEFAULT_STORE_MOVIE_SESSION_OPTIONS,
   sortProductsByDecorationOrder,
 } from '../../shared/business/commerce/domain/storeDecoration';
+import { updateShoppingOrdersInStorage } from '../../shared/business/commerce/domain/ordersStorage';
 import {
   DEFAULT_SHOPPING_HOME_TAB,
   resolveShoppingHomeTabs,
@@ -172,6 +176,7 @@ const ORDER_PREVIEW_ITEM_LIMIT = 3;
 
 type MergedPaymentMethod = 'wechat' | 'delegate';
 type PaymentSheetTarget = 'merged-cart' | 'movie' | 'order-detail' | 'movie-share';
+type ShoppingEntryMode = 'solo' | 'together';
 type PayeeContact = {
   id: string;
   name: string;
@@ -225,6 +230,241 @@ type ShoppingLaunchState = {
   history: Route[];
 };
 
+type CartAddressTab = 'address' | 'gift';
+type ShoppingEntryStage = 'mode' | 'contact';
+type ShoppingTogetherState = {
+  active: boolean;
+  companionId: string;
+  companionName: string;
+  companionAvatar?: string;
+};
+type ShoppingCompanionMessage = {
+  id: string;
+  role: 'ai' | 'user';
+  content: string;
+};
+const SHOPPING_ENTRY_INTRO_EXIT_MS = 460;
+const SHOPPING_COMPANION_MESSAGE_LIMIT = 6;
+const DEFAULT_CHAT_BASE_URL = 'https://api.openai.com/v1';
+
+const normalizeTextContent = (value: unknown): string => (typeof value === 'string' ? value.trim() : '');
+
+const requestShoppingCompanionModelReply = async (
+  settings: GlobalSettings,
+  params: {
+    companionName: string;
+    screen: Screen;
+    latestTopic?: string;
+    triggerLabel?: string;
+    userInput?: string;
+    recentMessages: ShoppingCompanionMessage[];
+  }
+): Promise<string> => {
+  const apiKey = normalizeTextContent(settings.apiKey);
+  if (!apiKey) throw new Error('missing-chat-api-key');
+
+  const baseUrl = normalizeTextContent(settings.baseUrl || DEFAULT_CHAT_BASE_URL).replace(/\/+$/, '');
+  if (!baseUrl) throw new Error('missing-chat-base-url');
+
+  const model = normalizeTextContent(settings.model) || 'gpt-4o-mini';
+  const recentTranscript = params.recentMessages
+    .slice(-4)
+    .map((message) => `${message.role === 'ai' ? params.companionName : '我'}：${message.content}`)
+    .join('\n');
+
+  const promptMode = params.userInput ? 'reply' : 'observe';
+  const response = await fetch(`${baseUrl}/chat/completions`, {
+    method: 'POST',
+    headers: {
+      'Content-Type': 'application/json',
+      Authorization: `Bearer ${apiKey}`,
+    },
+    body: JSON.stringify({
+      model,
+      temperature: Math.min(0.95, Math.max(0.4, settings.temperature ?? 0.75)),
+      max_tokens: Math.min(220, Math.max(90, settings.maxTokens || 140)),
+      messages: [
+        {
+          role: 'system',
+          content:
+            `你是用户正在一起购物的陪伴搭子，名字叫${params.companionName}。` +
+            '你在购物过程中陪聊、夸赞、给情绪价值，也可以轻微调侃，但语气要自然、亲近、像微信聊天。' +
+            '不要提自己是AI，不要提模型，不要写分析过程，不要使用列表，不要加引号。' +
+            '输出只要1到2句中文，总长度控制在18到60字，口语化、温柔、有陪伴感。' +
+            '如果用户在看具体商品、电影、订单或礼物，要结合那个对象来回应，不要空泛。',
+        },
+        {
+          role: 'user',
+          content:
+            `当前页面：${params.screen}\n` +
+            `最近关注的对象：${params.latestTopic || params.triggerLabel || '暂无'}\n` +
+            `最近聊天：\n${recentTranscript || '暂无'}\n` +
+            (promptMode === 'observe'
+              ? `用户刚刚在购物页面点了：${params.triggerLabel || '某个内容'}\n请像陪着一起逛街的人那样，自然接一句。`
+              : `用户刚刚对你说：${params.userInput || ''}\n请直接接话回复。`),
+        },
+      ],
+    }),
+  });
+
+  if (!response.ok) {
+    throw new Error(`shopping-companion-api-failed-${response.status}`);
+  }
+
+  const data = await response.json().catch(() => null);
+  const content = data?.choices?.[0]?.message?.content;
+  const normalized = normalizeTextContent(content);
+  if (!normalized) throw new Error('shopping-companion-empty-response');
+  return normalized;
+};
+
+const resolveShoppingTogetherState = (
+  context?: ShoppingAppProps['context']
+): ShoppingTogetherState | null => {
+  const raw = context?.params?.shoppingTogether;
+  if (!raw || typeof raw !== 'object' || Array.isArray(raw)) return null;
+  const payload = raw as Record<string, unknown>;
+  const companionId = normalizeTextContent(payload.companionId);
+  const companionName = normalizeTextContent(payload.companionName);
+  if (payload.active !== true || !companionId || !companionName) return null;
+  return {
+    active: true,
+    companionId,
+    companionName,
+    companionAvatar: normalizeTextContent(payload.companionAvatar),
+  };
+};
+
+const buildShoppingCompanionMessageId = () =>
+  `shopping-companion-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`;
+
+const appendShoppingCompanionMessage = (
+  messages: ShoppingCompanionMessage[],
+  message: ShoppingCompanionMessage
+) => [...messages, message].slice(-SHOPPING_COMPANION_MESSAGE_LIMIT);
+
+const buildShoppingCompanionWelcomeMessage = (companionName: string): string =>
+  `${companionName}上线啦，今天我就陪你一起逛，你负责心动，我负责捧场。`;
+
+const isGenericShoppingActionLabel = (value: string): boolean => {
+  const normalized = value.replace(/\s+/g, '');
+  return [
+    '加入购物车',
+    '添加1件',
+    '移除1件',
+    '查看详情',
+    '去首页',
+    '搜索',
+    '取消',
+    '关闭',
+    '立即发货',
+    '预约发货',
+    '管理地址',
+    '切换地址',
+    '提交订单',
+    '合并支付',
+    '微信支付',
+    '由他代付',
+    '选择微信联系人',
+  ].includes(normalized);
+};
+
+const extractShoppingInteractionLabel = (target: HTMLElement | null): string => {
+  if (!target) return '';
+  const candidates: string[] = [];
+  const pushCandidate = (value: string | null | undefined) => {
+    const normalized = normalizeTextContent(value);
+    if (!normalized) return;
+    candidates.push(normalized.replace(/\s+/g, ' ').slice(0, 42));
+  };
+
+  const interactive = target.closest(
+    'button, label, a, [role="button"], input, select, textarea, [aria-label]'
+  ) as HTMLElement | null;
+  if (interactive) {
+    pushCandidate(interactive.getAttribute('aria-label'));
+    if (interactive instanceof HTMLInputElement || interactive instanceof HTMLTextAreaElement) {
+      pushCandidate(interactive.placeholder);
+      pushCandidate(interactive.value);
+    } else if (interactive instanceof HTMLSelectElement) {
+      pushCandidate(interactive.selectedOptions?.[0]?.textContent || '');
+    }
+    pushCandidate(interactive.textContent);
+    if (isGenericShoppingActionLabel(candidates[0] || '')) {
+      const richTextNode = interactive.closest('article, section, li, div')?.querySelector('h1, h2, h3, strong');
+      pushCandidate(richTextNode?.textContent || '');
+    }
+  }
+
+  if (candidates.length === 0) {
+    const semanticParent = target.closest('article, section, li, div');
+    pushCandidate(
+      semanticParent?.querySelector('h1, h2, h3, strong, [aria-label]')?.textContent || target.textContent || ''
+    );
+  }
+
+  return candidates.find(Boolean) || '';
+};
+
+const buildShoppingCompanionObservation = (
+  screen: Screen,
+  label: string,
+  companionName: string
+): string => {
+  if (screen === 'home') return `${companionName}觉得你刚刚看上的“${label}”挺有眼光，今天的购物雷达很准。`;
+  if (screen === 'dessert' || screen === 'flowers') {
+    return `你居然盯上“${label}”了？风格有点不一样，但我觉得你拿捏得住，选它很有惊喜。`;
+  }
+  if (screen === 'cart') return `“${label}”都进购物车了，你今天出手挺果断，我喜欢你这种心动就行动。`;
+  if (screen === 'goods-checkout') return `都看到“${label}”这一步了，我感觉这单八成会成，你现在眼神里都是想买。`;
+  if (screen === 'movies' || screen === 'movie-checkout') {
+    return `“${label}”这个选择有点会挑，和你一起看肯定比一个人刷更有意思。`;
+  }
+  if (screen === 'orders' || screen === 'order-detail' || screen === 'logistics') {
+    return `你连“${label}”都点开认真看，我发现你买完东西以后也很有仪式感。`;
+  }
+  if (screen === 'favorites') return `收藏里的“${label}”你还惦记着啊，我就知道你是真的有点喜欢。`;
+  if (screen === 'addresses') return `连“${label}”你都点得这么认真，今天这趟购物明显不是随便逛逛。`;
+  return `看到你点了“${label}”，我第一反应就是这也太像你的选择了。`;
+};
+
+const buildShoppingCompanionReplyToUser = (
+  input: string,
+  companionName: string,
+  screen: Screen,
+  latestTopic: string
+): string => {
+  const normalized = input.trim();
+  if (!normalized) return `${companionName}在呢，你继续说，我认真听着。`;
+  if (/好看|适合|可以吗|怎么样|行不行/.test(normalized)) {
+    return `我觉得挺适合你的，尤其是“${latestTopic || '这个'}”这种感觉，穿在你身上会比我想象里还顺眼。`;
+  }
+  if (/买|下单|冲|要不要/.test(normalized)) {
+    return `如果你已经心动两次以上，那就别再犹豫了，买下来大概率会让你开心。`;
+  }
+  if (/贵|预算|价格|太贵/.test(normalized)) {
+    return `价格确实要看值不值，但如果是“${latestTopic || '这个'}”这种让你反复回头的东西，我会觉得可以稍微偏心一点。`;
+  }
+  if (/送人|礼物/.test(normalized)) {
+    return `拿来送人也很合适，而且会显得你特别会挑。你选礼物的审美，我一直都挺服气。`;
+  }
+  if (/电影|场次|票/.test(normalized) || screen === 'movies' || screen === 'movie-checkout') {
+    return `这场如果和你一起看，氛围应该会很好。选你最有感觉的那一场，别只挑时间最顺手的。`;
+  }
+  if (/吃|甜|蛋糕|花|鲜花/.test(normalized)) {
+    return `你一认真挑这些，我就会觉得今天的快乐值已经开始上涨了。`;
+  }
+  return `${companionName}收到。你继续慢慢挑，我负责在旁边夸你眼光好，顺便帮你一起犹豫。`;
+};
+
+const isShoppingCompanionVisibleScreen = (screen: Screen): boolean =>
+  screen === 'home' ||
+  screen === 'dessert' ||
+  screen === 'flowers' ||
+  screen === 'movies' ||
+  screen === 'movie-checkout' ||
+  screen === 'goods-checkout';
+
 const resolveShoppingLaunchState = (context?: ShoppingAppProps['context']): ShoppingLaunchState => {
   const defaultState: ShoppingLaunchState = {
     tab: 'home',
@@ -260,12 +500,53 @@ const resolveShoppingLaunchState = (context?: ShoppingAppProps['context']): Shop
 
 export const ShoppingApp: React.FC<ShoppingAppProps> = ({ onClose, context }) => {
   const launchState = React.useMemo(() => resolveShoppingLaunchState(context), [context]);
+  const launchShoppingTogetherState = React.useMemo(() => resolveShoppingTogetherState(context), [context]);
+  const hasExplicitLaunchParams = React.useMemo(
+    () => Boolean(context?.params && Object.keys(context.params).length > 0),
+    [context?.params]
+  );
+  const shouldShowShoppingEntryIntroOnLaunch = React.useMemo(
+    () =>
+      !hasExplicitLaunchParams &&
+      launchState.tab === 'home' &&
+      launchState.route.screen === 'home' &&
+      launchState.history.length === 0,
+    [hasExplicitLaunchParams, launchState]
+  );
   const contentRef = React.useRef<HTMLDivElement>(null);
+  const deliveredGiftOrderIdsRef = React.useRef<Set<string>>(new Set());
+  const shoppingEntryIntroTimeoutRef = React.useRef<number | null>(null);
+  const lastShoppingInteractionRef = React.useRef<{ key: string; timestamp: number }>({ key: '', timestamp: 0 });
+  const shoppingCompanionDragOffsetRef = React.useRef({ x: 0, y: 0 });
   const [tab, setTab] = React.useState<TabKey>(launchState.tab);
   const [route, setRoute] = React.useState<Route>(launchState.route);
   const [history, setHistory] = React.useState<Route[]>(launchState.history);
   const [stores, setStores] = React.useState<CommerceStore[]>([]);
   const [homeTopTab, setHomeTopTab] = React.useState<string>(DEFAULT_SHOPPING_HOME_TAB);
+  const [shoppingEntryMode, setShoppingEntryMode] = React.useState<ShoppingEntryMode>('solo');
+  const [shoppingEntryStage, setShoppingEntryStage] = React.useState<ShoppingEntryStage>('mode');
+  const [showShoppingEntryIntro, setShowShoppingEntryIntro] = React.useState(shouldShowShoppingEntryIntroOnLaunch);
+  const [shoppingEntryIntroLeaving, setShoppingEntryIntroLeaving] = React.useState(false);
+  const [shoppingTogetherState, setShoppingTogetherState] = React.useState<ShoppingTogetherState | null>(
+    launchShoppingTogetherState
+  );
+  const [shoppingCompanionMessages, setShoppingCompanionMessages] = React.useState<ShoppingCompanionMessage[]>(() =>
+    launchShoppingTogetherState
+      ? [
+          {
+            id: buildShoppingCompanionMessageId(),
+            role: 'ai',
+            content: buildShoppingCompanionWelcomeMessage(launchShoppingTogetherState.companionName),
+          },
+        ]
+      : []
+  );
+  const [shoppingCompanionInput, setShoppingCompanionInput] = React.useState('');
+  const [shoppingCompanionComposerOpen, setShoppingCompanionComposerOpen] = React.useState(false);
+  const [shoppingCompanionPosition, setShoppingCompanionPosition] = React.useState({ x: 18, y: 140 });
+  const [shoppingCompanionDragging, setShoppingCompanionDragging] = React.useState(false);
+  const [shoppingCompanionLatestTopic, setShoppingCompanionLatestTopic] = React.useState('');
+  const [shoppingCompanionPending, setShoppingCompanionPending] = React.useState(false);
 
   const {
     products: dessertProducts,
@@ -288,6 +569,8 @@ export const ShoppingApp: React.FC<ShoppingAppProps> = ({ onClose, context }) =>
     setSettingNotify,
     setSettingFaceId,
   } = useShoppingStore();
+  const globalSettings = useGlobalSettingsStore((state) => state.settings);
+  const contacts = useContactsStore((state) => state.contacts);
 
   const [movieQuery, setMovieQuery] = React.useState('');
   const [selectedMovie, setSelectedMovie] = React.useState<Movie | null>(null);
@@ -310,6 +593,8 @@ export const ShoppingApp: React.FC<ShoppingAppProps> = ({ onClose, context }) =>
   const [scheduleDate, setScheduleDate] = React.useState(formatDate(addDays(new Date(), 1)));
   const [scheduleTime, setScheduleTime] = React.useState('10:00');
   const [selectedCartAddressId, setSelectedCartAddressId] = React.useState<string | null>(null);
+  const [cartAddressTab, setCartAddressTab] = React.useState<CartAddressTab>('address');
+  const [selectedGiftContactId, setSelectedGiftContactId] = React.useState('');
   const [selectedCartLineKeys, setSelectedCartLineKeys] = React.useState<Record<string, boolean>>({});
   const [paymentSheetTarget, setPaymentSheetTarget] = React.useState<PaymentSheetTarget | null>(null);
   const [pendingMovieStoreId, setPendingMovieStoreId] = React.useState<string | null>(null);
@@ -317,6 +602,22 @@ export const ShoppingApp: React.FC<ShoppingAppProps> = ({ onClose, context }) =>
   const [pendingMovieShareOrderId, setPendingMovieShareOrderId] = React.useState<string | null>(null);
   const homeTopTabs = React.useMemo(() => resolveShoppingHomeTabs(stores), [stores]);
   const payeeContacts = React.useMemo(
+    () =>
+      contacts
+        .filter(
+          (contact) =>
+            (contact.wechatRelation === 'friend' || typeof contact.wechatRelation === 'undefined') &&
+            contact.id.trim() &&
+            contact.name.trim()
+        )
+        .map((contact) => ({
+          id: contact.id.trim(),
+          name: contact.name.trim(),
+          avatar: contact.avatar?.trim() || '',
+        })),
+    [contacts]
+  );
+  const movieShareContacts = React.useMemo(
     () => {
       const characterById = new Map(
         wechatCharacters.map((character) => [character.id.trim(), character] as const)
@@ -347,6 +648,21 @@ export const ShoppingApp: React.FC<ShoppingAppProps> = ({ onClose, context }) =>
     () => payeeContacts.find((contact) => contact.id === selectedPayeeContactId),
     [payeeContacts, selectedPayeeContactId]
   );
+  const giftContacts = React.useMemo(
+    () =>
+      contacts
+        .filter((contact) => contact.id.trim() && contact.name.trim())
+        .map((contact) => ({
+          id: contact.id.trim(),
+          name: contact.name.trim(),
+          avatar: contact.avatar?.trim() || '',
+        })),
+    [contacts]
+  );
+  const selectedGiftContact = React.useMemo(
+    () => giftContacts.find((contact) => contact.id === selectedGiftContactId),
+    [giftContacts, selectedGiftContactId]
+  );
 
 
   React.useEffect(() => {
@@ -366,6 +682,39 @@ export const ShoppingApp: React.FC<ShoppingAppProps> = ({ onClose, context }) =>
     if (selectedPayeeContactId && payeeContacts.some((contact) => contact.id === selectedPayeeContactId)) return;
     setSelectedPayeeContactId(payeeContacts[0].id);
   }, [payeeContacts, selectedPayeeContactId]);
+
+  React.useEffect(() => {
+    if (giftContacts.length === 0) {
+      if (selectedGiftContactId !== '') setSelectedGiftContactId('');
+      if (cartAddressTab === 'gift') setCartAddressTab('address');
+      return;
+    }
+    if (selectedGiftContactId && giftContacts.some((contact) => contact.id === selectedGiftContactId)) return;
+    setSelectedGiftContactId(giftContacts[0].id);
+  }, [cartAddressTab, giftContacts, selectedGiftContactId]);
+
+  React.useEffect(
+    () => () => {
+      if (shoppingEntryIntroTimeoutRef.current !== null) {
+        window.clearTimeout(shoppingEntryIntroTimeoutRef.current);
+      }
+    },
+    []
+  );
+
+  React.useEffect(() => {
+    if (!launchShoppingTogetherState) return;
+    setShoppingTogetherState(launchShoppingTogetherState);
+    setShoppingCompanionMessages([
+      {
+        id: buildShoppingCompanionMessageId(),
+        role: 'ai',
+        content: buildShoppingCompanionWelcomeMessage(launchShoppingTogetherState.companionName),
+      },
+    ]);
+    setShoppingCompanionComposerOpen(false);
+    setShoppingCompanionInput('');
+  }, [launchShoppingTogetherState]);
 
 
   const refreshStores = React.useCallback(async () => {
@@ -414,6 +763,7 @@ export const ShoppingApp: React.FC<ShoppingAppProps> = ({ onClose, context }) =>
 
   const hasDock = route.screen === 'dessert' || route.screen === 'flowers';
   const isRoot = route.screen === getTabRoot(tab) && history.length === 0;
+  const isShoppingCompanionVisible = shoppingTogetherState?.active && isShoppingCompanionVisibleScreen(route.screen);
   const settingNotify = settings.notify;
   const settingFaceId = settings.faceId;
 
@@ -635,6 +985,33 @@ export const ShoppingApp: React.FC<ShoppingAppProps> = ({ onClose, context }) =>
     onClose();
   };
 
+  const closeShoppingEntryIntro = React.useCallback(() => {
+    setShoppingEntryIntroLeaving(true);
+    if (shoppingEntryIntroTimeoutRef.current !== null) {
+      window.clearTimeout(shoppingEntryIntroTimeoutRef.current);
+    }
+    shoppingEntryIntroTimeoutRef.current = window.setTimeout(() => {
+      setShowShoppingEntryIntro(false);
+      setShoppingEntryIntroLeaving(false);
+      setShoppingEntryStage('mode');
+      shoppingEntryIntroTimeoutRef.current = null;
+    }, SHOPPING_ENTRY_INTRO_EXIT_MS);
+  }, []);
+
+  const handleShoppingEntryChoice = React.useCallback((mode: ShoppingEntryMode) => {
+    setShoppingEntryMode(mode);
+    if (mode === 'solo') {
+      closeShoppingEntryIntro();
+      return;
+    }
+    if (payeeContacts.length === 0) {
+      window.alert('微信联系人里还没有可邀请的人');
+      setShoppingEntryMode('solo');
+      return;
+    }
+    setShoppingEntryStage('contact');
+  }, [closeShoppingEntryIntro, payeeContacts.length]);
+
   const resetShippingSchedule = () => {
     setShippingMode('now');
     setScheduleDate(formatDate(addDays(new Date(), 1)));
@@ -645,6 +1022,7 @@ export const ShoppingApp: React.FC<ShoppingAppProps> = ({ onClose, context }) =>
     const product = flowerProducts.find((item) => item.id === id);
     if (!product) return;
     setFlowerCart((prev) => [...prev, product]);
+    notifyShoppingCompanionAddToCart(product.name);
   };
 
   const clearDessertCartByStore = (storeId: string) => {
@@ -704,9 +1082,11 @@ export const ShoppingApp: React.FC<ShoppingAppProps> = ({ onClose, context }) =>
   }, [flowerCart, flowerProducts, setFlowerCart]);
 
   const handleDessertAddToCart = (id: string) => {
+    const product = dessertProducts.find((item) => item.id === id);
     setDessertLoading(true);
     setTimeout(() => {
       addDessertToCart(id);
+      if (product) notifyShoppingCompanionAddToCart(product.name);
       setDessertLoading(false);
     }, 300);
   };
@@ -862,11 +1242,18 @@ export const ShoppingApp: React.FC<ShoppingAppProps> = ({ onClose, context }) =>
 
   const shareWechatMessage = React.useCallback((message: {
     content: string;
-    type?: 'text' | 'order_request' | 'movie_ticket';
+    type?: 'text' | 'order_request' | 'movie_ticket' | 'gift_delivery' | 'shopping_invite';
     amount?: number;
     orderRequestStatus?: 'pending' | 'accepted' | 'rejected';
     orderIds?: string[];
     orderPreview?: WeChatOrderPreview;
+    giftDelivery?: WeChatGiftDeliveryCard;
+    assistantReplyPending?: boolean;
+    shoppingInvite?: {
+      mode: 'together';
+      inviterName?: string;
+      inviteText?: string;
+    };
     movieTicket?: {
       orderId: string;
       movieTitle: string;
@@ -890,12 +1277,14 @@ export const ShoppingApp: React.FC<ShoppingAppProps> = ({ onClose, context }) =>
     wechatStore.addWeChatMessage(sessionId, {
       role: 'user',
       content: message.content,
-      assistantReplyPending: true,
+      assistantReplyPending: message.assistantReplyPending ?? true,
       type: message.type || 'text',
       amount: message.amount,
       orderRequestStatus: message.orderRequestStatus,
       orderIds: message.orderIds,
       orderPreview: message.orderPreview,
+      giftDelivery: message.giftDelivery,
+      shoppingInvite: message.shoppingInvite,
       movieTicket: message.movieTicket,
     });
     return true;
@@ -903,14 +1292,88 @@ export const ShoppingApp: React.FC<ShoppingAppProps> = ({ onClose, context }) =>
   const shareWechatOrder = React.useCallback((content: string, targetContact?: PayeeContact) => {
     return shareWechatMessage({ content, type: 'text' }, targetContact);
   }, [shareWechatMessage]);
+  const sendShoppingTogetherInvite = React.useCallback((targetContact: PayeeContact) => {
+    const shared = shareWechatMessage(
+      {
+        content: '邀请你和我一起购物',
+        type: 'shopping_invite',
+        orderRequestStatus: 'pending',
+        assistantReplyPending: false,
+        shoppingInvite: {
+          mode: 'together',
+          inviterName: '我',
+          inviteText: '我想拉你一起逛逛，边买边聊。',
+        },
+      },
+      targetContact
+    );
+    if (!shared) return false;
+    closeShoppingEntryIntro();
+    openApp('wechat', {
+      openChatCharacterId: targetContact.id,
+      returnAppId: 'shopping',
+      returnParams: {
+        shoppingState: {
+          tab: 'home',
+          route: { tab: 'home', screen: 'home' },
+          history: [],
+        },
+      },
+    });
+    return true;
+  }, [closeShoppingEntryIntro, openApp, shareWechatMessage]);
+  const buildGiftDeliveryProductName = React.useCallback((order: Order) => {
+    const namedLines = order.lines.filter((line) => line.name.trim());
+    if (namedLines.length === 0) return '一份惊喜小礼物';
+    if (namedLines.length === 1) {
+      const onlyLine = namedLines[0];
+      return onlyLine.qty > 1 ? `${onlyLine.name} x${onlyLine.qty}` : onlyLine.name;
+    }
+    const totalQty = namedLines.reduce((sum, line) => sum + Math.max(1, line.qty), 0);
+    return `${namedLines[0].name}等${totalQty}件好物`;
+  }, []);
+  const shareGiftDeliveryCard = React.useCallback((order: Order) => {
+    const targetContactId = String(order.meta?.giftRecipientContactId ?? '').trim();
+    if (!targetContactId) return false;
+    const wechatStore = useWeChatStore.getState();
+    if (typeof wechatStore.syncWeChatRoleContext === 'function') {
+      wechatStore.syncWeChatRoleContext();
+    }
+    const sessionId = wechatStore.ensureWeChatSession(targetContactId, { switchCurrent: false });
+    if (!sessionId) return false;
+    wechatStore.addWeChatMessage(sessionId, {
+      role: 'user',
+      content: '送你一份小礼物',
+      assistantReplyPending: true,
+      type: 'gift_delivery',
+      amount: order.total,
+      giftDelivery: {
+        orderId: order.id,
+        title: '送你一份小礼物',
+        subtitle: '希望你能喜欢~',
+        productName: buildGiftDeliveryProductName(order),
+        coverEmoji: '🎁',
+      },
+    });
+    return true;
+  }, [buildGiftDeliveryProductName]);
   const placeMergedGoodsOrders = React.useCallback((paymentMethod: MergedPaymentMethod, targetContact?: PayeeContact) => {
     if (mergedSelectedCartGroups.length === 0) {
       window.alert('请先勾选要结算的商品');
       return false;
     }
 
-    const nextRoute: Route = { tab: 'cart', screen: 'cart' };
-    if (!ensureAddressOrGoAdd(nextRoute)) return false;
+    const isGiftOrder = cartAddressTab === 'gift';
+    const giftContact = isGiftOrder ? selectedGiftContact : undefined;
+    if (isGiftOrder && !giftContact) {
+      window.alert('请先选择要送礼的联系人');
+      return false;
+    }
+
+    if (!isGiftOrder) {
+      const nextRoute: Route = { tab: 'cart', screen: 'cart' };
+      if (!ensureAddressOrGoAdd(nextRoute)) return false;
+    }
 
     if (paymentMethod === 'wechat') {
       const uniqueStoreNames = Array.from(
@@ -950,7 +1413,7 @@ export const ShoppingApp: React.FC<ShoppingAppProps> = ({ onClose, context }) =>
         })),
         total: group.total,
         createdAt: now + index,
-        address: (selectedCartAddress ?? defaultAddress),
+        address: isGiftOrder ? undefined : (selectedCartAddress ?? defaultAddress),
         meta: {
           shipMode: shippingMode,
           shipAt,
@@ -964,6 +1427,10 @@ export const ShoppingApp: React.FC<ShoppingAppProps> = ({ onClose, context }) =>
           delegateStatus: isDelegatePayment ? 'pending' : '',
           payeeContactId: (targetContact ?? selectedPayeeContact)?.id || '',
           payeeName: (targetContact ?? selectedPayeeContact)?.name || '',
+          giftRecipientContactId: giftContact?.id || '',
+          giftRecipientName: giftContact?.name || '',
+          giftRecipientAvatar: giftContact?.avatar || '',
+          giftDeliveryCardSentAt: '',
         },
       };
     });
@@ -976,46 +1443,29 @@ export const ShoppingApp: React.FC<ShoppingAppProps> = ({ onClose, context }) =>
     setRoute({ tab: 'orders', screen: 'orders' });
 
     const payeeContact = targetContact ?? selectedPayeeContact;
-    if (payeeContact) {
-      if (paymentMethod === 'delegate') {
-        shareWechatMessage(
-          {
-            content: '有一笔订单等你支付~',
-            type: 'order_request',
-            amount: mergedSelectedCartTotalAmount,
-            orderRequestStatus: 'pending',
-            orderIds: nextOrders.map((order) => order.id),
-            orderPreview: buildOrderPreview(nextOrders),
+    if (paymentMethod === 'delegate' && payeeContact) {
+      shareWechatMessage(
+        {
+          content: '有一笔订单等你支付~',
+          type: 'order_request',
+          amount: mergedSelectedCartTotalAmount,
+          orderRequestStatus: 'pending',
+          orderIds: nextOrders.map((order) => order.id),
+          orderPreview: buildOrderPreview(nextOrders),
+        },
+        payeeContact
+      );
+      openApp('wechat', {
+        openChatCharacterId: payeeContact.id,
+        returnAppId: 'shopping',
+        returnParams: {
+          shoppingState: {
+            tab: 'cart',
+            route: { tab: 'cart', screen: 'cart' },
+            history: [],
           },
-          payeeContact
-        );
-        openApp('wechat', {
-          openChatCharacterId: payeeContact.id,
-          returnAppId: 'shopping',
-          returnParams: {
-            shoppingState: {
-              tab: 'cart',
-              route: { tab: 'cart', screen: 'cart' },
-              history: [],
-            },
-          },
-        });
-      } else {
-        const shareText = [
-          '麻烦你帮我代付这次购物结算',
-          `共 ${nextOrders.length} 笔订单，合计 ${formatMoney(mergedSelectedCartTotalAmount)}`,
-          ...nextOrders.map((order) => {
-            const lineText = order.lines.map((line) => `${line.name} x${line.qty}`).join('，');
-            return `${order.title}：${lineText}，${formatMoney(order.total)}`;
-          }),
-          (selectedCartAddress ?? defaultAddress)
-            ? `收货地址：${((selectedCartAddress ?? defaultAddress))?.name} ${((selectedCartAddress ?? defaultAddress))?.phone} ${((selectedCartAddress ?? defaultAddress))?.address}`
-            : '',
-        ]
-          .filter(Boolean)
-          .join('\n');
-        shareWechatOrder(shareText, payeeContact);
-      }
+        },
+      });
     }
     return true;
   }, [
@@ -1034,8 +1484,69 @@ export const ShoppingApp: React.FC<ShoppingAppProps> = ({ onClose, context }) =>
     selectedPayeeContact,
     openApp,
     shareWechatMessage,
-    shareWechatOrder,
+    cartAddressTab,
+    selectedGiftContact,
   ]);
+
+  React.useEffect(() => {
+    const deliveredGiftOrders = orders.filter((order) => {
+      if (order.kind === 'movie') return false;
+      const giftContactId = String(order.meta?.giftRecipientContactId ?? '').trim();
+      if (!giftContactId) return false;
+      const giftSentAt = Number(order.meta?.giftDeliveryCardSentAt ?? 0);
+      if (giftSentAt > 0) return false;
+      return getOrderStatus(order) === '已送达';
+    });
+    if (deliveredGiftOrders.length === 0) return;
+
+    let cancelled = false;
+    const processGiftOrders = async () => {
+      for (const order of deliveredGiftOrders) {
+        if (cancelled) return;
+        if (deliveredGiftOrderIdsRef.current.has(order.id)) continue;
+        deliveredGiftOrderIdsRef.current.add(order.id);
+
+        const sent = shareGiftDeliveryCard(order);
+        if (sent) {
+          const sentAt = Date.now();
+          await updateShoppingOrdersInStorage((storedOrders) =>
+            storedOrders.map((item) =>
+              item.id === order.id
+                ? {
+                    ...item,
+                    meta: {
+                      ...item.meta,
+                      giftDeliveryCardSentAt: sentAt,
+                    },
+                  }
+                : item
+            )
+          );
+          if (cancelled) return;
+          setOrders((prev) =>
+            prev.map((item) =>
+              item.id === order.id
+                ? {
+                    ...item,
+                    meta: {
+                      ...item.meta,
+                      giftDeliveryCardSentAt: sentAt,
+                    },
+                  }
+                : item
+            )
+          );
+        }
+
+        deliveredGiftOrderIdsRef.current.delete(order.id);
+      }
+    };
+
+    void processGiftOrders();
+    return () => {
+      cancelled = true;
+    };
+  }, [orders, setOrders, shareGiftDeliveryCard]);
 
   const openOrderDetailPaymentSheet = React.useCallback((orderId: string) => {
     const targetOrder = orders.find((item) => item.id === orderId);
@@ -1173,10 +1684,10 @@ export const ShoppingApp: React.FC<ShoppingAppProps> = ({ onClose, context }) =>
       return true;
     }
 
-    if (!payeeContact) {
-      window.alert('微信聊天列表里还没有可用于代付的人');
-      return false;
-    }
+      if (!payeeContact) {
+        window.alert('微信联系人里还没有可用于代付的人');
+        return false;
+      }
 
     setSelectedPayeeContactId(payeeContact.id);
     setOrders((prev) =>
@@ -1285,6 +1796,149 @@ export const ShoppingApp: React.FC<ShoppingAppProps> = ({ onClose, context }) =>
     setPendingMovieShareOrderId(null);
     setMergedPaymentSheetStage('method');
   }, []);
+
+  const appendCompanionAiMessage = React.useCallback((content: string) => {
+    setShoppingCompanionMessages((prev) =>
+      appendShoppingCompanionMessage(prev, {
+        id: buildShoppingCompanionMessageId(),
+        role: 'ai',
+        content,
+      })
+    );
+  }, []);
+
+  const requestShoppingCompanionAiMessage = React.useCallback(
+    async (params: {
+      triggerLabel?: string;
+      userInput?: string;
+      latestTopic?: string;
+      fallback: string;
+      markPending?: boolean;
+    }) => {
+      if (!shoppingTogetherState?.active) return;
+      if (params.markPending) setShoppingCompanionPending(true);
+      try {
+        const content = await requestShoppingCompanionModelReply(globalSettings, {
+          companionName: shoppingTogetherState.companionName,
+          screen: route.screen,
+          latestTopic: params.latestTopic,
+          triggerLabel: params.triggerLabel,
+          userInput: params.userInput,
+          recentMessages: shoppingCompanionMessages,
+        });
+        appendCompanionAiMessage(content);
+      } catch (error) {
+        console.error('[ShoppingApp] companion ai reply failed:', error);
+        appendCompanionAiMessage(params.fallback);
+      } finally {
+        if (params.markPending) setShoppingCompanionPending(false);
+      }
+    },
+    [appendCompanionAiMessage, globalSettings, route.screen, shoppingCompanionMessages, shoppingTogetherState]
+  );
+
+  const notifyShoppingCompanionAddToCart = React.useCallback((productName: string) => {
+    if (!shoppingTogetherState?.active || !isShoppingCompanionVisibleScreen(route.screen)) return;
+    const label = normalizeTextContent(productName);
+    if (!label) return;
+    lastShoppingInteractionRef.current = {
+      key: `${route.screen}:${label}`,
+      timestamp: Date.now(),
+    };
+    setShoppingCompanionLatestTopic(label);
+    void requestShoppingCompanionAiMessage({
+      triggerLabel: `${label} 已加入购物车`,
+      latestTopic: label,
+      fallback: `“${label}”都被你放进购物车啦，我就知道你对它是真的心动，这一单的快乐值又往上跳了一格。`,
+    });
+  }, [requestShoppingCompanionAiMessage, route.screen, shoppingTogetherState]);
+
+  const handleShoppingCompanionPointerDown = React.useCallback((event: React.PointerEvent<HTMLDivElement>) => {
+    const currentTarget = event.currentTarget;
+    const rect = currentTarget.getBoundingClientRect();
+    shoppingCompanionDragOffsetRef.current = {
+      x: event.clientX - rect.left,
+      y: event.clientY - rect.top,
+    };
+    currentTarget.setPointerCapture(event.pointerId);
+    setShoppingCompanionDragging(true);
+  }, []);
+
+  const handleShoppingCompanionPointerMove = React.useCallback((event: React.PointerEvent<HTMLDivElement>) => {
+    if (!shoppingCompanionDragging) return;
+    const host = contentRef.current?.parentElement;
+    const panel = event.currentTarget.parentElement as HTMLElement | null;
+    const hostRect = host?.getBoundingClientRect();
+    if (!hostRect) return;
+    const width = panel?.offsetWidth || 248;
+    const height = panel?.offsetHeight || (shoppingCompanionComposerOpen ? 232 : 142);
+    const nextX = Math.max(8, Math.min(hostRect.width - width - 8, event.clientX - hostRect.left - shoppingCompanionDragOffsetRef.current.x));
+    const nextY = Math.max(74, Math.min(hostRect.height - height - 74, event.clientY - hostRect.top - shoppingCompanionDragOffsetRef.current.y));
+    setShoppingCompanionPosition({ x: nextX, y: nextY });
+  }, [shoppingCompanionComposerOpen, shoppingCompanionDragging]);
+
+  const handleShoppingCompanionPointerUp = React.useCallback((event: React.PointerEvent<HTMLDivElement>) => {
+    if (!shoppingCompanionDragging) return;
+    event.currentTarget.releasePointerCapture(event.pointerId);
+    setShoppingCompanionDragging(false);
+  }, [shoppingCompanionDragging]);
+
+  const handleShoppingCompanionReplySubmit = React.useCallback(() => {
+    if (!shoppingTogetherState?.active) return;
+    const input = shoppingCompanionInput.trim();
+    if (!input) return;
+    setShoppingCompanionMessages((prev) =>
+      appendShoppingCompanionMessage(prev, {
+        id: buildShoppingCompanionMessageId(),
+        role: 'user',
+        content: input,
+      })
+    );
+    setShoppingCompanionInput('');
+    setShoppingCompanionComposerOpen(false);
+    void requestShoppingCompanionAiMessage({
+      userInput: input,
+      latestTopic: shoppingCompanionLatestTopic,
+      fallback: buildShoppingCompanionReplyToUser(
+        input,
+        shoppingTogetherState.companionName,
+        route.screen,
+        shoppingCompanionLatestTopic
+      ),
+      markPending: true,
+    });
+  }, [
+    requestShoppingCompanionAiMessage,
+    route.screen,
+    shoppingCompanionInput,
+    shoppingCompanionLatestTopic,
+    shoppingTogetherState,
+  ]);
+
+  const handleShoppingContentClickCapture = React.useCallback((event: React.MouseEvent<HTMLElement>) => {
+    if (!shoppingTogetherState?.active || !isShoppingCompanionVisibleScreen(route.screen)) return;
+    if (showShoppingEntryIntro) return;
+    const target = event.target as HTMLElement | null;
+    if (!target) return;
+    if (target.closest(`.${styles.shoppingCompanionFloating}`)) return;
+    const label = extractShoppingInteractionLabel(target);
+    if (!label) return;
+    const interactionKey = `${route.screen}:${label}`;
+    const now = Date.now();
+    if (
+      lastShoppingInteractionRef.current.key === interactionKey &&
+      now - lastShoppingInteractionRef.current.timestamp < 1200
+    ) {
+      return;
+    }
+    lastShoppingInteractionRef.current = { key: interactionKey, timestamp: now };
+    setShoppingCompanionLatestTopic(label);
+    void requestShoppingCompanionAiMessage({
+      triggerLabel: label,
+      latestTopic: label,
+      fallback: buildShoppingCompanionObservation(route.screen, label, shoppingTogetherState.companionName),
+    });
+  }, [requestShoppingCompanionAiMessage, route.screen, shoppingTogetherState, showShoppingEntryIntro]);
 
   const activeMovieProducts = React.useMemo(() => {
     const scopedProducts = movieProducts.filter(
@@ -1418,6 +2072,9 @@ export const ShoppingApp: React.FC<ShoppingAppProps> = ({ onClose, context }) =>
             scheduleDate={scheduleDate}
             scheduleTime={scheduleTime}
             defaultAddress={selectedCartAddress}
+            addressTab={cartAddressTab}
+            giftContacts={giftContacts}
+            selectedGiftContactId={selectedGiftContactId}
             onSwitchAddress={() =>
               go('addresses', {
                 returnTo: 'cart',
@@ -1427,6 +2084,8 @@ export const ShoppingApp: React.FC<ShoppingAppProps> = ({ onClose, context }) =>
               })
             }
             onManageAddress={() => go('addresses')}
+            onAddressTabChange={setCartAddressTab}
+            onGiftContactSelect={setSelectedGiftContactId}
             onShippingModeChange={(mode) => setShippingMode(mode)}
             onScheduleDateChange={(value) => setScheduleDate(value)}
             onScheduleTimeChange={(value) => setScheduleTime(value)}
@@ -1731,16 +2390,20 @@ export const ShoppingApp: React.FC<ShoppingAppProps> = ({ onClose, context }) =>
   };
 
   return (
-    <motion.div
-      className={styles.appRoot}
-      initial={{ opacity: 0, scale: 0.98 }}
-      animate={{ opacity: 1, scale: 1 }}
-      exit={{ opacity: 0, scale: 0.98 }}
-      transition={{ type: 'spring', stiffness: 260, damping: 26 }}
+      <motion.div
+        className={styles.appRoot}
+        initial={{ opacity: 0, scale: 0.98 }}
+        animate={{ opacity: 1, scale: 1 }}
+        exit={{ opacity: 0, scale: 0.98 }}
+        transition={{ type: 'spring', stiffness: 260, damping: 26 }}
     >
       <ShoppingHeader title={headerTitle} isRoot={isRoot} onBack={goBack} />
 
-      <main ref={contentRef} className={`${styles.content} ${hasDock ? styles.contentDocked : ''}`}>
+      <main
+        ref={contentRef}
+        className={`${styles.content} ${hasDock ? styles.contentDocked : ''}`}
+        onClickCapture={handleShoppingContentClickCapture}
+      >
         <AnimatePresence mode="wait">
           <motion.div
             key={`${route.tab}-${route.screen}`}
@@ -1769,12 +2432,12 @@ export const ShoppingApp: React.FC<ShoppingAppProps> = ({ onClose, context }) =>
                     {paymentSheetTarget === 'movie-share' ? '选择微信联系人' : '选择代付联系人'}
                   </strong>
                   <span className={styles.paymentSheetSubtitle}>
-                    {paymentSheetTarget === 'movie-share' ? '从微信聊天列表里选择一个聊天框分享票据信息' : '从微信聊天列表里选一个头像和人名'}
+                    {paymentSheetTarget === 'movie-share' ? '从微信聊天列表里选择一个聊天框分享票据信息' : '从微信联系人里选择一个头像和人名'}
                   </span>
                 </div>
-                {payeeContacts.length > 0 ? (
+                {(paymentSheetTarget === 'movie-share' ? movieShareContacts : payeeContacts).length > 0 ? (
                   <div className={styles.paymentSheetContactList}>
-                    {payeeContacts.map((contact) => (
+                    {(paymentSheetTarget === 'movie-share' ? movieShareContacts : payeeContacts).map((contact) => (
                       <button
                         key={contact.id}
                         type="button"
@@ -1813,7 +2476,7 @@ export const ShoppingApp: React.FC<ShoppingAppProps> = ({ onClose, context }) =>
                   <div className={styles.paymentSheetEmpty}>
                     {paymentSheetTarget === 'movie-share'
                       ? '微信聊天列表里还没有可分享的人。'
-                      : '微信聊天列表里还没有可用于代付的人。'}
+                      : '微信联系人里还没有可用于代付的人。'}
                   </div>
                 )}
                 <div className={styles.paymentSheetFooter}>
@@ -1856,7 +2519,7 @@ export const ShoppingApp: React.FC<ShoppingAppProps> = ({ onClose, context }) =>
                   className={styles.paymentSheetOption}
                   onClick={() => {
                     if (payeeContacts.length === 0) {
-                      window.alert('微信聊天列表里还没有可用于代付的人');
+                      window.alert('微信联系人里还没有可用于代付的人');
                       return;
                     }
                     setMergedPaymentSheetStage('payee');
@@ -1886,7 +2549,7 @@ export const ShoppingApp: React.FC<ShoppingAppProps> = ({ onClose, context }) =>
                   className={styles.paymentSheetOption}
                   onClick={() => {
                     if (payeeContacts.length === 0) {
-                      window.alert('微信聊天列表里还没有可用于代付的人');
+                      window.alert('微信联系人里还没有可用于代付的人');
                       return;
                     }
                     setMergedPaymentSheetStage('payee');
@@ -1904,7 +2567,7 @@ export const ShoppingApp: React.FC<ShoppingAppProps> = ({ onClose, context }) =>
                   type="button"
                   className={styles.paymentSheetOption}
                   onClick={() => {
-                    if (payeeContacts.length === 0) {
+                    if (movieShareContacts.length === 0) {
                       window.alert('微信聊天列表里还没有可分享的人');
                       return;
                     }
@@ -1940,11 +2603,233 @@ export const ShoppingApp: React.FC<ShoppingAppProps> = ({ onClose, context }) =>
             )}
           </div>
         </div>
-      ) : null}
+        ) : null}
 
-      <ShoppingTabBar tab={tab} onSwitch={switchTab} />
-    </motion.div>
-  );
-};
+        {isShoppingCompanionVisible ? (
+          <div
+            className={styles.shoppingCompanionFloating}
+            style={{ transform: `translate(${shoppingCompanionPosition.x}px, ${shoppingCompanionPosition.y}px)` }}
+          >
+            <div
+              className={`${styles.shoppingCompanionHandle} ${shoppingCompanionDragging ? styles.shoppingCompanionHandleDragging : ''}`}
+              onPointerDown={handleShoppingCompanionPointerDown}
+              onPointerMove={handleShoppingCompanionPointerMove}
+              onPointerUp={handleShoppingCompanionPointerUp}
+              onPointerCancel={handleShoppingCompanionPointerUp}
+            >
+              <div className={styles.shoppingCompanionHeaderMain}>
+                <span className={styles.shoppingCompanionAvatar}>
+                  {shoppingTogetherState.companionAvatar ? (
+                    <img
+                      src={shoppingTogetherState.companionAvatar}
+                      alt={shoppingTogetherState.companionName}
+                      className={styles.shoppingCompanionAvatarImage}
+                    />
+                  ) : (
+                    <span>{getContactInitials(shoppingTogetherState.companionName)}</span>
+                  )}
+                </span>
+                <div className={styles.shoppingCompanionHeaderText}>
+                  <strong>{shoppingTogetherState.companionName}</strong>
+                  <span>一起购物中</span>
+                </div>
+              </div>
+              <span className={styles.shoppingCompanionGrip}>⋯</span>
+            </div>
+
+            <div className={styles.shoppingCompanionBody}>
+              {shoppingCompanionMessages.slice(-1).map((message) => (
+                <div
+                  key={message.id}
+                  className={
+                    message.role === 'ai'
+                      ? styles.shoppingCompanionAiBubble
+                      : styles.shoppingCompanionUserBubble
+                  }
+                >
+                  {message.content}
+                </div>
+              ))}
+            </div>
+
+            <div className={styles.shoppingCompanionActions}>
+              <button
+                type="button"
+                className={styles.shoppingCompanionReplyBtn}
+                disabled={shoppingCompanionPending}
+                onClick={() => setShoppingCompanionComposerOpen((prev) => !prev)}
+              >
+                {shoppingCompanionPending ? '回复中...' : '回复'}
+              </button>
+            </div>
+
+            {shoppingCompanionComposerOpen ? (
+              <div className={styles.shoppingCompanionComposer}>
+                <textarea
+                  value={shoppingCompanionInput}
+                  onChange={(event) => setShoppingCompanionInput(event.target.value)}
+                  placeholder="回 TA 一句..."
+                  rows={2}
+                />
+                <button type="button" onClick={handleShoppingCompanionReplySubmit}>
+                  {shoppingCompanionPending ? '思考中...' : '发送'}
+                </button>
+              </div>
+            ) : null}
+          </div>
+        ) : null}
+
+        {showShoppingEntryIntro ? (
+          <motion.div
+            className={styles.shoppingEntryIntro}
+            initial={false}
+            animate={
+              shoppingEntryIntroLeaving
+                ? { y: '-100%', opacity: 0.98 }
+                : { y: 0, opacity: 1 }
+            }
+            transition={{
+              duration: shoppingEntryIntroLeaving ? 0.46 : 0.34,
+              ease: shoppingEntryIntroLeaving ? [0.22, 1, 0.36, 1] : [0.16, 1, 0.3, 1],
+            }}
+          >
+            <div className={styles.shoppingEntryGlowA} />
+            <div className={styles.shoppingEntryGlowB} />
+            <div className={styles.shoppingEntryHero}>
+              <div className={styles.shoppingEntryBadge}>一起出发去购物</div>
+              <div className={styles.shoppingEntryCopy}>
+                <h2>推着购物车冲进快乐采购日</h2>
+                <p>
+                  {shoppingEntryStage === 'contact'
+                    ? '选一个微信联系人，先把一起逛街邀请发出去。'
+                    : shoppingEntryMode === 'together'
+                      ? '和 TA 一起逛，甜度直接拉满。'
+                      : '先选个模式，再上滑进入首页。'}
+                </p>
+              </div>
+
+              <div className={styles.shoppingEntryScene} aria-hidden="true">
+                <div className={styles.shoppingEntryCloudLeft} />
+                <div className={styles.shoppingEntryCloudRight} />
+                <div className={styles.shoppingEntryTrack} />
+                <div className={styles.shoppingEntrySparkOne}>♥</div>
+                <div className={styles.shoppingEntrySparkTwo}>✦</div>
+
+                <div className={styles.shoppingEntryCartGroup}>
+                  <div className={styles.shoppingEntryCartBasket}>
+                    <span className={styles.shoppingEntryBagPink} />
+                    <span className={styles.shoppingEntryBagBlue} />
+                    <span className={styles.shoppingEntryBagYellow} />
+                  </div>
+                  <div className={styles.shoppingEntryCartHandle} />
+                  <div className={styles.shoppingEntryCartBase} />
+                  <div className={styles.shoppingEntryCartWheelLeft} />
+                  <div className={styles.shoppingEntryCartWheelRight} />
+                </div>
+
+                <div className={`${styles.shoppingEntryCharacter} ${styles.shoppingEntryCharacterLeft}`}>
+                  <div className={styles.shoppingEntryHair} />
+                  <div className={styles.shoppingEntryHead} />
+                  <div className={styles.shoppingEntryBody} />
+                  <div className={styles.shoppingEntryArmFront} />
+                  <div className={styles.shoppingEntryArmBack} />
+                  <div className={styles.shoppingEntryLegFront} />
+                  <div className={styles.shoppingEntryLegBack} />
+                </div>
+              </div>
+            </div>
+
+            <motion.div
+              className={styles.shoppingEntrySheet}
+              initial={false}
+              animate={
+                shoppingEntryIntroLeaving
+                  ? { y: -120, opacity: 0 }
+                  : { y: 0, opacity: 1 }
+              }
+              transition={{
+                duration: shoppingEntryIntroLeaving ? 0.34 : 0.28,
+                ease: [0.22, 1, 0.36, 1],
+              }}
+            >
+              <div className={styles.shoppingEntrySheetHandle} />
+              <p
+                className={`${styles.shoppingEntrySheetTitle} ${
+                  shoppingEntryStage === 'contact' ? styles.shoppingEntrySheetTitleContact : ''
+                }`}
+              >
+                {shoppingEntryStage === 'contact' ? '选择一起购物的人' : '这次想怎么逛'}
+              </p>
+              {shoppingEntryStage === 'contact' ? (
+                <>
+                  {payeeContacts.length > 0 ? (
+                    <div className={styles.shoppingEntryContactList}>
+                      {payeeContacts.map((contact) => (
+                        <button
+                          key={contact.id}
+                          type="button"
+                          className={styles.shoppingEntryContactItem}
+                          onClick={() => {
+                            const succeeded = sendShoppingTogetherInvite(contact);
+                            if (!succeeded) window.alert('购物邀请发送失败，请稍后再试');
+                          }}
+                        >
+                          <span className={styles.shoppingEntryContactAvatar}>
+                            {contact.avatar ? (
+                              <img
+                                src={contact.avatar}
+                                alt={contact.name}
+                                className={styles.shoppingEntryContactAvatarImage}
+                              />
+                            ) : (
+                              <span>{getContactInitials(contact.name)}</span>
+                            )}
+                          </span>
+                          <span className={styles.shoppingEntryContactName}>{contact.name}</span>
+                        </button>
+                      ))}
+                    </div>
+                  ) : (
+                    <div className={styles.paymentSheetEmpty}>微信联系人里还没有可邀请的人。</div>
+                  )}
+                  <div className={styles.shoppingEntrySheetFooter}>
+                    <button
+                      type="button"
+                      className={styles.shoppingEntryBackBtn}
+                      onClick={() => {
+                        setShoppingEntryMode('solo');
+                        setShoppingEntryStage('mode');
+                      }}
+                    >
+                      返回
+                    </button>
+                  </div>
+                </>
+              ) : (
+                <div className={styles.shoppingEntryActions}>
+                  <button
+                    type="button"
+                    className={styles.shoppingEntryPrimaryBtn}
+                    onClick={() => handleShoppingEntryChoice('solo')}
+                  >
+                    疯狂购物
+                  </button>
+                  <button
+                    type="button"
+                    className={styles.shoppingEntrySecondaryBtn}
+                    onClick={() => handleShoppingEntryChoice('together')}
+                  >
+                    同TA购物
+                  </button>
+                </div>
+              )}
+            </motion.div>
+          </motion.div>
+        ) : null}
+
+        <ShoppingTabBar tab={tab} onSwitch={switchTab} />
+      </motion.div>
+    );
+  };
 
 export type { ShoppingAppProps };

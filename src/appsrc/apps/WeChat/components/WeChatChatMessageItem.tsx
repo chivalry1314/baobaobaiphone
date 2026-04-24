@@ -78,7 +78,9 @@ export const WeChatChatMessageItem: React.FC<WeChatChatMessageItemProps> = ({
   const isPat = message.type === 'pat';
   const isTransfer = message.type === 'transfer' || message.type === 'transfer_accepted';
   const isOrderRequest = message.type === 'order_request';
+  const isShoppingInvite = message.type === 'shopping_invite';
   const isMovieTicket = message.type === 'movie_ticket' && Boolean(message.movieTicket);
+  const isGiftDelivery = message.type === 'gift_delivery' && Boolean(message.giftDelivery);
   const isVoice = message.type === 'voice' && Boolean(message.voiceAudioDataUrl);
   const isImage = message.type === 'image' && Boolean(message.imageDataUrl);
   const imageCaption = message.content.trim();
@@ -95,9 +97,16 @@ export const WeChatChatMessageItem: React.FC<WeChatChatMessageItemProps> = ({
     isUser ? customRenderConfig?.selfTextStyle : customRenderConfig?.peerTextStyle
   );
   const isUsingCustomBubble = Boolean(customBubbleStyle);
-  const showTail = !isUsingCustomBubble && bubblePreset === 'wechat' && !isOrderRequest && !isMovieTicket;
+  const showTail =
+    !isUsingCustomBubble &&
+    bubblePreset === 'wechat' &&
+    !isOrderRequest &&
+    !isShoppingInvite &&
+    !isMovieTicket &&
+    !isGiftDelivery;
   const tailClass = isUser ? 'border-l-[#95ec69]' : 'border-r-white';
   const movieTicket = message.movieTicket;
+  const giftDelivery = message.giftDelivery;
   const orderPreviewItems = Array.isArray(message.orderPreview?.items)
     ? message.orderPreview.items.filter((item) => item.name.trim())
     : [];
@@ -221,11 +230,15 @@ export const WeChatChatMessageItem: React.FC<WeChatChatMessageItemProps> = ({
               className={`relative cursor-pointer ${isMenuOpen ? 'brightness-90' : ''} ${
                 isTransfer
                   ? `bg-[#F39B3A] text-white overflow-hidden ${message.type === 'transfer_accepted' ? 'opacity-95' : ''}` 
-                  : isOrderRequest || isMovieTicket
+                  : isOrderRequest || isShoppingInvite || isMovieTicket || isGiftDelivery
                     ? 'overflow-hidden rounded-[18px] border border-[#EAECEF] bg-white shadow-[0_8px_20px_rgba(15,23,42,0.06)]'
                   : `${bubblePresetClass} ${isImage ? 'p-1.5' : 'px-3.5 py-2.5'}`
-              }`}
-              style={!isTransfer && !isOrderRequest && !isMovieTicket ? customBubbleStyle : undefined}
+                }`}
+              style={
+                !isTransfer && !isOrderRequest && !isShoppingInvite && !isMovieTicket && !isGiftDelivery
+                  ? customBubbleStyle
+                  : undefined
+              }
             >
               {isTransfer ? (
                 <div className="flex flex-col w-[200px] sm:w-[220px]">
@@ -312,6 +325,85 @@ export const WeChatChatMessageItem: React.FC<WeChatChatMessageItemProps> = ({
                       </button>
                     </div>
                   )}
+                </div>
+              ) : isShoppingInvite ? (
+                <div className="flex w-[238px] max-w-full flex-col bg-white">
+                  <div className="border-b border-[#E5E7EB] px-4 pb-3 pt-3">
+                    <div className="text-[17px] font-medium leading-tight text-[#1F2937]">
+                      {message.content.trim() || '邀请你一起购物'}
+                    </div>
+                    <div className="mt-3 rounded-[16px] bg-[linear-gradient(135deg,#FDF2F8_0%,#EFF6FF_100%)] px-3 py-3">
+                      <div className="text-[13px] font-semibold text-[#BE185D]">同TA购物邀请</div>
+                      <div className="mt-1 text-[12px] leading-[1.55] text-[#475569]">
+                        {message.shoppingInvite?.inviteText?.trim() || '一起边逛边聊，看到喜欢的就马上分享。'}
+                      </div>
+                      <div className="mt-2 rounded-[12px] bg-white/80 px-3 py-2 text-[12px] text-[#64748B]">
+                        同意后会直接进入一起购物模式，页面里会一直有陪伴聊天浮窗。
+                      </div>
+                    </div>
+                  </div>
+                  {message.orderRequestStatus === 'accepted' ? (
+                    <div className="px-4 py-3 text-center text-[14px] font-medium text-[#16A34A]">已同意一起购物</div>
+                  ) : message.orderRequestStatus === 'rejected' ? (
+                    <div className="px-4 py-3 text-center text-[14px] font-medium text-[#DC2626]">已拒绝一起购物</div>
+                  ) : (
+                    <div className="grid grid-cols-2 divide-x divide-[#E5E7EB]">
+                      <button
+                        type="button"
+                        onClick={(event) => handleOrderRequestAction(event, 'accepted')}
+                        className="px-4 py-3 text-[15px] font-medium text-[#16A34A] active:bg-[#F0FDF4]"
+                      >
+                        同意
+                      </button>
+                      <button
+                        type="button"
+                        onClick={(event) => handleOrderRequestAction(event, 'rejected')}
+                        className="px-4 py-3 text-[15px] font-medium text-[#DC2626] active:bg-[#FEF2F2]"
+                      >
+                        拒绝
+                      </button>
+                    </div>
+                  )}
+                </div>
+              ) : isGiftDelivery && giftDelivery ? (
+                <div
+                  className="relative flex w-[214px] max-w-full flex-col overflow-hidden rounded-[20px] px-3 pb-3 pt-3"
+                  style={{ background: 'linear-gradient(180deg, #FDE7ED 0%, #FBD0DA 100%)' }}
+                >
+                  <div className="pointer-events-none absolute inset-0 opacity-70">
+                    <span className="absolute left-[16px] top-[18px] text-[18px] text-white/70">♡</span>
+                    <span className="absolute right-[18px] top-[22px] text-[15px] text-white/70">♡</span>
+                    <span className="absolute right-[24px] bottom-[58px] text-[17px] text-white/65">♡</span>
+                  </div>
+                  <div className="relative text-center">
+                    <div className="text-[14px] font-semibold tracking-[0.02em] text-[#B4536C]">
+                      {giftDelivery.title || '送你一份小礼物'}
+                    </div>
+                    <div className="mt-1 text-[11px] text-[#C26B84]">
+                      {giftDelivery.subtitle || '希望你能喜欢~'}
+                    </div>
+                  </div>
+                  <div className="relative mt-3 rounded-[16px] bg-white px-4 pb-4 pt-4 shadow-[0_10px_20px_rgba(244,114,182,0.10)]">
+                    <div className="flex justify-center">
+                      <div
+                        className="flex h-[84px] w-[84px] items-center justify-center rounded-[20px] text-[54px] shadow-[inset_0_0_0_1px_rgba(251,191,202,0.45)]"
+                        style={{ background: 'linear-gradient(180deg, #FFF7F2 0%, #FFE8DD 100%)' }}
+                      >
+                        {giftDelivery.coverEmoji || '🎁'}
+                      </div>
+                    </div>
+                    <div className="mt-3 text-center text-[13px] font-semibold leading-[1.4] text-[#475569]">
+                      {giftDelivery.productName}
+                    </div>
+                    <div className="mt-1.5 text-center text-[16px] font-black text-[#F59E0B]">
+                      ¥ {Number(message.amount || 0).toFixed(2)}
+                    </div>
+                    <div className="mt-3 flex justify-center">
+                      <div className="rounded-full border border-[#E8B8C5] bg-white px-5 py-1.5 text-[12px] font-semibold text-[#B4536C] shadow-[0_4px_10px_rgba(244,114,182,0.08)]">
+                        查看详情
+                      </div>
+                    </div>
+                  </div>
                 </div>
               ) : isMovieTicket && movieTicket ? (
                 <div

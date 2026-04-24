@@ -174,6 +174,11 @@ const normalizeMessageContentForMemory = (
     return `分享电影票：${ticket.movieTitle}，影院${ticket.cinema}，日期${ticket.date} ${ticket.time}，${ticket.hall}，座位${ticket.seat}，${ticket.qty}张，取票码${ticket.pickupCode}`;
   }
 
+  if (message.type === 'gift_delivery' && message.giftDelivery && typeof message.amount === 'number') {
+    const gift = message.giftDelivery;
+    return `收到礼物卡片：${gift.productName}，金额¥${message.amount.toFixed(2)}，订单号${gift.orderId}`;
+  }
+
   if (message.type === 'image') {
     const caption = message.content.trim();
     if (caption && caption !== WECHAT_IMAGE_PLACEHOLDER) {

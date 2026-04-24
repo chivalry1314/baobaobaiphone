@@ -31,6 +31,12 @@ const STORE_KIND_LABEL_MAP: Record<CommerceStore['kind'], string> = {
 
 const trimText = (value: unknown): string => (typeof value === 'string' ? value.trim() : '');
 
+const resolveImageApiKey = (settings: GlobalSettings): string =>
+  trimText(settings.imageApiKey) || trimText(settings.apiKey);
+
+const resolveImageBaseUrl = (settings: GlobalSettings): string =>
+  trimText(settings.imageBaseUrl) || trimText(settings.baseUrl) || DEFAULT_BASE_URL;
+
 const clampNumber = (value: number, min: number, max: number): number =>
   Math.max(min, Math.min(max, value));
 
@@ -289,14 +295,14 @@ const requestSellerProductImage = async (
   settings: GlobalSettings,
   prompt: string
 ): Promise<string | null> => {
-  const apiKey = trimText(settings.imageApiKey || settings.apiKey);
+  const apiKey = resolveImageApiKey(settings);
   if (!apiKey) {
-    throw new Error('missing-image-api-key');
+    return null;
   }
 
-  const baseUrl = trimText(settings.imageBaseUrl || settings.baseUrl || DEFAULT_BASE_URL).replace(/\/+$/, '');
+  const baseUrl = resolveImageBaseUrl(settings).replace(/\/+$/, '');
   if (!baseUrl) {
-    throw new Error('missing-image-base-url');
+    return null;
   }
 
   const preferredModel = trimText(settings.imageModel) || IMAGE_MODEL_FALLBACK;

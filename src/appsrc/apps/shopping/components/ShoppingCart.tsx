@@ -33,8 +33,17 @@ interface ShoppingCartProps {
   scheduleDate: string;
   scheduleTime: string;
   defaultAddress?: Address;
+  addressTab: 'address' | 'gift';
+  giftContacts: Array<{
+    id: string;
+    name: string;
+    avatar?: string;
+  }>;
+  selectedGiftContactId: string;
   onSwitchAddress: () => void;
   onManageAddress: () => void;
+  onAddressTabChange: (tab: 'address' | 'gift') => void;
+  onGiftContactSelect: (contactId: string) => void;
   onShippingModeChange: (mode: ShippingMode) => void;
   onScheduleDateChange: (value: string) => void;
   onScheduleTimeChange: (value: string) => void;
@@ -67,8 +76,13 @@ export const ShoppingCart: React.FC<ShoppingCartProps> = ({
   scheduleDate,
   scheduleTime,
   defaultAddress,
+  addressTab,
+  giftContacts,
+  selectedGiftContactId,
   onSwitchAddress,
   onManageAddress,
+  onAddressTabChange,
+  onGiftContactSelect,
   onShippingModeChange,
   onScheduleDateChange,
   onScheduleTimeChange,
@@ -80,6 +94,12 @@ export const ShoppingCart: React.FC<ShoppingCartProps> = ({
   onRemoveOne,
   onClearStore,
 }) => {
+  const getGiftContactInitials = (name: string) => {
+    const normalized = name.trim();
+    if (!normalized) return '?';
+    return normalized.slice(0, 2).toUpperCase();
+  };
+
   if (groups.length === 0) {
     return (
       <section className={styles.section}>
@@ -96,32 +116,77 @@ export const ShoppingCart: React.FC<ShoppingCartProps> = ({
   return (
     <section className={styles.section}>
       <div className={styles.detailCard}>
-        <h3>收货地址</h3>
-        {defaultAddress ? (
-          <div className={styles.addressBlock}>
-            <div className={styles.addressTop}>
-              <strong>{defaultAddress.name}</strong>
-              <span>{defaultAddress.phone}</span>
+        <div className={styles.addressTabs}>
+          <button
+            type="button"
+            className={`${styles.addressTabBtn} ${addressTab === 'address' ? styles.addressTabBtnActive : ''}`}
+            onClick={() => onAddressTabChange('address')}
+          >
+            收货地址
+          </button>
+          <button
+            type="button"
+            className={`${styles.addressTabBtn} ${addressTab === 'gift' ? styles.addressTabBtnActive : ''}`}
+            onClick={() => onAddressTabChange('gift')}
+          >
+            送TA礼物
+          </button>
+        </div>
+        {addressTab === 'address' ? (
+          defaultAddress ? (
+            <div className={styles.addressBlock}>
+              <div className={styles.addressTop}>
+                <strong>{defaultAddress.name}</strong>
+                <span>{defaultAddress.phone}</span>
+              </div>
+              <p>{defaultAddress.address}</p>
+              <div className={styles.addressActions}>
+                <button className={styles.smallBtn} onClick={onSwitchAddress}>
+                  切换地址
+                </button>
+                <button className={styles.smallBtn} onClick={onManageAddress}>
+                  管理地址
+                </button>
+              </div>
             </div>
-            <p>{defaultAddress.address}</p>
-            <div className={styles.addressActions}>
-              <button className={styles.smallBtn} onClick={onSwitchAddress}>
-                切换地址
-              </button>
-              <button className={styles.smallBtn} onClick={onManageAddress}>
-                管理地址
-              </button>
-            </div>
-          </div>
-        ) : (
+          ) : (
+            <>
+              <p className={styles.muted}>暂无地址，请先添加。</p>
+              <div className={styles.addressActions}>
+                <button className={styles.smallBtn} onClick={onSwitchAddress}>
+                  去选择地址
+                </button>
+              </div>
+            </>
+          )
+        ) : giftContacts.length > 0 ? (
           <>
-            <p className={styles.muted}>暂无地址，请先添加。</p>
-            <div className={styles.addressActions}>
-              <button className={styles.smallBtn} onClick={onSwitchAddress}>
-                去选择地址
-              </button>
+            <div className={styles.giftContactList}>
+              {giftContacts.map((contact) => {
+                const selected = contact.id === selectedGiftContactId;
+                return (
+                  <button
+                    key={contact.id}
+                    type="button"
+                    className={`${styles.giftContactItem} ${selected ? styles.giftContactItemActive : ''}`}
+                    onClick={() => onGiftContactSelect(contact.id)}
+                  >
+                    <span className={styles.giftContactAvatar}>
+                      {contact.avatar ? (
+                        <img src={contact.avatar} alt={contact.name} className={styles.giftContactAvatarImage} />
+                      ) : (
+                        <span>{getGiftContactInitials(contact.name)}</span>
+                      )}
+                    </span>
+                    <span className={styles.giftContactName}>{contact.name}</span>
+                  </button>
+                );
+              })}
             </div>
+            <p className={styles.giftContactHint}>物流送达后，会自动把礼物卡片发到对应微信聊天框。</p>
           </>
+        ) : (
+          <p className={styles.muted}>通讯录里还没有可送礼的人。</p>
         )}
       </div>
 

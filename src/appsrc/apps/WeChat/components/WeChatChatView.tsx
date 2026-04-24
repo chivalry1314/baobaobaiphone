@@ -13,6 +13,7 @@ import { isLikelyVisionChatModel } from '../../../../core/modelCapabilities';
 import { wechatMemoryController } from '../memory';
 import { queryPersonalMemoryByApp } from '../../../../core/appMemoryCenter';
 import { getAppById } from '../../../../core/registry';
+import { PUSH_OPEN_APP_MESSAGE_TYPE } from '../../../../core/push/webPush';
 import { useShoppingStore } from '../../shopping/store';
 import { updateShoppingOrdersInStorage } from '../../../shared/business/commerce/domain/ordersStorage';
 
@@ -152,6 +153,11 @@ const normalizeMessageContentForMemoryComparison = (message: WeChatMessage): str
   if (message.type === 'movie_ticket' && message.movieTicket) {
     const ticket = message.movieTicket;
     return `分享电影票：${ticket.movieTitle}，影院${ticket.cinema}，日期${ticket.date} ${ticket.time}，${ticket.hall}，座位${ticket.seat}，${ticket.qty}张，取票码${ticket.pickupCode}`;
+  }
+
+  if (message.type === 'gift_delivery' && message.giftDelivery && typeof message.amount === 'number') {
+    const gift = message.giftDelivery;
+    return `收到礼物卡片：${gift.productName}，金额¥${message.amount.toFixed(2)}，订单号${gift.orderId}`;
   }
 
   if (message.type === 'image') {
@@ -1429,6 +1435,8 @@ export const WeChatChatView: React.FC<WeChatChatViewProps> = ({
         amount: messageItem.amount,
         orderRequestStatus: messageItem.orderRequestStatus,
         orderIds: messageItem.orderIds,
+        orderPreview: messageItem.orderPreview,
+        giftDelivery: messageItem.giftDelivery,
         movieTicket: messageItem.movieTicket,
         voiceAudioDataUrl: messageItem.voiceAudioDataUrl,
         voiceDurationSeconds: messageItem.voiceDurationSeconds,
@@ -1587,6 +1595,9 @@ export const WeChatChatView: React.FC<WeChatChatViewProps> = ({
       }
       if (m.type === 'movie_ticket' && m.movieTicket) {
         content = `[系统记录：分享了一张电影票；电影：${m.movieTicket.movieTitle}；影院：${m.movieTicket.cinema}；时间：${m.movieTicket.date} ${m.movieTicket.time}；影厅：${m.movieTicket.hall}；座位：${m.movieTicket.seat}；数量：${m.movieTicket.qty}张；取票码：${m.movieTicket.pickupCode}]`;
+      }
+      if (m.type === 'gift_delivery' && m.giftDelivery) {
+        content = `[系统记录：收到一份礼物；名称：${m.giftDelivery.productName}；金额：¥${Number(m.amount || 0).toFixed(2)}；订单号：${m.giftDelivery.orderId}]`;
       }
       if (m.type === 'transfer') content = `[系统记录：用户向你发起了转账 ¥${m.amount}]`;
       if (m.type === 'transfer_accepted') content = `[系统记录：你已接收转账 ¥${m.amount}]`;
@@ -1968,6 +1979,37 @@ export const WeChatChatView: React.FC<WeChatChatViewProps> = ({
         orderRequestStatus: action,
       });
 
+      if (message.type === 'shopping_invite') {
+        if (action === 'accepted' && character) {
+          window.dispatchEvent(
+            new CustomEvent(PUSH_OPEN_APP_MESSAGE_TYPE, {
+              detail: {
+                appId: 'shopping',
+                params: {
+                  shoppingState: {
+                    tab: 'home',
+                    route: { tab: 'home', screen: 'home' },
+                    history: [],
+                  },
+                  shoppingTogether: {
+                    active: true,
+                    companionId: character.id,
+                    companionName: character.name,
+                    companionAvatar: character.avatar || '',
+                  },
+                },
+              },
+            })
+          );
+        }
+
+        if (!options?.silent) {
+          setToastMessage(action === 'accepted' ? '已同意一起购物' : '已拒绝一起购物');
+          window.setTimeout(() => setToastMessage(null), 1800);
+        }
+        return;
+      }
+
       const orderIds = Array.isArray(message.orderIds)
         ? message.orderIds
             .map((item) => (typeof item === 'string' ? item.trim() : ''))
@@ -2013,7 +2055,7 @@ export const WeChatChatView: React.FC<WeChatChatViewProps> = ({
         window.setTimeout(() => setToastMessage(null), 1800);
       }
     },
-    [updateWeChatMessage]
+    [character, updateWeChatMessage]
   );
 
   const handleOrderRequestAction = useCallback(

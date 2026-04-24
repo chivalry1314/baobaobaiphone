@@ -20,11 +20,27 @@ export interface WeChatMessage {
   timestamp: number;
   quoteText?: string;
   assistantReplyPending?: boolean;
-  type?: 'text' | 'transfer' | 'transfer_accepted' | 'pat' | 'voice' | 'image' | 'order_request' | 'movie_ticket';
+  type?:
+    | 'text'
+    | 'transfer'
+    | 'transfer_accepted'
+    | 'pat'
+    | 'voice'
+    | 'image'
+    | 'order_request'
+    | 'movie_ticket'
+    | 'gift_delivery'
+    | 'shopping_invite';
   amount?: number;
   orderRequestStatus?: 'pending' | 'accepted' | 'rejected';
   orderIds?: string[];
   orderPreview?: WeChatOrderPreview;
+  giftDelivery?: WeChatGiftDeliveryCard;
+  shoppingInvite?: {
+    mode: 'together';
+    inviterName?: string;
+    inviteText?: string;
+  };
   movieTicket?: {
     orderId: string;
     movieTitle: string;
@@ -53,6 +69,14 @@ export interface WeChatOrderPreview {
   storeNames?: string[];
   items: WeChatOrderPreviewItem[];
   totalItemCount?: number;
+}
+
+export interface WeChatGiftDeliveryCard {
+  orderId: string;
+  title: string;
+  subtitle?: string;
+  productName: string;
+  coverEmoji?: string;
 }
 
 export interface WeChatSession {

@@ -52,6 +52,10 @@ export const ShoppingOrderDetail: React.FC<ShoppingOrderDetailProps> = ({
   const isPendingPayment = isOrderPendingPayment(order);
   const delegateRejected = String(order.meta?.delegateStatus ?? '').trim().toLowerCase() === 'rejected';
   const pickupCode = resolvePickupCode(order);
+  const giftRecipientName = String(order.meta?.giftRecipientName ?? '').trim();
+  const giftRecipientAvatar = String(order.meta?.giftRecipientAvatar ?? '').trim();
+  const isGiftOrder = Boolean(String(order.meta?.giftRecipientContactId ?? '').trim() && giftRecipientName);
+  const giftRecipientInitial = giftRecipientName ? giftRecipientName.slice(0, 2).toUpperCase() : 'TA';
 
   return (
     <section className={styles.section}>
@@ -137,7 +141,25 @@ export const ShoppingOrderDetail: React.FC<ShoppingOrderDetailProps> = ({
 
           <div className={styles.detailCard}>
             <h3>配送地址</h3>
-            {order.address ? (
+            {isGiftOrder ? (
+              <div className={styles.giftRecipientBlock}>
+                <div className={styles.giftRecipientAvatar}>
+                  {giftRecipientAvatar ? (
+                    <img
+                      src={giftRecipientAvatar}
+                      alt={giftRecipientName}
+                      className={styles.giftRecipientAvatarImage}
+                    />
+                  ) : (
+                    <span>{giftRecipientInitial}</span>
+                  )}
+                </div>
+                <div className={styles.giftRecipientMeta}>
+                  <strong>{giftRecipientName}</strong>
+                  <span>送TA礼物</span>
+                </div>
+              </div>
+            ) : order.address ? (
               <div className={styles.addressBlock}>
                 <div className={styles.addressTop}>
                   <strong>{order.address.name}</strong>
