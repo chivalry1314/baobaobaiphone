@@ -155,7 +155,12 @@ const getKeyboardVisibleViewportBounds = () => {
 
 export const scrollFieldIntoViewInContainer = (
   scrollContainer: HTMLElement | null,
-  target: HTMLElement | null
+  target: HTMLElement | null,
+  options?: {
+    topPadding?: number;
+    bottomPadding?: number;
+    preferTopAlign?: boolean;
+  }
 ): void => {
   if (
     typeof window === 'undefined' ||
@@ -173,11 +178,21 @@ export const scrollFieldIntoViewInContainer = (
   const visibleViewport = getKeyboardVisibleViewportBounds();
   const visibleTop = Math.max(containerRect.top, visibleViewport.top);
   const visibleBottom = Math.min(containerRect.bottom, visibleViewport.bottom);
-  const topPadding = 12;
-  const bottomPadding = 24;
+  const topPadding = options?.topPadding ?? 12;
+  const bottomPadding = options?.bottomPadding ?? 24;
+  const preferTopAlign = options?.preferTopAlign ?? false;
   const availableHeight = visibleBottom - visibleTop;
 
   if (availableHeight <= topPadding + bottomPadding) return;
+
+  if (preferTopAlign) {
+    const desiredTop = visibleTop + topPadding;
+    const deltaToTop = elementRect.top - desiredTop;
+    if (Math.abs(deltaToTop) > 2) {
+      scrollContainer.scrollTop += deltaToTop;
+    }
+    return;
+  }
 
   if (elementRect.top < visibleTop + topPadding) {
     scrollContainer.scrollTop -= visibleTop + topPadding - elementRect.top;
@@ -217,7 +232,11 @@ export const useKeyboardViewportStabilizer = (
 
         const scrollContainer = scrollContainerRef?.current;
         if (!scrollContainer || !(activeElement instanceof HTMLElement)) return;
-        scrollFieldIntoViewInContainer(scrollContainer, activeElement);
+        scrollFieldIntoViewInContainer(scrollContainer, activeElement, {
+          preferTopAlign: true,
+          topPadding: 12,
+          bottomPadding: 24,
+        });
       });
     };
 

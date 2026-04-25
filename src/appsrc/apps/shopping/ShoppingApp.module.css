@@ -2661,6 +2661,10 @@
   filter: saturate(1.03) brightness(1.01);
 }
 
+.shoppingEntryArtworkImageStandalone {
+  object-fit: cover;
+}
+
 .shoppingEntryArmFront,
 .shoppingEntryArmBack {
   position: absolute;

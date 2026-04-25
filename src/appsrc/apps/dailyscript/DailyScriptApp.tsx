@@ -127,11 +127,17 @@ export const DailyScriptApp: React.FC<DailyScriptAppProps> = ({ onClose }) => {
     if (!(target instanceof HTMLElement)) return;
     const scrollContainer = settingsScrollRef.current;
     if (!scrollContainer) return;
-    const alignField = () => scrollFieldIntoViewInContainer(scrollContainer, target);
+    const alignField = () =>
+      scrollFieldIntoViewInContainer(scrollContainer, target, {
+        preferTopAlign: true,
+        topPadding: 10,
+        bottomPadding: 28,
+      });
     alignField();
     window.setTimeout(alignField, 80);
     window.setTimeout(alignField, 180);
     window.setTimeout(alignField, 320);
+    window.setTimeout(alignField, 460);
   }, []);
 
   const roleOptions = useMemo<RoleOption[]>(
@@ -758,7 +764,7 @@ export const DailyScriptApp: React.FC<DailyScriptAppProps> = ({ onClose }) => {
           <main
             ref={settingsScrollRef}
             onFocusCapture={handleSettingsFieldFocusCapture}
-            className="flex-1 min-h-0 overflow-y-auto px-4 pt-3 pb-4 space-y-3"
+            className="flex-1 min-h-0 overflow-y-auto touch-pan-y px-4 pt-3 pb-40 space-y-3"
           >
             <DaySettingsView
               selectedRoleId={selectedRoleId}

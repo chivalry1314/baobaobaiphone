@@ -86,6 +86,8 @@ Implement features in baobaobaiphone by following existing architecture and conv
 9. Editing pages should default to the standard structure: fixed `header` + middle-only scrolling `main` + fixed `footer`.
 10. Form editors must wire `useKeyboardViewportStabilizer(...)` to the middle scroll container and keep the focused input inside that scroll region during focus and keyboard viewport changes, so the header does not get pushed upward.
 11. Prefer the repo-standard implementation: keep scroll targeting in `src/core/mobileViewport.ts`, then add `onFocusCapture` on the page scroll container so focus triggers several follow-up alignments while the keyboard animation settles.
+12. The goal is not merely to expose part of the field. On focus, form editors should keep nudging the focused input toward the top visible region so it is fully readable instead of half-covered near the keyboard.
+13. While the keyboard is open, the middle form scroll area must still be manually scrollable downward. Preserve enough bottom padding and vertical touch scrolling behavior on the scroll container so later fields remain reachable.
 
 ## Validation Checklist
 1. Run `npm run lint` after code changes.

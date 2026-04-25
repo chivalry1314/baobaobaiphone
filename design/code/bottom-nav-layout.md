@@ -145,8 +145,11 @@
 - 编辑页滚动容器必须接入 `useKeyboardViewportStabilizer(...)`。
 - 文本输入聚焦与键盘视口变化时，必须稳定窗口滚动，并把当前焦点输入维持在中间滚动区可见范围内。
 - 目标不是“输入框刚好露出来”，而是避免标题区被顶上去、避免 header/footer 跳动、避免整页跟着键盘抖动。
+- 输入框一聚焦就应连续补定位到上方可见区域，而不是只露出一部分；优先把焦点字段贴近可见区顶部，而不是停在中间或底部附近。
+- 键盘弹起后，中间表单滚动区仍然必须可以继续向下滑动查看后续字段，不能因为定位逻辑或容器写法导致滚动被锁死。
 - 推荐把滚动定位能力抽到底层工具（当前仓库为 `src/core/mobileViewport.ts`）。
 - 页面侧推荐在中间滚动容器上增加 `onFocusCapture`，输入框一聚焦时连续补几次定位，覆盖键盘动画尚未稳定的阶段。
+- 中间滚动容器推荐同时具备 `overflow-y-auto`、足够的底部留白，以及 `touch-pan-y` / iOS 惯性滚动能力，保证键盘场景下仍能自然拖动。
 
 推荐写法：
 
@@ -158,17 +161,23 @@ const handleFieldFocusCapture = (event: React.FocusEvent<HTMLElement>) => {
   if (!(target instanceof HTMLElement)) return;
   const scrollContainer = contentScrollRef.current;
   if (!scrollContainer) return;
-  const alignField = () => scrollFieldIntoViewInContainer(scrollContainer, target);
+  const alignField = () =>
+    scrollFieldIntoViewInContainer(scrollContainer, target, {
+      preferTopAlign: true,
+      topPadding: 10,
+      bottomPadding: 28,
+    });
   alignField();
   window.setTimeout(alignField, 80);
   window.setTimeout(alignField, 180);
   window.setTimeout(alignField, 320);
+  window.setTimeout(alignField, 460);
 };
 
 <main
   ref={contentScrollRef}
   onFocusCapture={handleFieldFocusCapture}
-  className="flex-1 min-h-0 overflow-y-auto"
+  className="flex-1 min-h-0 overflow-y-auto touch-pan-y pb-40"
 >
   ...
 </main>

@@ -388,11 +388,17 @@ export const SellerApp: React.FC<SellerAppProps> = ({ onClose }) => {
     if (!(target instanceof HTMLElement)) return;
     const scrollContainer = publishContentScrollRef.current;
     if (!scrollContainer) return;
-    const alignField = () => scrollFieldIntoViewInContainer(scrollContainer, target);
+    const alignField = () =>
+      scrollFieldIntoViewInContainer(scrollContainer, target, {
+        preferTopAlign: true,
+        topPadding: 10,
+        bottomPadding: 28,
+      });
     alignField();
     window.setTimeout(alignField, 80);
     window.setTimeout(alignField, 180);
     window.setTimeout(alignField, 320);
+    window.setTimeout(alignField, 460);
   }, []);
 
   const refreshData = React.useCallback(async () => {

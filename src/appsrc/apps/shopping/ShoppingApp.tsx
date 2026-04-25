@@ -106,6 +106,15 @@ const filterProductsByStore = (items: ProductItem[], kind: GoodsKind, storeId: s
   return items.filter((item) => resolveProductStoreId(item, kind) === storeId);
 };
 
+const isStandaloneShoppingDisplayMode = (): boolean => {
+  if (typeof window === 'undefined' || typeof navigator === 'undefined') return false;
+  const standaloneNavigator = navigator as Navigator & { standalone?: boolean };
+  return (
+    window.matchMedia('(display-mode: standalone)').matches ||
+    standaloneNavigator.standalone === true
+  );
+};
+
 const mergeCartToLines = (items: ProductItem[]): ShoppingCartLine[] => {
   const lineMap = new Map<string, ShoppingCartLine>();
   items.forEach((item) => {
@@ -506,6 +515,7 @@ export const ShoppingApp: React.FC<ShoppingAppProps> = ({ onClose, context }) =>
     () => Boolean(context?.params && Object.keys(context.params).length > 0),
     [context?.params]
   );
+  const isStandaloneShoppingIntro = React.useMemo(() => isStandaloneShoppingDisplayMode(), []);
   const shouldShowShoppingEntryIntroOnLaunch = React.useMemo(
     () =>
       !hasExplicitLaunchParams &&
@@ -2747,7 +2757,7 @@ export const ShoppingApp: React.FC<ShoppingAppProps> = ({ onClose, context }) =>
                 <img
                   src={homeIntroImage}
                   alt=""
-                  className={styles.shoppingEntryArtworkImage}
+                  className={`${styles.shoppingEntryArtworkImage} ${isStandaloneShoppingIntro ? styles.shoppingEntryArtworkImageStandalone : ''}`}
                 />
               </div>
             </div>

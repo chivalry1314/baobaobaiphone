@@ -96,11 +96,17 @@ export const ApiSettingsView: React.FC<ApiSettingsViewProps> = ({
     if (!(target instanceof HTMLElement)) return;
     const scrollContainer = contentScrollRef.current;
     if (!scrollContainer) return;
-    const alignField = () => scrollFieldIntoViewInContainer(scrollContainer, target);
+    const alignField = () =>
+      scrollFieldIntoViewInContainer(scrollContainer, target, {
+        preferTopAlign: true,
+        topPadding: 10,
+        bottomPadding: 28,
+      });
     alignField();
     window.setTimeout(alignField, 80);
     window.setTimeout(alignField, 180);
     window.setTimeout(alignField, 320);
+    window.setTimeout(alignField, 460);
   }, []);
 
   React.useEffect(() => {
@@ -400,7 +406,7 @@ export const ApiSettingsView: React.FC<ApiSettingsViewProps> = ({
       <main
         ref={contentScrollRef}
         onFocusCapture={handleFieldFocusCapture}
-        className="flex-1 min-h-0 overflow-y-auto p-4 space-y-6"
+        className="flex-1 min-h-0 overflow-y-auto touch-pan-y p-4 pb-40 space-y-6"
       >
         <section className="space-y-2">
         <h2 className="px-4 text-[13px] text-gray-500 uppercase tracking-wider">API 配置</h2>

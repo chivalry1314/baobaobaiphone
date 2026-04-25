@@ -123,7 +123,12 @@ export const AddContactPage: React.FC<AddContactPageProps> = ({
     if (!(target instanceof HTMLElement)) return;
     const scrollContainer = formScrollRef.current;
     if (!scrollContainer) return;
-    const alignField = () => scrollFieldIntoViewInContainer(scrollContainer, target);
+    const alignField = () =>
+      scrollFieldIntoViewInContainer(scrollContainer, target, {
+        preferTopAlign: true,
+        topPadding: 10,
+        bottomPadding: 28,
+      });
     alignField();
     window.setTimeout(alignField, 80);
     window.setTimeout(alignField, 180);
@@ -161,7 +166,7 @@ export const AddContactPage: React.FC<AddContactPageProps> = ({
         <div
           ref={formScrollRef}
           onFocusCapture={handleFieldFocusCapture}
-          className="flex-1 min-h-0 overflow-y-auto overscroll-y-contain px-5 pb-32 pt-4 space-y-3"
+          className="flex-1 min-h-0 overflow-y-auto overscroll-y-contain touch-pan-y px-5 pb-44 pt-4 space-y-3"
         >
           <div className="flex flex-col items-center mb-1">
             <button

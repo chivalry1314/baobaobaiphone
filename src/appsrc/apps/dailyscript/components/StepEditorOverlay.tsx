@@ -130,11 +130,17 @@ export const StepEditorOverlay: React.FC<StepEditorOverlayProps> = ({
     if (!(target instanceof HTMLElement)) return;
     const scrollContainer = contentScrollRef.current;
     if (!scrollContainer) return;
-    const alignField = () => scrollFieldIntoViewInContainer(scrollContainer, target);
+    const alignField = () =>
+      scrollFieldIntoViewInContainer(scrollContainer, target, {
+        preferTopAlign: true,
+        topPadding: 10,
+        bottomPadding: 28,
+      });
     alignField();
     window.setTimeout(alignField, 80);
     window.setTimeout(alignField, 180);
     window.setTimeout(alignField, 320);
+    window.setTimeout(alignField, 460);
   }, []);
   const currentActionAppType = getActionAppType(state.actionType);
   const filteredActionOptions = ACTION_OPTIONS_BY_APP[currentActionAppType];
@@ -294,7 +300,7 @@ export const StepEditorOverlay: React.FC<StepEditorOverlayProps> = ({
       <main
         ref={contentScrollRef}
         onFocusCapture={handleFieldFocusCapture}
-        className="flex-1 min-h-0 overflow-y-auto px-4 py-4 space-y-3"
+        className="flex-1 min-h-0 overflow-y-auto touch-pan-y px-4 py-4 pb-40 space-y-3"
       >
         <section className="rounded-3xl border border-indigo-100 bg-white p-4 space-y-3">
           <input
