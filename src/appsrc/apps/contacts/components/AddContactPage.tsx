@@ -2,6 +2,7 @@
 import { useVirtualizer } from '@tanstack/react-virtual';
 import { Check, Image as ImageIcon } from 'lucide-react';
 import {
+  scrollFieldIntoViewInContainer,
   useKeyboardViewportStabilizer,
   useMobileViewportPageStyle,
 } from '../../../../core/mobileViewport';
@@ -117,34 +118,18 @@ export const AddContactPage: React.FC<AddContactPageProps> = ({
     });
   };
 
-  const scrollFieldIntoView = React.useCallback(
-    (target: HTMLElement) => {
-      const scrollContainer = formScrollRef.current;
-      if (!scrollContainer) return;
-
-      const alignField = () => {
-        const containerRect = scrollContainer.getBoundingClientRect();
-        const targetRect = target.getBoundingClientRect();
-        const visibleTop = containerRect.top + 12;
-        const visibleBottom = containerRect.bottom - 24;
-
-        if (targetRect.top < visibleTop) {
-          scrollContainer.scrollTop -= visibleTop - targetRect.top;
-          return;
-        }
-
-        if (targetRect.bottom > visibleBottom) {
-          scrollContainer.scrollTop += targetRect.bottom - visibleBottom;
-        }
-      };
-
-      alignField();
-      window.setTimeout(alignField, 80);
-      window.setTimeout(alignField, 180);
-      window.setTimeout(alignField, 320);
-    },
-    []
-  );
+  const handleFieldFocusCapture = React.useCallback((event: React.FocusEvent<HTMLElement>) => {
+    const target = event.target;
+    if (!(target instanceof HTMLElement)) return;
+    const scrollContainer = formScrollRef.current;
+    if (!scrollContainer) return;
+    const alignField = () => scrollFieldIntoViewInContainer(scrollContainer, target);
+    alignField();
+    window.setTimeout(alignField, 80);
+    window.setTimeout(alignField, 180);
+    window.setTimeout(alignField, 320);
+    window.setTimeout(alignField, 460);
+  }, []);
 
   return (
     <div
@@ -175,7 +160,8 @@ export const AddContactPage: React.FC<AddContactPageProps> = ({
       {view === 'form' ? (
         <div
           ref={formScrollRef}
-          className="flex-1 min-h-0 overflow-y-auto overscroll-y-contain px-5 pb-8 pt-4 space-y-3"
+          onFocusCapture={handleFieldFocusCapture}
+          className="flex-1 min-h-0 overflow-y-auto overscroll-y-contain px-5 pb-32 pt-4 space-y-3"
         >
           <div className="flex flex-col items-center mb-1">
             <button
@@ -201,14 +187,12 @@ export const AddContactPage: React.FC<AddContactPageProps> = ({
           <input
             value={name}
             onChange={(event) => setName(event.target.value)}
-            onFocus={(event) => scrollFieldIntoView(event.currentTarget)}
             placeholder={`${TEXT.name} *`}
             className="w-full h-12 rounded-xl bg-slate-100 px-4 text-[16px] outline-none"
           />
           <input
             value={phone}
             onChange={(event) => setPhone(event.target.value)}
-            onFocus={(event) => scrollFieldIntoView(event.currentTarget)}
             placeholder={TEXT.phoneNumber}
             className="w-full h-12 rounded-xl bg-slate-100 px-4 text-[16px] outline-none"
           />
@@ -274,21 +258,18 @@ export const AddContactPage: React.FC<AddContactPageProps> = ({
           <textarea
             value={description}
             onChange={(event) => setDescription(event.target.value)}
-            onFocus={(event) => scrollFieldIntoView(event.currentTarget)}
             placeholder={TEXT.description}
             className="w-full min-h-[92px] rounded-xl bg-slate-100 px-4 py-3 text-[16px] outline-none resize-none"
           />
           <textarea
             value={greeting}
             onChange={(event) => setGreeting(event.target.value)}
-            onFocus={(event) => scrollFieldIntoView(event.currentTarget)}
             placeholder={TEXT.greeting}
             className="w-full min-h-[86px] rounded-xl bg-slate-100 px-4 py-3 text-[16px] outline-none resize-none"
           />
           <textarea
             value={note}
             onChange={(event) => setNote(event.target.value)}
-            onFocus={(event) => scrollFieldIntoView(event.currentTarget)}
             placeholder={TEXT.note}
             className="w-full min-h-[72px] rounded-xl bg-slate-100 px-4 py-3 text-[16px] outline-none resize-none"
           />
