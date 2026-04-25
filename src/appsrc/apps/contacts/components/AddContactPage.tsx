@@ -39,6 +39,7 @@ export const AddContactPage: React.FC<AddContactPageProps> = ({
   const [wechatRelation, setWeChatRelation] = useState<WeChatRelation>(
     initialContact?.wechatRelation ?? 'friend'
   );
+  const [keyboardInset, setKeyboardInset] = useState(0);
 
   const fileInputRef = useRef<HTMLInputElement | null>(null);
   const formScrollRef = useRef<HTMLDivElement | null>(null);
@@ -52,6 +53,40 @@ export const AddContactPage: React.FC<AddContactPageProps> = ({
     () => worldBook.find((entry) => entry.id === selectedWorldBookId)?.name ?? '',
     [selectedWorldBookId, worldBook]
   );
+
+  React.useEffect(() => {
+    if (view !== 'form' || typeof window === 'undefined') {
+      setKeyboardInset(0);
+      return;
+    }
+
+    const visualViewport = window.visualViewport;
+    if (!visualViewport) {
+      setKeyboardInset(0);
+      return;
+    }
+
+    const syncKeyboardInset = () => {
+      const layoutViewportHeight = Math.round(window.innerHeight);
+      const viewportHeight = Math.round(visualViewport.height);
+      const viewportOffsetTop = Math.max(0, Math.round(visualViewport.offsetTop));
+      const nextInset = Math.max(0, layoutViewportHeight - (viewportHeight + viewportOffsetTop));
+      setKeyboardInset(nextInset);
+    };
+
+    syncKeyboardInset();
+    window.addEventListener('resize', syncKeyboardInset);
+    window.addEventListener('orientationchange', syncKeyboardInset);
+    visualViewport.addEventListener('resize', syncKeyboardInset);
+    visualViewport.addEventListener('scroll', syncKeyboardInset);
+
+    return () => {
+      window.removeEventListener('resize', syncKeyboardInset);
+      window.removeEventListener('orientationchange', syncKeyboardInset);
+      visualViewport.removeEventListener('resize', syncKeyboardInset);
+      visualViewport.removeEventListener('scroll', syncKeyboardInset);
+    };
+  }, [view]);
 
   const worldBookVirtualizer = useVirtualizer({
     count: worldBook.length + 1,
@@ -130,6 +165,7 @@ export const AddContactPage: React.FC<AddContactPageProps> = ({
         bottomPadding: 28,
       });
     alignField();
+    window.requestAnimationFrame(alignField);
     window.setTimeout(alignField, 80);
     window.setTimeout(alignField, 180);
     window.setTimeout(alignField, 320);
@@ -166,7 +202,10 @@ export const AddContactPage: React.FC<AddContactPageProps> = ({
         <div
           ref={formScrollRef}
           onFocusCapture={handleFieldFocusCapture}
-          className="flex-1 min-h-0 overflow-y-auto overscroll-y-contain touch-pan-y px-5 pb-44 pt-4 space-y-3"
+          className="flex-1 min-h-0 overflow-y-auto overscroll-y-contain touch-pan-y px-5 pt-4 space-y-3"
+          style={{
+            paddingBottom: `calc(env(safe-area-inset-bottom, 0px) + ${keyboardInset + 192}px)`,
+          }}
         >
           <div className="flex flex-col items-center mb-1">
             <button
