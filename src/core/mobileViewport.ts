@@ -153,6 +153,39 @@ const getKeyboardVisibleViewportBounds = () => {
   };
 };
 
+export const scrollFieldIntoViewInContainer = (
+  scrollContainer: HTMLElement | null,
+  target: HTMLElement | null
+): void => {
+  if (
+    typeof window === 'undefined' ||
+    !scrollContainer ||
+    !target ||
+    !scrollContainer.contains(target)
+  ) {
+    return;
+  }
+
+  scrollWindowToTop();
+
+  const containerRect = scrollContainer.getBoundingClientRect();
+  const elementRect = target.getBoundingClientRect();
+  const visibleViewport = getKeyboardVisibleViewportBounds();
+  const visibleTop = Math.max(containerRect.top, visibleViewport.top);
+  const visibleBottom = Math.min(containerRect.bottom, visibleViewport.bottom);
+  const topPadding = 12;
+  const bottomPadding = 24;
+  const availableHeight = visibleBottom - visibleTop;
+
+  if (availableHeight <= topPadding + bottomPadding) return;
+
+  if (elementRect.top < visibleTop + topPadding) {
+    scrollContainer.scrollTop -= visibleTop + topPadding - elementRect.top;
+  } else if (elementRect.bottom > visibleBottom - bottomPadding) {
+    scrollContainer.scrollTop += elementRect.bottom - (visibleBottom - bottomPadding);
+  }
+};
+
 export const useKeyboardViewportStabilizer = (
   enabled = true,
   scrollContainerRef?: RefObject<HTMLElement | null>
@@ -184,24 +217,7 @@ export const useKeyboardViewportStabilizer = (
 
         const scrollContainer = scrollContainerRef?.current;
         if (!scrollContainer || !(activeElement instanceof HTMLElement)) return;
-        if (!scrollContainer.contains(activeElement)) return;
-
-        const containerRect = scrollContainer.getBoundingClientRect();
-        const elementRect = activeElement.getBoundingClientRect();
-        const visibleViewport = getKeyboardVisibleViewportBounds();
-        const visibleTop = Math.max(containerRect.top, visibleViewport.top);
-        const visibleBottom = Math.min(containerRect.bottom, visibleViewport.bottom);
-        const topPadding = 12;
-        const bottomPadding = 24;
-        const availableHeight = visibleBottom - visibleTop;
-
-        if (availableHeight <= topPadding + bottomPadding) return;
-
-        if (elementRect.top < visibleTop + topPadding) {
-          scrollContainer.scrollTop -= visibleTop + topPadding - elementRect.top;
-        } else if (elementRect.bottom > visibleBottom - bottomPadding) {
-          scrollContainer.scrollTop += elementRect.bottom - (visibleBottom - bottomPadding);
-        }
+        scrollFieldIntoViewInContainer(scrollContainer, activeElement);
       });
     };
 

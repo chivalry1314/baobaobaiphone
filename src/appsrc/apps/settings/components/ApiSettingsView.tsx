@@ -2,7 +2,10 @@
 import { Cpu, Eye, EyeOff, Globe, Image as ImageIcon, Key, Mic2, RefreshCw } from 'lucide-react';
 import type { GlobalSettings } from '../../../../core/sdk/types';
 import { detectVisionSupportByModel } from '../../../../core/modelCapabilities';
-import { useKeyboardViewportStabilizer } from '../../../../core/mobileViewport';
+import {
+  scrollFieldIntoViewInContainer,
+  useKeyboardViewportStabilizer,
+} from '../../../../core/mobileViewport';
 
 const VISION_TEST_IMAGE_DATA_URL =
   'data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAACAAAAAgCAYAAABzenr0AAAAAXNSR0IArs4c6QAAAARnQU1BAACxjwv8YQUAAAAJcEhZcwAADsMAAA7DAcdvqGQAAAAtSURBVFhH7c6hAQAACMOw/f80+B0AJpVVyTyXHtcBAAAAAAAAAAAAAAAAAAAsl/rw4k5bXakAAAAASUVORK5CYII=';
@@ -88,6 +91,17 @@ export const ApiSettingsView: React.FC<ApiSettingsViewProps> = ({
       : '请输入对话模型，或等待加载...';
   const visionSupportState = detectVisionSupportByModel(chatModelValue);
   useKeyboardViewportStabilizer(true, contentScrollRef);
+  const handleFieldFocusCapture = React.useCallback((event: React.FocusEvent<HTMLElement>) => {
+    const target = event.target;
+    if (!(target instanceof HTMLElement)) return;
+    const scrollContainer = contentScrollRef.current;
+    if (!scrollContainer) return;
+    const alignField = () => scrollFieldIntoViewInContainer(scrollContainer, target);
+    alignField();
+    window.setTimeout(alignField, 80);
+    window.setTimeout(alignField, 180);
+    window.setTimeout(alignField, 320);
+  }, []);
 
   React.useEffect(() => {
     setVisionTestState('idle');
@@ -383,7 +397,11 @@ export const ApiSettingsView: React.FC<ApiSettingsViewProps> = ({
 
   return (
     <div className="flex-1 min-h-0 flex flex-col overflow-hidden">
-      <main ref={contentScrollRef} className="flex-1 min-h-0 overflow-y-auto p-4 space-y-6">
+      <main
+        ref={contentScrollRef}
+        onFocusCapture={handleFieldFocusCapture}
+        className="flex-1 min-h-0 overflow-y-auto p-4 space-y-6"
+      >
         <section className="space-y-2">
         <h2 className="px-4 text-[13px] text-gray-500 uppercase tracking-wider">API 配置</h2>
 

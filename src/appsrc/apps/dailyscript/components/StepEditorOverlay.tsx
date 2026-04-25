@@ -1,6 +1,7 @@
 import React from 'react';
 import { X } from 'lucide-react';
 import {
+  scrollFieldIntoViewInContainer,
   useKeyboardTextEntryActive,
   useKeyboardViewportStabilizer,
   useMobileViewportPageStyle,
@@ -124,6 +125,17 @@ export const StepEditorOverlay: React.FC<StepEditorOverlayProps> = ({
   const pageStyle = useMobileViewportPageStyle(false);
   const contentScrollRef = React.useRef<HTMLElement | null>(null);
   useKeyboardViewportStabilizer(true, contentScrollRef);
+  const handleFieldFocusCapture = React.useCallback((event: React.FocusEvent<HTMLElement>) => {
+    const target = event.target;
+    if (!(target instanceof HTMLElement)) return;
+    const scrollContainer = contentScrollRef.current;
+    if (!scrollContainer) return;
+    const alignField = () => scrollFieldIntoViewInContainer(scrollContainer, target);
+    alignField();
+    window.setTimeout(alignField, 80);
+    window.setTimeout(alignField, 180);
+    window.setTimeout(alignField, 320);
+  }, []);
   const currentActionAppType = getActionAppType(state.actionType);
   const filteredActionOptions = ACTION_OPTIONS_BY_APP[currentActionAppType];
 
@@ -279,7 +291,11 @@ export const StepEditorOverlay: React.FC<StepEditorOverlayProps> = ({
         </div>
       </header>
 
-      <main ref={contentScrollRef} className="flex-1 min-h-0 overflow-y-auto px-4 py-4 space-y-3">
+      <main
+        ref={contentScrollRef}
+        onFocusCapture={handleFieldFocusCapture}
+        className="flex-1 min-h-0 overflow-y-auto px-4 py-4 space-y-3"
+      >
         <section className="rounded-3xl border border-indigo-100 bg-white p-4 space-y-3">
           <input
             type="text"

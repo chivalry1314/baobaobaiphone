@@ -4,6 +4,7 @@ import { motion } from 'motion/react';
 import React, { useMemo, useRef, useState } from 'react';
 import { APP_CLOSE_MOTION, APP_OPEN_MOTION } from '../../../core/appOpenMotion';
 import {
+  scrollFieldIntoViewInContainer,
   useKeyboardViewportStabilizer,
   useMobileViewportPageStyle,
 } from '../../../core/mobileViewport';
@@ -121,6 +122,17 @@ export const DailyScriptApp: React.FC<DailyScriptAppProps> = ({ onClose }) => {
   const shouldFreezeViewport = view === 'settings' || editorState !== null;
   const viewportPageStyle = useMobileViewportPageStyle(!shouldFreezeViewport);
   useKeyboardViewportStabilizer(view === 'settings', settingsScrollRef);
+  const handleSettingsFieldFocusCapture = React.useCallback((event: React.FocusEvent<HTMLElement>) => {
+    const target = event.target;
+    if (!(target instanceof HTMLElement)) return;
+    const scrollContainer = settingsScrollRef.current;
+    if (!scrollContainer) return;
+    const alignField = () => scrollFieldIntoViewInContainer(scrollContainer, target);
+    alignField();
+    window.setTimeout(alignField, 80);
+    window.setTimeout(alignField, 180);
+    window.setTimeout(alignField, 320);
+  }, []);
 
   const roleOptions = useMemo<RoleOption[]>(
     () =>
@@ -745,6 +757,7 @@ export const DailyScriptApp: React.FC<DailyScriptAppProps> = ({ onClose }) => {
         <div className="flex-1 min-h-0 flex flex-col overflow-hidden">
           <main
             ref={settingsScrollRef}
+            onFocusCapture={handleSettingsFieldFocusCapture}
             className="flex-1 min-h-0 overflow-y-auto px-4 pt-3 pb-4 space-y-3"
           >
             <DaySettingsView

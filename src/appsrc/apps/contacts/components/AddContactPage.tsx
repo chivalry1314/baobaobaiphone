@@ -117,6 +117,35 @@ export const AddContactPage: React.FC<AddContactPageProps> = ({
     });
   };
 
+  const scrollFieldIntoView = React.useCallback(
+    (target: HTMLElement) => {
+      const scrollContainer = formScrollRef.current;
+      if (!scrollContainer) return;
+
+      const alignField = () => {
+        const containerRect = scrollContainer.getBoundingClientRect();
+        const targetRect = target.getBoundingClientRect();
+        const visibleTop = containerRect.top + 12;
+        const visibleBottom = containerRect.bottom - 24;
+
+        if (targetRect.top < visibleTop) {
+          scrollContainer.scrollTop -= visibleTop - targetRect.top;
+          return;
+        }
+
+        if (targetRect.bottom > visibleBottom) {
+          scrollContainer.scrollTop += targetRect.bottom - visibleBottom;
+        }
+      };
+
+      alignField();
+      window.setTimeout(alignField, 80);
+      window.setTimeout(alignField, 180);
+      window.setTimeout(alignField, 320);
+    },
+    []
+  );
+
   return (
     <div
       className="absolute left-0 right-0 z-[90] bg-white flex min-h-0 flex-col overflow-hidden"
@@ -172,12 +201,14 @@ export const AddContactPage: React.FC<AddContactPageProps> = ({
           <input
             value={name}
             onChange={(event) => setName(event.target.value)}
+            onFocus={(event) => scrollFieldIntoView(event.currentTarget)}
             placeholder={`${TEXT.name} *`}
             className="w-full h-12 rounded-xl bg-slate-100 px-4 text-[16px] outline-none"
           />
           <input
             value={phone}
             onChange={(event) => setPhone(event.target.value)}
+            onFocus={(event) => scrollFieldIntoView(event.currentTarget)}
             placeholder={TEXT.phoneNumber}
             className="w-full h-12 rounded-xl bg-slate-100 px-4 text-[16px] outline-none"
           />
@@ -243,18 +274,21 @@ export const AddContactPage: React.FC<AddContactPageProps> = ({
           <textarea
             value={description}
             onChange={(event) => setDescription(event.target.value)}
+            onFocus={(event) => scrollFieldIntoView(event.currentTarget)}
             placeholder={TEXT.description}
             className="w-full min-h-[92px] rounded-xl bg-slate-100 px-4 py-3 text-[16px] outline-none resize-none"
           />
           <textarea
             value={greeting}
             onChange={(event) => setGreeting(event.target.value)}
+            onFocus={(event) => scrollFieldIntoView(event.currentTarget)}
             placeholder={TEXT.greeting}
             className="w-full min-h-[86px] rounded-xl bg-slate-100 px-4 py-3 text-[16px] outline-none resize-none"
           />
           <textarea
             value={note}
             onChange={(event) => setNote(event.target.value)}
+            onFocus={(event) => scrollFieldIntoView(event.currentTarget)}
             placeholder={TEXT.note}
             className="w-full min-h-[72px] rounded-xl bg-slate-100 px-4 py-3 text-[16px] outline-none resize-none"
           />

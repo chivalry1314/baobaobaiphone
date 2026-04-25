@@ -16,7 +16,7 @@ Implement features in baobaobaiphone by following existing architecture and conv
 4. Read references before broad edits:
 - `references/architecture-map.md`
 - `references/new-app-playbook.md`
-- `../../design/code/bottom-nav-layout.md` when touching app bottom navs, bottom action bars, or keyboard/composer spacing
+- `../../design/code/bottom-nav-layout.md` when touching app bottom navs, bottom action bars, form editors, keyboard/composer spacing, or any page with fixed header/footer + input fields
 
 ## Quick Intake
 1. Identify the target surface before editing:
@@ -83,6 +83,9 @@ Implement features in baobaobaiphone by following existing architecture and conv
 6. If iOS input focus makes the whole page jump, stop following `visualViewport` for that page or editor state via `useMobileViewportPageStyle(false)` or a conditional variant.
 7. Chat/composer bars should keep `pb-safe` when idle and switch to `pb-0` when the keyboard is visible so the composer stays flush with the keyboard.
 8. Scroll areas must reserve footer height plus safe area, otherwise the last rows will be covered.
+9. Editing pages should default to the standard structure: fixed `header` + middle-only scrolling `main` + fixed `footer`.
+10. Form editors must wire `useKeyboardViewportStabilizer(...)` to the middle scroll container and keep the focused input inside that scroll region during focus and keyboard viewport changes, so the header does not get pushed upward.
+11. Prefer the repo-standard implementation: keep scroll targeting in `src/core/mobileViewport.ts`, then add `onFocusCapture` on the page scroll container so focus triggers several follow-up alignments while the keyboard animation settles.
 
 ## Validation Checklist
 1. Run `npm run lint` after code changes.

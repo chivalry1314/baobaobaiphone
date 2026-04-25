@@ -139,6 +139,10 @@ src/appsrc/apps/<appId>/
 2. 复杂动效/伪元素优先 CSS Modules。
 3. 不在多个文件重复硬编码同一批主题色；可复用值提到 `system.css` 或 app 级常量。
 4. 组件超过复杂阈值时先拆分再迭代。
+5. 编辑型页面默认采用“固定 header + 中间唯一滚动区 + 固定 footer”结构，外层使用 `flex-col + overflow-hidden`，只允许 `main` 滚动。
+6. 表单编辑页在键盘场景下必须接入 `useKeyboardViewportStabilizer(...)`，并保证输入聚焦和键盘视口变化时，焦点输入保持在中间滚动区内，避免把标题区整体顶走。
+7. iOS 表单页如果出现整页随键盘跳动，优先用 `useMobileViewportPageStyle(false)` 或按编辑态条件关闭 `visualViewport` 跟随。
+8. 推荐把滚动定位抽到 `src/core/mobileViewport.ts` 等底层工具；页面侧在滚动容器上增加 `onFocusCapture`，输入框一聚焦就连续补几次定位，覆盖键盘动画过程中的延迟。
 
 建议阈值：
 - 逻辑文件 > `350` 行：评估拆分。

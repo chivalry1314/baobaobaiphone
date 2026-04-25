@@ -132,10 +132,47 @@
 </div>
 ```
 
+编辑页默认必须遵循这套标准结构：
+- 固定 `header`
+- 中间唯一滚动区 `main`
+- 固定 `footer`
+- 不能让整页成为滚动容器
+
 ### 4.2 强制规则
 - 外层必须是 `flex-col + overflow-hidden`。
 - 只有中间 `main` 可滚动，禁止整页跟着输入一起滚。
 - 标题区和底部区必须是 `shrink-0`。
+- 编辑页滚动容器必须接入 `useKeyboardViewportStabilizer(...)`。
+- 文本输入聚焦与键盘视口变化时，必须稳定窗口滚动，并把当前焦点输入维持在中间滚动区可见范围内。
+- 目标不是“输入框刚好露出来”，而是避免标题区被顶上去、避免 header/footer 跳动、避免整页跟着键盘抖动。
+- 推荐把滚动定位能力抽到底层工具（当前仓库为 `src/core/mobileViewport.ts`）。
+- 页面侧推荐在中间滚动容器上增加 `onFocusCapture`，输入框一聚焦时连续补几次定位，覆盖键盘动画尚未稳定的阶段。
+
+推荐写法：
+
+```tsx
+const contentScrollRef = useRef<HTMLElement | null>(null);
+useKeyboardViewportStabilizer(isEditorOpen, contentScrollRef);
+const handleFieldFocusCapture = (event: React.FocusEvent<HTMLElement>) => {
+  const target = event.target;
+  if (!(target instanceof HTMLElement)) return;
+  const scrollContainer = contentScrollRef.current;
+  if (!scrollContainer) return;
+  const alignField = () => scrollFieldIntoViewInContainer(scrollContainer, target);
+  alignField();
+  window.setTimeout(alignField, 80);
+  window.setTimeout(alignField, 180);
+  window.setTimeout(alignField, 320);
+};
+
+<main
+  ref={contentScrollRef}
+  onFocusCapture={handleFieldFocusCapture}
+  className="flex-1 min-h-0 overflow-y-auto"
+>
+  ...
+</main>
+```
 
 ### 4.3 iOS 输入时页面抖动
 - 如果输入聚焦时整页跟着 `visualViewport` 上下跳，关闭该页面的 `visualViewport` 跟随。
@@ -165,6 +202,8 @@ const shouldHideFooter = useKeyboardTextEntryActive(isEditorOpen);
 - 新建日记
 - 新增步骤
 - 发布商品 / 编辑商品
+- API 设置
+- 编辑联系人 / 新增联系人
 - 其他“标题固定 + 中间表单滚动 + 底部保存按钮”的编辑页
 
 ---

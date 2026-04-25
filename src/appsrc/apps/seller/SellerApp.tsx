@@ -61,6 +61,7 @@ import {
 } from './data/repositories/publishDraftRepo';
 import { initializeSellerMessageScheduler } from '../../shared/business/commerce/messageBridge';
 import {
+  scrollFieldIntoViewInContainer,
   useKeyboardTextEntryActive,
   useKeyboardViewportStabilizer,
   useMobileViewportPageStyle,
@@ -382,6 +383,17 @@ export const SellerApp: React.FC<SellerAppProps> = ({ onClose }) => {
   const storeDecorationPreviewScrollRef = React.useRef<HTMLDivElement | null>(null);
   const storeViewContentRef = React.useRef<HTMLDivElement | null>(null);
   useKeyboardViewportStabilizer(page === 'product-publish', publishContentScrollRef);
+  const handlePublishFieldFocusCapture = React.useCallback((event: React.FocusEvent<HTMLElement>) => {
+    const target = event.target;
+    if (!(target instanceof HTMLElement)) return;
+    const scrollContainer = publishContentScrollRef.current;
+    if (!scrollContainer) return;
+    const alignField = () => scrollFieldIntoViewInContainer(scrollContainer, target);
+    alignField();
+    window.setTimeout(alignField, 80);
+    window.setTimeout(alignField, 180);
+    window.setTimeout(alignField, 320);
+  }, []);
 
   const refreshData = React.useCallback(async () => {
     setIsLoading(true);
@@ -1227,7 +1239,11 @@ export const SellerApp: React.FC<SellerAppProps> = ({ onClose }) => {
           </button>
         </header>
 
-        <main ref={publishContentScrollRef} className={styles.publishContent}>
+        <main
+          ref={publishContentScrollRef}
+          onFocusCapture={handlePublishFieldFocusCapture}
+          className={styles.publishContent}
+        >
           <section className={styles.publishCard}>
             <h3 className={styles.publishFieldTitle}>
               商品图片 <em>*</em>
