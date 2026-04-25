@@ -137,6 +137,22 @@ const scrollWindowToTop = () => {
   window.scrollTo(0, 0);
 };
 
+const getKeyboardVisibleViewportBounds = () => {
+  if (typeof window === 'undefined') {
+    return { top: 0, bottom: 0 };
+  }
+
+  const visualViewport = window.visualViewport;
+  if (!visualViewport) {
+    return { top: 0, bottom: window.innerHeight };
+  }
+
+  return {
+    top: 0,
+    bottom: Math.max(0, Math.min(window.innerHeight, visualViewport.height)),
+  };
+};
+
 export const useKeyboardViewportStabilizer = (
   enabled = true,
   scrollContainerRef?: RefObject<HTMLElement | null>
@@ -172,13 +188,19 @@ export const useKeyboardViewportStabilizer = (
 
         const containerRect = scrollContainer.getBoundingClientRect();
         const elementRect = activeElement.getBoundingClientRect();
+        const visibleViewport = getKeyboardVisibleViewportBounds();
+        const visibleTop = Math.max(containerRect.top, visibleViewport.top);
+        const visibleBottom = Math.min(containerRect.bottom, visibleViewport.bottom);
         const topPadding = 12;
-        const bottomPadding = 20;
+        const bottomPadding = 24;
+        const availableHeight = visibleBottom - visibleTop;
 
-        if (elementRect.top < containerRect.top + topPadding) {
-          scrollContainer.scrollTop -= containerRect.top + topPadding - elementRect.top;
-        } else if (elementRect.bottom > containerRect.bottom - bottomPadding) {
-          scrollContainer.scrollTop += elementRect.bottom - (containerRect.bottom - bottomPadding);
+        if (availableHeight <= topPadding + bottomPadding) return;
+
+        if (elementRect.top < visibleTop + topPadding) {
+          scrollContainer.scrollTop -= visibleTop + topPadding - elementRect.top;
+        } else if (elementRect.bottom > visibleBottom - bottomPadding) {
+          scrollContainer.scrollTop += elementRect.bottom - (visibleBottom - bottomPadding);
         }
       });
     };
@@ -198,11 +220,18 @@ export const useKeyboardViewportStabilizer = (
 
     const handleFocusIn = () => {
       scheduleStabilize(0);
+      scheduleStabilize(60);
       scheduleStabilize(120);
       scheduleStabilize(260);
+      scheduleStabilize(420);
     };
 
     const handleViewportShift = () => {
+      if (!isKeyboardTextEntryElement(document.activeElement)) return;
+      scheduleStabilize(0);
+    };
+
+    const handleInput = () => {
       if (!isKeyboardTextEntryElement(document.activeElement)) return;
       scheduleStabilize(0);
     };
@@ -214,6 +243,7 @@ export const useKeyboardViewportStabilizer = (
 
     document.addEventListener('focusin', handleFocusIn);
     document.addEventListener('focusout', handleViewportShift);
+    document.addEventListener('input', handleInput, true);
     window.addEventListener('scroll', handleWindowScroll, { passive: true });
     window.addEventListener('resize', handleViewportShift);
     window.addEventListener('orientationchange', handleViewportShift);
@@ -231,6 +261,7 @@ export const useKeyboardViewportStabilizer = (
 
       document.removeEventListener('focusin', handleFocusIn);
       document.removeEventListener('focusout', handleViewportShift);
+      document.removeEventListener('input', handleInput, true);
       window.removeEventListener('scroll', handleWindowScroll);
       window.removeEventListener('resize', handleViewportShift);
       window.removeEventListener('orientationchange', handleViewportShift);

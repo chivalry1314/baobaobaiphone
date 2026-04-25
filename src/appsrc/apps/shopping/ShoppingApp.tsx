@@ -19,6 +19,7 @@ import type { WeChatGiftDeliveryCard, WeChatOrderPreview } from '../WeChat/types
 import { PUSH_OPEN_APP_MESSAGE_TYPE } from '../../../core/push/webPush';
 import type { GlobalSettings } from '../../../core/sdk/types';
 import styles from './ShoppingApp.module.css';
+import homeIntroImage from './home.png';
 import { toMovie, toMovieStoreProducts } from './movies';
 import { addDays, formatDate, formatMoney, getOrderStatus, groupCartLines } from './utils';
 import {
@@ -2716,9 +2717,6 @@ export const ShoppingApp: React.FC<ShoppingAppProps> = ({ onClose, context }) =>
         {showShoppingEntryIntro ? (
           <motion.div
             className={styles.shoppingEntryIntro}
-            onPointerDown={handleShoppingEntrySwipeStart}
-            onPointerUp={handleShoppingEntrySwipeEnd}
-            onPointerCancel={handleShoppingEntrySwipeEnd}
             initial={false}
             animate={
               shoppingEntryIntroLeaving
@@ -2746,33 +2744,11 @@ export const ShoppingApp: React.FC<ShoppingAppProps> = ({ onClose, context }) =>
               </div>
 
               <div className={styles.shoppingEntryScene} aria-hidden="true">
-                <div className={styles.shoppingEntryCloudLeft} />
-                <div className={styles.shoppingEntryCloudRight} />
-                <div className={styles.shoppingEntryTrack} />
-                <div className={styles.shoppingEntrySparkOne}>♥</div>
-                <div className={styles.shoppingEntrySparkTwo}>✦</div>
-
-                <div className={styles.shoppingEntryCartGroup}>
-                  <div className={styles.shoppingEntryCartBasket}>
-                    <span className={styles.shoppingEntryBagPink} />
-                    <span className={styles.shoppingEntryBagBlue} />
-                    <span className={styles.shoppingEntryBagYellow} />
-                  </div>
-                  <div className={styles.shoppingEntryCartHandle} />
-                  <div className={styles.shoppingEntryCartBase} />
-                  <div className={styles.shoppingEntryCartWheelLeft} />
-                  <div className={styles.shoppingEntryCartWheelRight} />
-                </div>
-
-                <div className={`${styles.shoppingEntryCharacter} ${styles.shoppingEntryCharacterLeft}`}>
-                  <div className={styles.shoppingEntryHair} />
-                  <div className={styles.shoppingEntryHead} />
-                  <div className={styles.shoppingEntryBody} />
-                  <div className={styles.shoppingEntryArmFront} />
-                  <div className={styles.shoppingEntryArmBack} />
-                  <div className={styles.shoppingEntryLegFront} />
-                  <div className={styles.shoppingEntryLegBack} />
-                </div>
+                <img
+                  src={homeIntroImage}
+                  alt=""
+                  className={styles.shoppingEntryArtworkImage}
+                />
               </div>
             </div>
 
@@ -2790,13 +2766,27 @@ export const ShoppingApp: React.FC<ShoppingAppProps> = ({ onClose, context }) =>
               }}
             >
               <div className={styles.shoppingEntrySheetHandle} />
-              <p
-                className={`${styles.shoppingEntrySheetTitle} ${
-                  shoppingEntryStage === 'contact' ? styles.shoppingEntrySheetTitleContact : ''
-                }`}
-              >
-                {shoppingEntryStage === 'contact' ? '选择一起购物的人' : '这次想怎么逛'}
-              </p>
+              {shoppingEntryStage === 'contact' ? (
+                <div className={styles.shoppingEntrySheetHeader}>
+                  <button
+                    type="button"
+                    className={styles.shoppingEntryBackIconBtn}
+                    aria-label="返回"
+                    onClick={() => {
+                      setShoppingEntryMode('solo');
+                      setShoppingEntryStage('mode');
+                    }}
+                  >
+                    <span className={styles.shoppingEntryBackArrow} aria-hidden="true" />
+                  </button>
+                  <p className={`${styles.shoppingEntrySheetTitle} ${styles.shoppingEntrySheetTitleContact}`}>
+                    选择一起购物的人
+                  </p>
+                  <span className={styles.shoppingEntrySheetHeaderSpacer} aria-hidden="true" />
+                </div>
+              ) : (
+                <p className={styles.shoppingEntrySheetTitle}>这次想怎么逛</p>
+              )}
               {shoppingEntryStage === 'contact' ? (
                 <>
                   {payeeContacts.length > 0 ? (
@@ -2829,18 +2819,6 @@ export const ShoppingApp: React.FC<ShoppingAppProps> = ({ onClose, context }) =>
                   ) : (
                     <div className={styles.paymentSheetEmpty}>微信联系人里还没有可邀请的人。</div>
                   )}
-                  <div className={styles.shoppingEntrySheetFooter}>
-                    <button
-                      type="button"
-                      className={styles.shoppingEntryBackBtn}
-                      onClick={() => {
-                        setShoppingEntryMode('solo');
-                        setShoppingEntryStage('mode');
-                      }}
-                    >
-                      返回
-                    </button>
-                  </div>
                 </>
               ) : (
                 <div className={styles.shoppingEntryActions}>
@@ -2862,14 +2840,21 @@ export const ShoppingApp: React.FC<ShoppingAppProps> = ({ onClose, context }) =>
               )}
             </motion.div>
             {shoppingEntryStage === 'mode' ? (
-              <button
-                type="button"
-                className={styles.shoppingEntrySwipeHint}
-                aria-label="退出App"
-                onClick={exitShoppingAppFromIntro}
+              <div
+                className={styles.shoppingEntrySwipeZone}
+                onPointerDown={handleShoppingEntrySwipeStart}
+                onPointerUp={handleShoppingEntrySwipeEnd}
+                onPointerCancel={handleShoppingEntrySwipeEnd}
               >
-                <span className={styles.shoppingEntrySwipeArrow} aria-hidden="true" />
-              </button>
+                <button
+                  type="button"
+                  className={styles.shoppingEntrySwipeHint}
+                  aria-label="退出App"
+                  onClick={exitShoppingAppFromIntro}
+                >
+                  <span className={styles.shoppingEntrySwipeArrow} aria-hidden="true" />
+                </button>
+              </div>
             ) : null}
           </motion.div>
         ) : null}
