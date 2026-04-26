@@ -419,13 +419,13 @@ export const WeChatBillView: React.FC<WeChatBillViewProps> = ({ onBack }) => {
                   <WheelColumn
                     options={yearOptions}
                     selected={draftYear}
-                    onSelect={setDraftYear}
+                    onSelect={(value) => setDraftYear(value)}
                     formatter={(year) => `${year}年`}
                   />
                   <WheelColumn
                     options={MONTH_OPTIONS}
                     selected={draftMonth}
-                    onSelect={setDraftMonth}
+                    onSelect={(value) => setDraftMonth(value)}
                     formatter={(month) => `${month}月`}
                   />
                 </div>

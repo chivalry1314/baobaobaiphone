@@ -5,8 +5,8 @@ export const SHOPPING_HOME_BASE_STORE_TYPE_TABS = ['穿搭', '家居', '美护',
 export const DEFAULT_SHOPPING_HOME_TAB = SHOPPING_HOME_FIXED_TABS[0];
 export const DEFAULT_SELLER_STORE_TYPE = SHOPPING_HOME_BASE_STORE_TYPE_TABS[0];
 
-const fixedTabSet = new Set<string>(SHOPPING_HOME_FIXED_TABS);
-const baseStoreTypeTabSet = new Set<string>(SHOPPING_HOME_BASE_STORE_TYPE_TABS);
+const fixedTabSet: Set<string> = new Set(SHOPPING_HOME_FIXED_TABS);
+const baseStoreTypeTabSet: Set<string> = new Set(SHOPPING_HOME_BASE_STORE_TYPE_TABS);
 
 const normalizeLabel = (value: string | undefined) => (value || '').trim();
 
@@ -25,7 +25,7 @@ const shouldAppendStoreTypeTab = (store: CommerceStore, tabLabel: string): boole
 };
 
 export const resolveShoppingHomeStoreTypeTabs = (stores: CommerceStore[]): string[] => {
-  const tabs = [...SHOPPING_HOME_BASE_STORE_TYPE_TABS];
+  const tabs: string[] = [...SHOPPING_HOME_BASE_STORE_TYPE_TABS];
   const seen = new Set<string>(tabs);
   stores.forEach((store) => {
     const tabLabel = resolveStoreTypeTabLabel(store);

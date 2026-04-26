@@ -485,10 +485,10 @@ const resolveShoppingLaunchState = (context?: ShoppingAppProps['context']): Shop
   const rawState = params?.shoppingState;
   if (!rawState || typeof rawState !== 'object' || Array.isArray(rawState)) return defaultState;
   const state = rawState as Partial<ShoppingLaunchState> & { route?: Partial<Route> };
-  const tab = state.tab === 'cart' || state.tab === 'orders' || state.tab === 'me' ? state.tab : 'home';
+  const tab: TabKey = state.tab === 'cart' || state.tab === 'orders' || state.tab === 'me' ? state.tab : 'home';
   const routeTab = state.route?.tab;
   const routeScreen = state.route?.screen;
-  const route =
+  const route: Route =
     routeTab && routeScreen
       ? {
           tab: routeTab as TabKey,
@@ -637,7 +637,7 @@ export const ShoppingApp: React.FC<ShoppingAppProps> = ({ onClose, context }) =>
       );
       const seen = new Set<string>();
       return wechatSessions
-        .map((session) => {
+        .map((session): PayeeContact | null => {
           const characterId = session.characterId.trim();
           if (!characterId) return null;
           if (seen.has(characterId)) return null;

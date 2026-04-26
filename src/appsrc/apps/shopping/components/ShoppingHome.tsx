@@ -71,7 +71,7 @@ export const ShoppingHome: React.FC<ShoppingHomeProps> = ({
   onGoCart,
 }) => {
   const [searchKeyword, setSearchKeyword] = React.useState('');
-  const emptyStoreAlertShownRef = React.useRef(false);
+  const [isEmptyStoreNoticeDismissed, setIsEmptyStoreNoticeDismissed] = React.useState(false);
   const visibleStores = React.useMemo(() => stores.filter((store) => store.visible), [stores]);
   const storesByTab = React.useMemo(() => {
     if (activeTopTab === '推荐') return visibleStores;
@@ -100,19 +100,28 @@ export const ShoppingHome: React.FC<ShoppingHomeProps> = ({
   }, [addressesCount, cartCount, ordersCount]);
 
   React.useEffect(() => {
-    if (typeof window === 'undefined') return;
     if (visibleStores.length > 0) {
-      emptyStoreAlertShownRef.current = false;
-      return;
+      setIsEmptyStoreNoticeDismissed(false);
     }
-    if (emptyStoreAlertShownRef.current) return;
-
-    emptyStoreAlertShownRef.current = true;
-    window.alert('街上没有店铺，先去应用中心下载开店吧');
   }, [visibleStores.length]);
+
+  const showEmptyStoreNotice = visibleStores.length === 0 && !isEmptyStoreNoticeDismissed;
 
   return (
     <section className={styles.marketHome}>
+      {showEmptyStoreNotice ? (
+        <div className={styles.storeEmptyNotice} role="status" aria-live="polite">
+          <span className={styles.storeEmptyNoticeText}>街上没有店铺，先去应用中心下载开店吧</span>
+          <button
+            type="button"
+            className={styles.storeEmptyNoticeButton}
+            onClick={() => setIsEmptyStoreNoticeDismissed(true)}
+          >
+            知道了
+          </button>
+        </div>
+      ) : null}
+
       <form className={styles.marketSearchBar} onSubmit={(event) => event.preventDefault()}>
         <div className={styles.marketSearchInput}>
           <Search size={16} />
