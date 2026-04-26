@@ -117,6 +117,61 @@ export const useKeyboardTextEntryActive = (enabled = true): boolean => {
   return isActive;
 };
 
+export const useKeyboardViewportInset = (enabled = true): number => {
+  const [keyboardInset, setKeyboardInset] = useState(0);
+
+  useEffect(() => {
+    if (!enabled || typeof window === 'undefined') {
+      setKeyboardInset(0);
+      return;
+    }
+
+    const visualViewport = window.visualViewport;
+    if (!visualViewport) {
+      setKeyboardInset(0);
+      return;
+    }
+
+    let rafId: number | null = null;
+
+    const syncInset = () => {
+      const layoutViewportHeight = Math.round(window.innerHeight);
+      const viewportHeight = Math.round(visualViewport.height);
+      const viewportOffsetTop = Math.max(0, Math.round(visualViewport.offsetTop));
+      const nextInset = Math.max(0, layoutViewportHeight - (viewportHeight + viewportOffsetTop));
+      setKeyboardInset(nextInset);
+    };
+
+    const scheduleSync = () => {
+      if (rafId !== null) {
+        window.cancelAnimationFrame(rafId);
+      }
+      rafId = window.requestAnimationFrame(() => {
+        rafId = null;
+        syncInset();
+      });
+    };
+
+    syncInset();
+    window.addEventListener('resize', scheduleSync);
+    window.addEventListener('orientationchange', scheduleSync);
+    visualViewport.addEventListener('resize', scheduleSync);
+    visualViewport.addEventListener('scroll', scheduleSync);
+
+    return () => {
+      if (rafId !== null) {
+        window.cancelAnimationFrame(rafId);
+      }
+      window.removeEventListener('resize', scheduleSync);
+      window.removeEventListener('orientationchange', scheduleSync);
+      visualViewport.removeEventListener('resize', scheduleSync);
+      visualViewport.removeEventListener('scroll', scheduleSync);
+    };
+  }, [enabled]);
+
+  return keyboardInset;
+};
+
 const isCoarsePointerViewportDevice = (): boolean => {
   if (typeof window === 'undefined' || typeof window.matchMedia !== 'function') return false;
   try {

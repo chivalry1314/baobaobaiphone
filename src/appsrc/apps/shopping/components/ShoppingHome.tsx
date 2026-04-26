@@ -71,6 +71,7 @@ export const ShoppingHome: React.FC<ShoppingHomeProps> = ({
   onGoCart,
 }) => {
   const [searchKeyword, setSearchKeyword] = React.useState('');
+  const emptyStoreAlertShownRef = React.useRef(false);
   const visibleStores = React.useMemo(() => stores.filter((store) => store.visible), [stores]);
   const storesByTab = React.useMemo(() => {
     if (activeTopTab === '推荐') return visibleStores;
@@ -97,6 +98,18 @@ export const ShoppingHome: React.FC<ShoppingHomeProps> = ({
       return { ...item, count: 0 };
     });
   }, [addressesCount, cartCount, ordersCount]);
+
+  React.useEffect(() => {
+    if (typeof window === 'undefined') return;
+    if (visibleStores.length > 0) {
+      emptyStoreAlertShownRef.current = false;
+      return;
+    }
+    if (emptyStoreAlertShownRef.current) return;
+
+    emptyStoreAlertShownRef.current = true;
+    window.alert('街上没有店铺，先去应用中心下载开店吧');
+  }, [visibleStores.length]);
 
   return (
     <section className={styles.marketHome}>

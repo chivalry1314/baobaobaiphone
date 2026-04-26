@@ -5,6 +5,7 @@ import { detectVisionSupportByModel } from '../../../../core/modelCapabilities';
 import {
   scrollFieldIntoViewInContainer,
   useKeyboardViewportStabilizer,
+  useKeyboardViewportInset,
 } from '../../../../core/mobileViewport';
 
 const VISION_TEST_IMAGE_DATA_URL =
@@ -90,6 +91,7 @@ export const ApiSettingsView: React.FC<ApiSettingsViewProps> = ({
       ? '例如 Qwen/Qwen2.5-VL-72B-Instruct'
       : '请输入对话模型，或等待加载...';
   const visionSupportState = detectVisionSupportByModel(chatModelValue);
+  const keyboardInset = useKeyboardViewportInset(true);
   useKeyboardViewportStabilizer(true, contentScrollRef);
   const handleFieldFocusCapture = React.useCallback((event: React.FocusEvent<HTMLElement>) => {
     const target = event.target;
@@ -103,6 +105,7 @@ export const ApiSettingsView: React.FC<ApiSettingsViewProps> = ({
         bottomPadding: 28,
       });
     alignField();
+    window.requestAnimationFrame(alignField);
     window.setTimeout(alignField, 80);
     window.setTimeout(alignField, 180);
     window.setTimeout(alignField, 320);
@@ -407,6 +410,9 @@ export const ApiSettingsView: React.FC<ApiSettingsViewProps> = ({
         ref={contentScrollRef}
         onFocusCapture={handleFieldFocusCapture}
         className="flex-1 min-h-0 overflow-y-auto touch-pan-y p-4 pb-40 space-y-6"
+        style={{
+          paddingBottom: `calc(env(safe-area-inset-bottom, 0px) + ${160 + keyboardInset}px)`,
+        }}
       >
         <section className="space-y-2">
         <h2 className="px-4 text-[13px] text-gray-500 uppercase tracking-wider">API 配置</h2>

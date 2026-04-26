@@ -64,6 +64,7 @@ import {
   scrollFieldIntoViewInContainer,
   useKeyboardTextEntryActive,
   useKeyboardViewportStabilizer,
+  useKeyboardViewportInset,
   useMobileViewportPageStyle,
 } from '../../../core/mobileViewport';
 import { getGlobalSettingsSnapshot } from '@baobaobaiOS/sdk';
@@ -382,6 +383,7 @@ export const SellerApp: React.FC<SellerAppProps> = ({ onClose }) => {
   const decorationPointerIdRef = React.useRef<number | null>(null);
   const storeDecorationPreviewScrollRef = React.useRef<HTMLDivElement | null>(null);
   const storeViewContentRef = React.useRef<HTMLDivElement | null>(null);
+  const keyboardInset = useKeyboardViewportInset(page === 'product-publish');
   useKeyboardViewportStabilizer(page === 'product-publish', publishContentScrollRef);
   const handlePublishFieldFocusCapture = React.useCallback((event: React.FocusEvent<HTMLElement>) => {
     const target = event.target;
@@ -395,6 +397,7 @@ export const SellerApp: React.FC<SellerAppProps> = ({ onClose }) => {
         bottomPadding: 28,
       });
     alignField();
+    window.requestAnimationFrame(alignField);
     window.setTimeout(alignField, 80);
     window.setTimeout(alignField, 180);
     window.setTimeout(alignField, 320);
@@ -1245,11 +1248,14 @@ export const SellerApp: React.FC<SellerAppProps> = ({ onClose }) => {
           </button>
         </header>
 
-        <main
-          ref={publishContentScrollRef}
-          onFocusCapture={handlePublishFieldFocusCapture}
-          className={styles.publishContent}
-        >
+          <main
+            ref={publishContentScrollRef}
+            onFocusCapture={handlePublishFieldFocusCapture}
+            className={styles.publishContent}
+            style={{
+              paddingBottom: `calc(env(safe-area-inset-bottom, 0px) + ${176 + keyboardInset}px)`,
+            }}
+          >
           <section className={styles.publishCard}>
             <h3 className={styles.publishFieldTitle}>
               商品图片 <em>*</em>

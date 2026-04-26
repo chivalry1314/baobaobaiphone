@@ -4,6 +4,7 @@ import {
   scrollFieldIntoViewInContainer,
   useKeyboardTextEntryActive,
   useKeyboardViewportStabilizer,
+  useKeyboardViewportInset,
   useMobileViewportPageStyle,
 } from '../../../../core/mobileViewport';
 import type { DailyScriptActionType } from '../../../shared/business/dailyscript/actionBridge';
@@ -124,6 +125,7 @@ export const StepEditorOverlay: React.FC<StepEditorOverlayProps> = ({
   const shouldHideFooter = useKeyboardTextEntryActive();
   const pageStyle = useMobileViewportPageStyle(false);
   const contentScrollRef = React.useRef<HTMLElement | null>(null);
+  const keyboardInset = useKeyboardViewportInset(true);
   useKeyboardViewportStabilizer(true, contentScrollRef);
   const handleFieldFocusCapture = React.useCallback((event: React.FocusEvent<HTMLElement>) => {
     const target = event.target;
@@ -137,6 +139,7 @@ export const StepEditorOverlay: React.FC<StepEditorOverlayProps> = ({
         bottomPadding: 28,
       });
     alignField();
+    window.requestAnimationFrame(alignField);
     window.setTimeout(alignField, 80);
     window.setTimeout(alignField, 180);
     window.setTimeout(alignField, 320);
@@ -301,6 +304,9 @@ export const StepEditorOverlay: React.FC<StepEditorOverlayProps> = ({
         ref={contentScrollRef}
         onFocusCapture={handleFieldFocusCapture}
         className="flex-1 min-h-0 overflow-y-auto touch-pan-y px-4 py-4 pb-40 space-y-3"
+        style={{
+          paddingBottom: `calc(env(safe-area-inset-bottom, 0px) + ${160 + keyboardInset}px)`,
+        }}
       >
         <section className="rounded-3xl border border-indigo-100 bg-white p-4 space-y-3">
           <input

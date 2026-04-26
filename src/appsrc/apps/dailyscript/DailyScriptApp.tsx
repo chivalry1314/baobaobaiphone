@@ -6,6 +6,7 @@ import { APP_CLOSE_MOTION, APP_OPEN_MOTION } from '../../../core/appOpenMotion';
 import {
   scrollFieldIntoViewInContainer,
   useKeyboardViewportStabilizer,
+  useKeyboardViewportInset,
   useMobileViewportPageStyle,
 } from '../../../core/mobileViewport';
 import { useMyCardsSnapshotBridge } from '../../shared/business/contacts/myCardsSnapshotBridge';
@@ -121,6 +122,7 @@ export const DailyScriptApp: React.FC<DailyScriptAppProps> = ({ onClose }) => {
   const settingsScrollRef = useRef<HTMLElement | null>(null);
   const shouldFreezeViewport = view === 'settings' || editorState !== null;
   const viewportPageStyle = useMobileViewportPageStyle(!shouldFreezeViewport);
+  const keyboardInset = useKeyboardViewportInset(view === 'settings');
   useKeyboardViewportStabilizer(view === 'settings', settingsScrollRef);
   const handleSettingsFieldFocusCapture = React.useCallback((event: React.FocusEvent<HTMLElement>) => {
     const target = event.target;
@@ -134,6 +136,7 @@ export const DailyScriptApp: React.FC<DailyScriptAppProps> = ({ onClose }) => {
         bottomPadding: 28,
       });
     alignField();
+    window.requestAnimationFrame(alignField);
     window.setTimeout(alignField, 80);
     window.setTimeout(alignField, 180);
     window.setTimeout(alignField, 320);
@@ -759,13 +762,16 @@ export const DailyScriptApp: React.FC<DailyScriptAppProps> = ({ onClose }) => {
           </div>
         </div>
       </header>
-      {view === 'settings' ? (
-        <div className="flex-1 min-h-0 flex flex-col overflow-hidden">
-          <main
-            ref={settingsScrollRef}
-            onFocusCapture={handleSettingsFieldFocusCapture}
-            className="flex-1 min-h-0 overflow-y-auto touch-pan-y px-4 pt-3 pb-40 space-y-3"
-          >
+        {view === 'settings' ? (
+          <div className="flex-1 min-h-0 flex flex-col overflow-hidden">
+            <main
+              ref={settingsScrollRef}
+              onFocusCapture={handleSettingsFieldFocusCapture}
+              className="flex-1 min-h-0 overflow-y-auto touch-pan-y px-4 pt-3 pb-40 space-y-3"
+              style={{
+                paddingBottom: `calc(env(safe-area-inset-bottom, 0px) + ${160 + keyboardInset}px)`,
+              }}
+            >
             <DaySettingsView
               selectedRoleId={selectedRoleId}
               selectedDateKey={selectedDateKey}
