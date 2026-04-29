@@ -1,4 +1,4 @@
-import type { AppManifest } from '@mimisOS/sdk';
+import type { AppManifest } from '@baobaobaiOS/sdk';
 import { DeliveryApp } from './DeliveryApp';
 
 const deliveryManifest: AppManifest = {

@@ -22,7 +22,7 @@ import {
   ToggleLeft,
   ToggleRight,
 } from 'lucide-react';
-import { useGlobalSettingsStore } from '@mimisOS/sdk';
+import { useGlobalSettingsStore } from '@baobaobaiOS/sdk';
 import type { AppProps } from '../../../core/sdk/types';
 import {
   DELIVERY_CATEGORIES,
@@ -140,7 +140,6 @@ const getOrderStatusLabel = (order: DeliveryOrderRecord, snapshot?: DeliveryTrac
   if (stage === '送达' || order.status === '已送达') return '已送达';
   if (stage === '配送' || order.status === '配送中') return '配送中';
   if (stage === '出餐' || stage === '接单') return '取餐中';
-  if (order.status === '配送中') return '配送中';
   return '取餐中';
 };
 
@@ -481,7 +480,7 @@ const normalizeKitchenRecipe = (recipe: Partial<PrivateKitchenRecipe> & { id: st
     servings: typeof recipe.servings === 'string' && recipe.servings.trim() ? recipe.servings.trim() : (fallback?.servings ?? '2 人份'),
     ingredients,
     steps: Array.isArray(recipe.steps) && recipe.steps.length
-      ? recipe.steps.filter((item): item is string => typeof item === 'string' && item.trim()).map((item) => item.trim())
+      ? recipe.steps.filter((item): item is string => typeof item === 'string' && item.trim().length > 0).map((item) => item.trim())
       : (fallback?.steps ?? []),
     shareText: typeof recipe.shareText === 'string' && recipe.shareText.trim() ? recipe.shareText.trim() : (fallback?.shareText ?? ''),
   };
@@ -889,16 +888,17 @@ export const DeliveryApp: React.FC<AppProps> = ({ onClose }) => {
       .map((ingredient) => ingredient.name ?? productMap.get(ingredient.productId)?.name ?? ingredient.productId)
       .join('、');
     const text = `${recipe.name} · ${recipe.subtitle}\n食材：${ingredientNames}\n${recipe.shareText}`;
+    const nav = typeof navigator === 'undefined' ? null : navigator;
 
     try {
-      if (typeof navigator !== 'undefined' && 'share' in navigator) {
-        await navigator.share({
+      if (nav && 'share' in nav) {
+        await nav.share({
           title: recipe.name,
           text,
           url: window.location.href,
         });
-      } else if (navigator.clipboard?.writeText) {
-        await navigator.clipboard.writeText(text);
+      } else if (nav?.clipboard?.writeText) {
+        await nav.clipboard.writeText(text);
         pushToast('已复制菜谱', '分享文案已复制到剪贴板');
         return;
       }

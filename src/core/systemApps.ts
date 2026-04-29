@@ -7,6 +7,7 @@ export const SYSTEM_APP_IDS = [
   'storage',
   'worldbook',
   'memorycenter',
+  'delivery',
 ] as const;
 
 const systemAppIdSet = new Set<string>(SYSTEM_APP_IDS);
