@@ -161,6 +161,11 @@ export interface DeliveryOrderRecord {
   amount: number;
   status: '待支付' | '已支付' | '配送中' | '已送达' | '已取消';
   createdAt: number;
+  paymentMode?: 'wechat' | 'delegate' | 'gift';
+  paymentStatus?: 'pending' | 'accepted' | 'rejected' | 'paid';
+  paymentContactId?: string;
+  paymentContactName?: string;
+  paymentContactAvatar?: string;
   delivery?: DeliveryTrackingRecord;
   deliveryAddress?: {
     title: string;

@@ -102,8 +102,7 @@ export const createWeChatProfileSlice = ({
       const { state: syncedState, roleId, roleState } = ensureRoleContextState(state);
       const normalizedAmount = Number(amount.toFixed(2));
       const balance = Number(roleState.wechatUserProfile.balance || 0);
-      const finalAmount = Math.min(normalizedAmount, balance);
-      if (finalAmount <= 0) return syncedState;
+      const finalAmount = normalizedAmount;
       const billRecord = {
         id: createBillRecordId(),
         title: (meta?.title || '').trim() || '微信支付',

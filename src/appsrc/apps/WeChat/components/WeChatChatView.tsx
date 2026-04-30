@@ -14,6 +14,7 @@ import { wechatMemoryController } from '../memory';
 import { queryPersonalMemoryByApp } from '../../../../core/appMemoryCenter';
 import { getAppById } from '../../../../core/registry';
 import { PUSH_OPEN_APP_MESSAGE_TYPE } from '../../../../core/push/webPush';
+import { patchPersistedDeliveryOrders } from '../../delivery/paymentBridge';
 import { useShoppingStore } from '../../shopping/store';
 import { updateShoppingOrdersInStorage } from '../../../shared/business/commerce/domain/ordersStorage';
 
@@ -2048,6 +2049,19 @@ export const WeChatChatView: React.FC<WeChatChatViewProps> = ({
           })
         );
         useShoppingStore.getState().setOrders(nextOrders);
+      }
+
+      const deliveryOrderIds = Array.isArray(message.orderIds)
+        ? message.orderIds
+            .map((item) => (typeof item === 'string' ? item.trim() : ''))
+            .filter(Boolean)
+        : [];
+
+      if (deliveryOrderIds.length > 0) {
+        patchPersistedDeliveryOrders(deliveryOrderIds, {
+          status: action === 'accepted' ? '配送中' : '已取消',
+          paymentStatus: action === 'accepted' ? 'accepted' : 'rejected',
+        });
       }
 
       if (!options?.silent) {

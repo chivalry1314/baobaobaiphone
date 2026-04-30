@@ -23,6 +23,7 @@ import {
   ToggleRight,
 } from 'lucide-react';
 import { useGlobalSettingsStore } from '@baobaobaiOS/sdk';
+import { PUSH_OPEN_APP_MESSAGE_TYPE } from '../../../core/push/webPush';
 import type { AppProps } from '../../../core/sdk/types';
 import {
   DELIVERY_CATEGORIES,
@@ -31,10 +32,11 @@ import {
   DELIVERY_STORAGE_KEY,
   PRIVATE_KITCHEN_RECIPES,
   DELIVERY_STORES,
-  createSeedOrders,
   type PrivateKitchenRecipe,
 } from './data';
 import styles from './DeliveryApp.module.css';
+import { useContactsSnapshot } from '../contacts/selectors';
+import { useWeChatStore } from '../WeChat/store';
 import type {
   DeliveryAppPage,
   DeliveryCartEntry,
@@ -120,6 +122,18 @@ type PersistedState = {
   address: DeliveryAddressRecord;
 };
 
+type DeliveryCheckoutSnapshot = {
+  title: string;
+  merchantName: string;
+  amount: number;
+  items: Array<{ product: DeliveryMenuProduct; qty: number }>;
+  orderPreview: {
+    storeNames: string[];
+    items: Array<{ name: string; qty: number }>;
+    totalItemCount: number;
+  };
+};
+
 type DeliveryProfileRecord = {
   avatar: string;
   username: string;
@@ -136,6 +150,10 @@ const formatMoney = (value: number): string => `￥${value.toFixed(2)}`;
 const formatDistance = (value: number | undefined): string => `${(Number.isFinite(value) ? value : 0).toFixed(1)}km`;
 
 const getOrderStatusLabel = (order: DeliveryOrderRecord, snapshot?: DeliveryTrackingRecord | null): string => {
+  if (order.type === '发起代付') {
+    if (order.paymentStatus === 'rejected' || order.status === '已取消') return '代付失败';
+    if (order.paymentStatus === 'pending' || order.status === '待支付') return '待代付';
+  }
   const stage = snapshot?.stage ?? order.delivery?.stage;
   if (stage === '送达' || order.status === '已送达') return '已送达';
   if (stage === '配送' || order.status === '配送中') return '配送中';
@@ -192,11 +210,43 @@ const DEFAULT_PROFILE: DeliveryProfileRecord = {
   username: '用户',
 };
 
-const createSeedCart = (): DeliveryCartEntry[] => [
-  { productId: 'p1', qty: 1 },
-  { productId: 'p2', qty: 2 },
-  { productId: 'p8', qty: 1 },
-];
+const isLegacySeedOrder = (order: unknown): boolean => {
+  if (!order || typeof order !== 'object') return false;
+  const record = order as Partial<DeliveryOrderRecord>;
+  return record.id === 'o1' || record.id === 'o2';
+};
+
+const isLegacySeedCart = (cart: unknown): boolean => {
+  if (!Array.isArray(cart) || cart.length !== 3) return false;
+  return cart.every((item) => {
+    if (!item || typeof item !== 'object') return false;
+    const entry = item as Partial<DeliveryCartEntry>;
+    if (entry.productId === 'p1') return entry.qty === 1;
+    if (entry.productId === 'p2') return entry.qty === 2;
+    if (entry.productId === 'p8') return entry.qty === 1;
+    return false;
+  });
+};
+
+const normalizePersistedOrders = (orders: unknown): DeliveryOrderRecord[] => {
+  if (!Array.isArray(orders)) return [];
+  const normalized = orders.filter((item): item is DeliveryOrderRecord => {
+    return Boolean(
+      item &&
+        typeof item === 'object' &&
+        typeof (item as DeliveryOrderRecord).id === 'string' &&
+        typeof (item as DeliveryOrderRecord).title === 'string' &&
+        typeof (item as DeliveryOrderRecord).merchantName === 'string'
+    );
+  });
+  return normalized.length > 0 && normalized.every(isLegacySeedOrder) ? [] : normalized;
+};
+
+const normalizePersistedCart = (cart: unknown): DeliveryCartEntry[] => {
+  if (!Array.isArray(cart)) return [];
+  if (isLegacySeedCart(cart)) return [];
+  return cart.filter(isCartEntry).map((entry) => ({ ...entry, qty: Math.floor(entry.qty) }));
+};
 
 const isCartEntry = (value: unknown): value is DeliveryCartEntry => {
   if (!value || typeof value !== 'object') return false;
@@ -279,11 +329,11 @@ const loadPersistedState = (): PersistedState => {
   if (typeof window === 'undefined') {
     return {
       favorites: [],
-      orders: createSeedOrders(),
+      orders: [],
       stores: DELIVERY_STORES.map(normalizeStore),
       products: [...DELIVERY_PRODUCTS],
       kitchenRecipes: normalizeKitchenRecipes(PRIVATE_KITCHEN_RECIPES),
-      cart: createSeedCart(),
+      cart: [],
       profile: DEFAULT_PROFILE,
       address: DEFAULT_DELIVERY_ADDRESS,
     };
@@ -294,11 +344,11 @@ const loadPersistedState = (): PersistedState => {
     if (!raw) {
       return {
         favorites: [],
-        orders: createSeedOrders(),
+        orders: [],
         stores: DELIVERY_STORES.map(normalizeStore),
         products: [...DELIVERY_PRODUCTS],
         kitchenRecipes: normalizeKitchenRecipes(PRIVATE_KITCHEN_RECIPES),
-        cart: createSeedCart(),
+        cart: [],
         profile: DEFAULT_PROFILE,
         address: DEFAULT_DELIVERY_ADDRESS,
       };
@@ -309,7 +359,7 @@ const loadPersistedState = (): PersistedState => {
       favorites: Array.isArray(parsed.favorites)
         ? parsed.favorites.filter((item): item is string => typeof item === 'string')
         : [],
-      orders: Array.isArray(parsed.orders) ? parsed.orders : createSeedOrders(),
+      orders: normalizePersistedOrders(parsed.orders),
       stores: Array.isArray(parsed.stores)
         ? (parsed.stores
             .filter((item) => Boolean(item && typeof item === 'object' && typeof (item as { id?: unknown }).id === 'string'))
@@ -317,9 +367,7 @@ const loadPersistedState = (): PersistedState => {
         : DELIVERY_STORES.map(normalizeStore),
       products: Array.isArray(parsed.products) ? parsed.products : [...DELIVERY_PRODUCTS],
       kitchenRecipes: normalizeKitchenRecipes(parsed.kitchenRecipes),
-      cart: Array.isArray(parsed.cart)
-        ? parsed.cart.filter(isCartEntry).map((entry) => ({ ...entry, qty: Math.floor(entry.qty) }))
-        : createSeedCart(),
+      cart: normalizePersistedCart(parsed.cart),
       profile: parsed.profile && typeof parsed.profile === 'object' && typeof (parsed.profile as DeliveryProfileRecord).username === 'string'
         ? {
             username: (parsed.profile as DeliveryProfileRecord).username,
@@ -331,11 +379,11 @@ const loadPersistedState = (): PersistedState => {
   } catch {
     return {
       favorites: [],
-      orders: createSeedOrders(),
+      orders: [],
       stores: DELIVERY_STORES.map(normalizeStore),
       products: [...DELIVERY_PRODUCTS],
       kitchenRecipes: normalizeKitchenRecipes(PRIVATE_KITCHEN_RECIPES),
-      cart: createSeedCart(),
+      cart: [],
       profile: DEFAULT_PROFILE,
       address: DEFAULT_DELIVERY_ADDRESS,
     };
@@ -549,6 +597,12 @@ export const DeliveryApp: React.FC<AppProps> = ({ onClose }) => {
   const [search, setSearch] = React.useState('');
   const [activeCategoryId, setActiveCategoryId] = React.useState('food');
   const [activeStoreId, setActiveStoreId] = React.useState<string | null>(null);
+  const [cartOriginStoreId, setCartOriginStoreId] = React.useState<string | null>(null);
+  const [cartOriginCategoryId, setCartOriginCategoryId] = React.useState<string | null>(null);
+  const [showContactPicker, setShowContactPicker] = React.useState(false);
+  const [showGiftPayPrompt, setShowGiftPayPrompt] = React.useState(false);
+  const [pendingContactMode, setPendingContactMode] = React.useState<'delegate' | 'gift' | null>(null);
+  const [pendingCheckoutSnapshot, setPendingCheckoutSnapshot] = React.useState<DeliveryCheckoutSnapshot | null>(null);
   const [favorites, setFavorites] = React.useState<string[]>(persisted.favorites);
   const [orders, setOrders] = React.useState<DeliveryOrderRecord[]>(persisted.orders);
   const [stores, setStores] = React.useState<DeliveryStore[]>(persisted.stores);
@@ -591,8 +645,6 @@ export const DeliveryApp: React.FC<AppProps> = ({ onClose }) => {
   const importInputRef = React.useRef<HTMLInputElement | null>(null);
   const profileAvatarInputRef = React.useRef<HTMLInputElement | null>(null);
   const storeDraftIconInputRef = React.useRef<HTMLInputElement | null>(null);
-  const checkoutSwipeStartRef = React.useRef<number | null>(null);
-
   const storeMap = React.useMemo(() => new Map(stores.map((store) => [store.id, store])), [stores]);
   const productMap = React.useMemo(() => new Map(products.map((product) => [product.id, product])), [products]);
   const activeCategory = React.useMemo(
@@ -651,8 +703,38 @@ export const DeliveryApp: React.FC<AppProps> = ({ onClose }) => {
       .filter((item): item is { product: DeliveryMenuProduct; qty: number } => Boolean(item)),
     [cart, productMap],
   );
+  const cartStoreGroups = React.useMemo(() => {
+    const groups = new Map<string, { store: DeliveryStore | null; items: { product: DeliveryMenuProduct; qty: number }[] }>();
+    cartProducts.forEach((item) => {
+      const storeId = item.product.storeId || 'delivery-main';
+      if (!groups.has(storeId)) {
+        groups.set(storeId, {
+          store: storeMap.get(storeId) ?? null,
+          items: [],
+        });
+      }
+      groups.get(storeId)?.items.push(item);
+    });
+    return Array.from(groups.entries()).map(([storeId, group]) => ({
+      storeId,
+      store: group.store,
+      items: group.items,
+    }));
+  }, [cartProducts, storeMap]);
   const cartCount = cart.reduce((sum, item) => sum + item.qty, 0);
   const cartTotal = cartProducts.reduce((sum, item) => sum + item.product.price * item.qty, 0);
+  const activeStoreCartProducts = React.useMemo(
+    () => (activeStoreId ? cartProducts.filter((item) => item.product.storeId === activeStoreId) : []),
+    [activeStoreId, cartProducts],
+  );
+  const activeStoreCartCount = React.useMemo(
+    () => activeStoreCartProducts.reduce((sum, item) => sum + item.qty, 0),
+    [activeStoreCartProducts],
+  );
+  const activeStoreCartTotal = React.useMemo(
+    () => activeStoreCartProducts.reduce((sum, item) => sum + item.product.price * item.qty, 0),
+    [activeStoreCartProducts],
+  );
   const activeTab = page === 'management' ? 'me' : page;
 
   React.useEffect(() => {
@@ -711,23 +793,29 @@ export const DeliveryApp: React.FC<AppProps> = ({ onClose }) => {
   const handleCategorySelect = React.useCallback((categoryId: string) => {
     setSelectedKitchenRecipe(null);
     if (categoryId === 'custom') {
+      setCartOriginCategoryId(activeCategoryId);
       setDeliveryView('cart');
       setActiveStoreId(null);
+      setCartOriginStoreId(null);
       setActiveCategoryId(categoryId);
       setPage('delivery');
       return;
     }
     if (categoryId === 'kitchen') {
+      setCartOriginCategoryId(null);
       setDeliveryView('kitchen');
       setActiveStoreId(null);
+      setCartOriginStoreId(null);
       setPage('delivery');
       return;
     }
+    setCartOriginCategoryId(null);
     setActiveCategoryId(categoryId);
     setDeliveryView('category');
     setActiveStoreId(null);
+    setCartOriginStoreId(null);
     setPage('delivery');
-  }, []);
+  }, [activeCategoryId]);
 
   const handleOpenStore = React.useCallback((storeId: string) => {
     const store = storeMap.get(storeId);
@@ -742,8 +830,20 @@ export const DeliveryApp: React.FC<AppProps> = ({ onClose }) => {
   const handleCloseStore = React.useCallback(() => {
     setActiveStoreId(null);
     setDeliveryView('category');
+    setCartOriginStoreId(null);
+    setCartOriginCategoryId(null);
     setSelectedKitchenRecipe(null);
   }, []);
+
+  const handleOpenCartFromStore = React.useCallback((storeId: string) => {
+    setCartOriginStoreId(storeId);
+    setCartOriginCategoryId(storeMap.get(storeId)?.categoryId ?? null);
+    setDeliveryView('cart');
+    setActiveStoreId(null);
+    setActiveCategoryId('custom');
+    setPage('delivery');
+    setSelectedKitchenRecipe(null);
+  }, [storeMap]);
 
   const openAddressPanel = React.useCallback((origin: 'checkout' | 'me') => {
     setAddressDraft(deliveryAddress);
@@ -1322,8 +1422,8 @@ export const DeliveryApp: React.FC<AppProps> = ({ onClose }) => {
       setProducts(parsed.products);
       setKitchenRecipes(normalizeKitchenRecipes(parsed.kitchenRecipes));
       setFavorites(Array.isArray(parsed.favorites) ? parsed.favorites.filter((item): item is string => typeof item === 'string') : []);
-      setOrders(Array.isArray(parsed.orders) ? parsed.orders : createSeedOrders());
-      setCart(Array.isArray(parsed.cart) ? parsed.cart.filter(isCartEntry).map((entry) => ({ ...entry, qty: Math.floor(entry.qty) })) : createSeedCart());
+      setOrders(Array.isArray(parsed.orders) ? parsed.orders : []);
+      setCart(Array.isArray(parsed.cart) ? parsed.cart.filter(isCartEntry).map((entry) => ({ ...entry, qty: Math.floor(entry.qty) })) : []);
       const nextProfile = parsed.profile && typeof parsed.profile === 'object' && typeof (parsed.profile as DeliveryProfileRecord).username === 'string'
         ? {
             username: (parsed.profile as DeliveryProfileRecord).username,
@@ -1494,7 +1594,7 @@ export const DeliveryApp: React.FC<AppProps> = ({ onClose }) => {
           </div>
         </div>
         <div className={styles.homeStorePreview}>
-          {stores.filter((store) => store.categoryId !== 'kitchen').slice(0, 3).map((store) => (
+          {stores.map((store) => (
             <button key={store.id} type="button" className={styles.homeStoreCard} onClick={() => handleOpenStore(store.id)}>
               <div className={styles.homeStoreIcon} style={{ background: store.accent }}>
                 {isAvatarImage(store.icon.trim()) ? (
@@ -1572,7 +1672,6 @@ export const DeliveryApp: React.FC<AppProps> = ({ onClose }) => {
                 >
                   <div className={styles.kitchenRecipeTop}>
                     <strong>{recipe.name}</strong>
-                    <span>{recipe.time}</span>
                   </div>
                   <p className={styles.kitchenRecipeSub}>{recipe.subtitle}</p>
                   <div className={styles.kitchenRecipeMeta}>
@@ -1589,81 +1688,67 @@ export const DeliveryApp: React.FC<AppProps> = ({ onClose }) => {
           </section>
         </div>
 
-        {selectedKitchenRecipe ? (
-          <div className={styles.sheetBackdrop} onClick={() => setSelectedKitchenRecipe(null)}>
-            <div className={`${styles.sheet} ${styles.sheetTall}`} onClick={(event) => event.stopPropagation()}>
-              <div className={styles.sheetHeader}>
-                <div className={styles.sheetIcon}>
-                  <UtensilsCrossed size={18} />
-                </div>
-                <h3 className={styles.sheetTitle}>{selectedKitchenRecipe.name}</h3>
-                <p className={styles.sheetDesc}>
-                  {selectedKitchenRecipe.subtitle} · {selectedKitchenRecipe.time} · {selectedKitchenRecipe.servings}
-                </p>
+      </main>
+      {selectedKitchenRecipe ? (
+        <div className={styles.sheetBackdrop} onClick={() => setSelectedKitchenRecipe(null)}>
+          <div className={`${styles.sheet} ${styles.sheetTall}`} onClick={(event) => event.stopPropagation()}>
+            <div className={styles.sheetHeader}>
+              <div className={styles.sheetIcon}>
+                <UtensilsCrossed size={18} />
               </div>
-              <div className={styles.sheetScrollBody}>
-                <div className={styles.kitchenIngredientBlock}>
-                  <p className={styles.kitchenIngredientTitle}>所需食材</p>
-                  <div className={styles.kitchenIngredientList}>
-                    {selectedKitchenRecipe.ingredients.map((ingredient) => {
-                      const product = productMap.get(ingredient.productId);
-                      return (
-                        <span key={ingredient.productId} className={styles.kitchenIngredientPill}>
-                          {ingredient.name ?? product?.name ?? ingredient.productId} {ingredient.amount} · ￥{ingredient.price.toFixed(2)}
-                        </span>
-                      );
-                    })}
-                  </div>
+              <h3 className={styles.sheetTitle}>{selectedKitchenRecipe.name}</h3>
+              <p className={styles.sheetDesc}>
+                {selectedKitchenRecipe.subtitle} · {selectedKitchenRecipe.time} · {selectedKitchenRecipe.servings}
+              </p>
+            </div>
+            <div className={styles.sheetScrollBody}>
+              <div className={styles.kitchenIngredientBlock}>
+                <p className={styles.kitchenIngredientTitle}>所需食材</p>
+                <div className={styles.kitchenIngredientList}>
+                  {selectedKitchenRecipe.ingredients.map((ingredient) => {
+                    const product = productMap.get(ingredient.productId);
+                    return (
+                      <span key={ingredient.productId} className={styles.kitchenIngredientPill}>
+                        {ingredient.name ?? product?.name ?? ingredient.productId} {ingredient.amount} · ￥{ingredient.price.toFixed(2)}
+                      </span>
+                    );
+                  })}
                 </div>
+              </div>
 
-                <div className={styles.kitchenIngredientBlock}>
-                  <p className={styles.kitchenIngredientTitle}>做法</p>
-                  <ol className={styles.kitchenStepList}>
-                    {selectedKitchenRecipe.steps.map((step) => (
-                      <li key={step}>{step}</li>
-                    ))}
-                  </ol>
-                </div>
+              <div className={styles.kitchenIngredientBlock}>
+                <p className={styles.kitchenIngredientTitle}>做法</p>
+                <ol className={styles.kitchenStepList}>
+                  {selectedKitchenRecipe.steps.map((step) => (
+                    <li key={step}>{step}</li>
+                  ))}
+                </ol>
+              </div>
 
-                <div className={styles.sheetActions}>
-                  <button
-                    className={styles.sheetActionPrimary}
-                    type="button"
-                    onClick={() => handleAddRecipeToCart(selectedKitchenRecipe)}
-                  >
-                    一键加购
-                  </button>
-                  <button className={styles.sheetAction} type="button" onClick={() => void handleShareRecipe(selectedKitchenRecipe)}>
-                    分享菜谱
-                  </button>
-                  <button className={styles.sheetActionGhost} type="button" onClick={() => setSelectedKitchenRecipe(null)}>
-                    关闭
-                  </button>
-                </div>
+              <div className={styles.sheetActions}>
+                <button
+                  className={styles.sheetActionPrimary}
+                  type="button"
+                  onClick={() => handleAddRecipeToCart(selectedKitchenRecipe)}
+                >
+                  一键加购
+                </button>
+                <button className={styles.sheetAction} type="button" onClick={() => void handleShareRecipe(selectedKitchenRecipe)}>
+                  分享菜谱
+                </button>
+                <button className={styles.sheetActionGhost} type="button" onClick={() => setSelectedKitchenRecipe(null)}>
+                  关闭
+                </button>
               </div>
             </div>
           </div>
-        ) : null}
-      </main>
+        </div>
+      ) : null}
     </div>
   );
 
   const renderDeliveryCategory = () => (
-    <div
-      className={styles.storePage}
-      onTouchStart={(event) => {
-        checkoutSwipeStartRef.current = event.touches[0]?.clientY ?? null;
-      }}
-      onTouchEnd={(event) => {
-        const startY = checkoutSwipeStartRef.current;
-        const endY = event.changedTouches[0]?.clientY ?? startY;
-        checkoutSwipeStartRef.current = null;
-        if (startY === null || endY === undefined) return;
-        if (startY - endY > 54) {
-          onClose();
-        }
-      }}
-    >
+    <div className={styles.storePage}>
       <aside className={styles.storeSidebar}>
         <p className={styles.sidebarTitle}>分类</p>
         {DELIVERY_CATEGORIES.map((category) => (
@@ -1827,6 +1912,7 @@ export const DeliveryApp: React.FC<AppProps> = ({ onClose }) => {
               </section>
             ))}
           </div>
+
         </main>
       </div>
     );
@@ -1859,38 +1945,73 @@ export const DeliveryApp: React.FC<AppProps> = ({ onClose }) => {
         </section>
 
         <div className={styles.cartList}>
-          {cartProducts.length ? cartProducts.map(({ product, qty }) => (
-            <article key={product.id} className={styles.cartCard}>
-              <div className={styles.cartThumb}>{readProductInitial(product)}</div>
-              <div className={styles.cartBody}>
-                <div className={styles.cartTitleRow}>
-                  <h3 className={styles.cartName}>
-                    {product.name} <span className={styles.cartQtyLabel}>x{qty}</span>
-                  </h3>
-                  <button
-                    className={styles.cartDeleteButton}
-                    type="button"
-                    onClick={() => removeCartItem(product.id)}
-                    aria-label={`删除 ${product.name}`}
-                  >
-                    <Trash2 size={16} />
-                  </button>
+          {cartStoreGroups.length ? cartStoreGroups.map(({ storeId, store, items }) => (
+            <section key={storeId} className={styles.cartStoreGroup}>
+              <button
+                type="button"
+                className={styles.cartStoreHeader}
+                onClick={() => {
+                  if (store) {
+                    handleOpenStore(store.id);
+                    return;
+                  }
+                  handleCategorySelect('food');
+                }}
+              >
+                <div className={styles.cartStoreIcon} style={{ background: store?.accent ?? '#ff6a3d' }}>
+                  {store ? (
+                    isAvatarImage(store.icon.trim()) ? (
+                      <img className={styles.cartStoreIconImage} src={store.icon.trim()} alt={store.name} />
+                    ) : (
+                      <span>{store.icon}</span>
+                    )
+                  ) : (
+                    <Store size={16} />
+                  )}
                 </div>
-                <p className={styles.cartDesc}>{product.description}</p>
-                <div className={styles.cartPriceRow}>
-                  <p className={styles.cartPrice}>{formatMoney(product.price)}</p>
-                  <div className={styles.qtyStepper}>
-                    <button type="button" onClick={() => adjustCartQty(product.id, -1)} aria-label="减少数量">
-                      -
-                    </button>
-                    <span>{qty}</span>
-                    <button type="button" onClick={() => adjustCartQty(product.id, 1)} aria-label="增加数量">
-                      +
-                    </button>
-                  </div>
+                <div className={styles.cartStoreInfo}>
+                  <strong className={styles.cartStoreName}>{store?.name ?? DELIVERY_MERCHANT.name}</strong>
+                  <span className={styles.cartStoreMeta}>{items.length} 件商品</span>
                 </div>
+                <ChevronRight size={16} className={styles.cartStoreArrow} />
+              </button>
+
+              <div className={styles.cartStoreList}>
+                {items.map(({ product, qty }) => (
+                  <article key={product.id} className={styles.cartCard}>
+                    <div className={styles.cartThumb}>{readProductInitial(product)}</div>
+                    <div className={styles.cartBody}>
+                      <div className={styles.cartTitleRow}>
+                        <h3 className={styles.cartName}>
+                          {product.name} <span className={styles.cartQtyLabel}>x{qty}</span>
+                        </h3>
+                        <button
+                          className={styles.cartDeleteButton}
+                          type="button"
+                          onClick={() => removeCartItem(product.id)}
+                          aria-label={`删除 ${product.name}`}
+                        >
+                          <Trash2 size={16} />
+                        </button>
+                      </div>
+                      <p className={styles.cartDesc}>{product.description}</p>
+                      <div className={styles.cartPriceRow}>
+                        <p className={styles.cartPrice}>{formatMoney(product.price)}</p>
+                        <div className={styles.qtyStepper}>
+                          <button type="button" onClick={() => adjustCartQty(product.id, -1)} aria-label="减少数量">
+                            -
+                          </button>
+                          <span>{qty}</span>
+                          <button type="button" onClick={() => adjustCartQty(product.id, 1)} aria-label="增加数量">
+                            +
+                          </button>
+                        </div>
+                      </div>
+                    </div>
+                  </article>
+                ))}
               </div>
-            </article>
+            </section>
           )) : (
             <div className={styles.emptyState}>购物车里还没有商品。</div>
           )}
@@ -1955,8 +2076,11 @@ export const DeliveryApp: React.FC<AppProps> = ({ onClose }) => {
 
   const managementStores = React.useMemo(() => {
     const query = managementSearch.trim().toLowerCase();
-    if (!query) return stores;
-    return stores.filter((store) => [store.name, store.subtitle, store.notice].some((value) => value.toLowerCase().includes(query)));
+    return stores.filter((store) => {
+      if (store.categoryId === 'kitchen') return false;
+      if (!query) return true;
+      return [store.name, store.subtitle, store.notice].some((value) => value.toLowerCase().includes(query));
+    });
   }, [managementSearch, stores]);
 
   const recipeManagementRecipes = React.useMemo(() => {
@@ -2605,6 +2729,29 @@ export const DeliveryApp: React.FC<AppProps> = ({ onClose }) => {
                 setPage('delivery');
                 return;
               }
+              if (page === 'delivery' && deliveryView === 'cart') {
+                if (cartOriginStoreId) {
+                  const originStore = storeMap.get(cartOriginStoreId);
+                  setActiveStoreId(cartOriginStoreId);
+                  setActiveCategoryId(originStore?.categoryId ?? cartOriginCategoryId ?? 'food');
+                  setDeliveryView('store');
+                  setCartOriginStoreId(null);
+                  setCartOriginCategoryId(null);
+                  return;
+                }
+                if (cartOriginCategoryId) {
+                  setActiveCategoryId(cartOriginCategoryId);
+                  setDeliveryView('category');
+                  setCartOriginStoreId(null);
+                  setCartOriginCategoryId(null);
+                  return;
+                }
+                setDeliveryView('category');
+                setActiveCategoryId('food');
+                setCartOriginStoreId(null);
+                setCartOriginCategoryId(null);
+                return;
+              }
               if (page === 'delivery' && deliveryView === 'store') {
                 handleCloseStore();
                 return;
@@ -2682,6 +2829,24 @@ export const DeliveryApp: React.FC<AppProps> = ({ onClose }) => {
           {navButton('checkout', '下单', <Package2 size={18} />)}
           {navButton('me', '我的', <UserRound size={18} />)}
         </div>
+
+        {page === 'delivery' && deliveryView === 'store' && activeStoreCartCount > 0 ? (
+          <button
+            type="button"
+            className={styles.storeCartBar}
+            onClick={() => activeStoreId ? handleOpenCartFromStore(activeStoreId) : handleCategorySelect('custom')}
+            aria-label="进入购物车"
+          >
+            <div className={styles.storeCartIcon}>
+              <ShoppingCart size={16} />
+            </div>
+            <div className={styles.storeCartInfo}>
+              <span className={styles.storeCartQty}>已加 {activeStoreCartCount} 件</span>
+              <span className={styles.storeCartAmount}><strong>{formatMoney(activeStoreCartTotal)}</strong></span>
+            </div>
+            <ChevronRight size={16} className={styles.storeCartArrow} />
+          </button>
+        ) : null}
       </div>
 
       {selectedProduct ? (
