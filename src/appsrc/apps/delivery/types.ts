@@ -167,6 +167,7 @@ export interface DeliveryOrderRecord {
   paymentContactName?: string;
   paymentContactAvatar?: string;
   delivery?: DeliveryTrackingRecord;
+  deliveryProgressDismissed?: boolean;
   deliveryAddress?: {
     title: string;
     recipient: string;

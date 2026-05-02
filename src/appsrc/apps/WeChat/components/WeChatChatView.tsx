@@ -14,7 +14,8 @@ import { wechatMemoryController } from '../memory';
 import { queryPersonalMemoryByApp } from '../../../../core/appMemoryCenter';
 import { getAppById } from '../../../../core/registry';
 import { PUSH_OPEN_APP_MESSAGE_TYPE } from '../../../../core/push/webPush';
-import { patchPersistedDeliveryOrders } from '../../delivery/paymentBridge';
+import { patchPersistedDeliveryOrders, updatePersistedDeliveryOrders } from '../../delivery/paymentBridge';
+import type { DeliveryOrderRecord } from '../../delivery/types';
 import { useShoppingStore } from '../../shopping/store';
 import { updateShoppingOrdersInStorage } from '../../../shared/business/commerce/domain/ordersStorage';
 
@@ -161,6 +162,13 @@ const normalizeMessageContentForMemoryComparison = (message: WeChatMessage): str
     return `收到礼物卡片：${gift.productName}，金额¥${message.amount.toFixed(2)}，订单号${gift.orderId}`;
   }
 
+  if (message.type === 'recipe_card' && message.recipeCard) {
+    const recipe = message.recipeCard;
+    const ingredients = Array.isArray(recipe.ingredients) ? recipe.ingredients : [];
+    const ingredientText = ingredients.map((item) => `${item.name}${item.amount}`).join('、');
+    return `分享菜谱：${recipe.title}，${recipe.subtitle}，${recipe.time}，${recipe.servings}，食材：${ingredientText}`;
+  }
+
   if (message.type === 'image') {
     const caption = message.content.trim();
     if (caption && caption !== '[图片]') return `[图片] ${caption}`;
@@ -219,6 +227,7 @@ export const WeChatChatView: React.FC<WeChatChatViewProps> = ({
   characterId,
   onBack,
   onReturnToShopping,
+  returnToShoppingLabel,
   restoreVoiceCallSignal,
   onVoiceCallUiStateChange,
   readOnly = false,
@@ -1433,11 +1442,13 @@ export const WeChatChatView: React.FC<WeChatChatViewProps> = ({
         role: 'user',
         content: messageItem.content,
         type: messageItem.type,
+        appSource: messageItem.appSource,
         amount: messageItem.amount,
         orderRequestStatus: messageItem.orderRequestStatus,
         orderIds: messageItem.orderIds,
         orderPreview: messageItem.orderPreview,
         giftDelivery: messageItem.giftDelivery,
+        recipeCard: messageItem.recipeCard,
         movieTicket: messageItem.movieTicket,
         voiceAudioDataUrl: messageItem.voiceAudioDataUrl,
         voiceDurationSeconds: messageItem.voiceDurationSeconds,
@@ -1599,6 +1610,11 @@ export const WeChatChatView: React.FC<WeChatChatViewProps> = ({
       }
       if (m.type === 'gift_delivery' && m.giftDelivery) {
         content = `[系统记录：收到一份礼物；名称：${m.giftDelivery.productName}；金额：¥${Number(m.amount || 0).toFixed(2)}；订单号：${m.giftDelivery.orderId}]`;
+      }
+      if (m.type === 'recipe_card' && m.recipeCard) {
+        const ingredients = Array.isArray(m.recipeCard.ingredients) ? m.recipeCard.ingredients : [];
+        const ingredientText = ingredients.map((item) => `${item.name}${item.amount}`).join('、');
+        content = `[系统记录：收到一张菜谱卡片；菜名：${m.recipeCard.title}；说明：${m.recipeCard.subtitle}；用时：${m.recipeCard.time}；份量：${m.recipeCard.servings}；食材：${ingredientText}]`;
       }
       if (m.type === 'transfer') content = `[系统记录：用户向你发起了转账 ¥${m.amount}]`;
       if (m.type === 'transfer_accepted') content = `[系统记录：你已接收转账 ¥${m.amount}]`;
@@ -2016,8 +2032,12 @@ export const WeChatChatView: React.FC<WeChatChatViewProps> = ({
             .map((item) => (typeof item === 'string' ? item.trim() : ''))
             .filter(Boolean)
         : [];
+      const isDeliveryOrderRequest =
+        message.appSource === 'delivery' ||
+        (message.appSource !== 'shopping' && returnToShoppingLabel === '返回外卖');
+      const shouldHandleShoppingOrder = message.appSource === 'shopping' || !isDeliveryOrderRequest;
 
-      if (orderIds.length > 0) {
+      if (orderIds.length > 0 && shouldHandleShoppingOrder) {
         const orderIdSet = new Set(orderIds);
         const now = Date.now();
         const nextOrders = await updateShoppingOrdersInStorage((orders) =>
@@ -2057,11 +2077,56 @@ export const WeChatChatView: React.FC<WeChatChatViewProps> = ({
             .filter(Boolean)
         : [];
 
-      if (deliveryOrderIds.length > 0) {
-        patchPersistedDeliveryOrders(deliveryOrderIds, {
+      if (deliveryOrderIds.length > 0 && isDeliveryOrderRequest) {
+        let nextDeliveryOrders = patchPersistedDeliveryOrders(deliveryOrderIds, {
           status: action === 'accepted' ? '配送中' : '已取消',
           paymentStatus: action === 'accepted' ? 'accepted' : 'rejected',
+        }, {
+          clearCart: true,
         });
+        const deliveryOrderIdSet = new Set(deliveryOrderIds);
+        let hasMatchedDeliveryOrder = nextDeliveryOrders.some((order) => deliveryOrderIdSet.has(order.id));
+        if (!hasMatchedDeliveryOrder) {
+          const now = Date.now();
+          const previewItems = Array.isArray(message.orderPreview?.items)
+            ? message.orderPreview.items.filter((item) => item.name.trim())
+            : [];
+          const title = previewItems.slice(0, 2).map((item) => item.name.trim()).join('、') || '外卖订单';
+          const storeNames = Array.isArray(message.orderPreview?.storeNames)
+            ? message.orderPreview.storeNames.map((item) => item.trim()).filter(Boolean)
+            : [];
+          const fallbackOrders: DeliveryOrderRecord[] = deliveryOrderIds.map((orderId) => ({
+            id: orderId,
+            type: '发起代付',
+            title,
+            merchantName: storeNames[0] || '外卖订单',
+            amount: typeof message.amount === 'number' ? message.amount : 0,
+            status: action === 'accepted' ? '配送中' : '已取消',
+            createdAt: now,
+            paymentMode: 'delegate',
+            paymentStatus: action === 'accepted' ? 'accepted' : 'rejected',
+          }));
+          nextDeliveryOrders = updatePersistedDeliveryOrders((current) => [
+            ...fallbackOrders,
+            ...current.filter((order) => !deliveryOrderIdSet.has(order.id)),
+          ], {
+            clearCart: true,
+            orderIds: deliveryOrderIds,
+          });
+          hasMatchedDeliveryOrder = fallbackOrders.length > 0;
+        }
+        if (hasMatchedDeliveryOrder) {
+          window.dispatchEvent(
+            new CustomEvent(PUSH_OPEN_APP_MESSAGE_TYPE, {
+              detail: {
+                appId: 'delivery',
+                params: {
+                  deliveryReturnOrderIds: deliveryOrderIds,
+                },
+              },
+            })
+          );
+        }
       }
 
       if (!options?.silent) {
@@ -2069,7 +2134,7 @@ export const WeChatChatView: React.FC<WeChatChatViewProps> = ({
         window.setTimeout(() => setToastMessage(null), 1800);
       }
     },
-    [character, updateWeChatMessage]
+    [character, returnToShoppingLabel, updateWeChatMessage]
   );
 
   const handleOrderRequestAction = useCallback(
@@ -2345,6 +2410,7 @@ export const WeChatChatView: React.FC<WeChatChatViewProps> = ({
           isTyping={isTyping}
           onBack={onBack}
           onReturnToShopping={onReturnToShopping}
+          returnToShoppingLabel={returnToShoppingLabel}
           onExitSelection={exitSelectionMode}
         />
 

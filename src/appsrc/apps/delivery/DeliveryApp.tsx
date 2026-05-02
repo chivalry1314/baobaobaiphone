@@ -8,6 +8,7 @@ import {
   House,
   MoreHorizontal,
   Package2,
+  Pencil,
   Plus,
   Search,
   ShoppingCart,
@@ -25,6 +26,7 @@ import {
 import { useGlobalSettingsStore } from '@baobaobaiOS/sdk';
 import { PUSH_OPEN_APP_MESSAGE_TYPE } from '../../../core/push/webPush';
 import type { AppProps } from '../../../core/sdk/types';
+import { DELIVERY_ORDERS_CHANGED_EVENT, updatePersistedDeliveryOrders } from './paymentBridge';
 import {
   DELIVERY_CATEGORIES,
   DELIVERY_MERCHANT,
@@ -36,7 +38,9 @@ import {
 } from './data';
 import styles from './DeliveryApp.module.css';
 import { useContactsSnapshot } from '../contacts/selectors';
+import type { Contact } from '../contacts/types';
 import { useWeChatStore } from '../WeChat/store';
+import type { WeChatMessage } from '../WeChat/types';
 import type {
   DeliveryAppPage,
   DeliveryCartEntry,
@@ -589,9 +593,34 @@ const draftToKitchenRecipe = (draft: RecipeDraft): PrivateKitchenRecipe => ({
   shareText: draft.shareText.trim() || `${draft.name.trim() || '新菜谱'}，欢迎试试。`,
 });
 
-export const DeliveryApp: React.FC<AppProps> = ({ onClose }) => {
+const normalizeDeliveryReturnOrderIds = (value: unknown): string[] =>
+  Array.isArray(value)
+    ? value.map((item) => String(item).trim()).filter(Boolean)
+    : [];
+
+const resolveDeliveryReturnRoute = (
+  orders: DeliveryOrderRecord[],
+  orderIds: string[],
+): 'progress' | 'history' | null => {
+  const idSet = new Set(orderIds);
+  const matchedOrders = orders.filter((order) => idSet.has(order.id));
+  if (matchedOrders.some((order) => order.paymentStatus === 'accepted' || order.status === '配送中' || order.status === '已送达')) {
+    return 'progress';
+  }
+  if (matchedOrders.some((order) => order.paymentStatus === 'rejected' || order.status === '已取消')) {
+    return 'history';
+  }
+  return null;
+};
+
+export const DeliveryApp: React.FC<AppProps> = ({ onClose, context }) => {
   const persisted = React.useMemo(() => loadPersistedState(), []);
   const apiSettings = useGlobalSettingsStore((state) => state.settings);
+  const contacts = useContactsSnapshot();
+  const wechatBalance = useWeChatStore((state) => state.wechatUserProfile.balance || 0);
+  const withdrawWeChatBalance = useWeChatStore((state) => state.withdrawWeChatBalance);
+  const ensureWeChatSession = useWeChatStore((state) => state.ensureWeChatSession);
+  const addWeChatMessage = useWeChatStore((state) => state.addWeChatMessage);
   const [page, setPage] = React.useState<DeliveryAppPage>('home');
   const [deliveryView, setDeliveryView] = React.useState<DeliveryDeliveryView>('category');
   const [search, setSearch] = React.useState('');
@@ -600,9 +629,11 @@ export const DeliveryApp: React.FC<AppProps> = ({ onClose }) => {
   const [cartOriginStoreId, setCartOriginStoreId] = React.useState<string | null>(null);
   const [cartOriginCategoryId, setCartOriginCategoryId] = React.useState<string | null>(null);
   const [showContactPicker, setShowContactPicker] = React.useState(false);
-  const [showGiftPayPrompt, setShowGiftPayPrompt] = React.useState(false);
-  const [pendingContactMode, setPendingContactMode] = React.useState<'delegate' | 'gift' | null>(null);
+  const [pendingContactMode, setPendingContactMode] = React.useState<'delegate' | 'gift' | 'recipe' | null>(null);
   const [pendingCheckoutSnapshot, setPendingCheckoutSnapshot] = React.useState<DeliveryCheckoutSnapshot | null>(null);
+  const [pendingCheckoutShouldClearCart, setPendingCheckoutShouldClearCart] = React.useState(false);
+  const [pendingRecipeShare, setPendingRecipeShare] = React.useState<PrivateKitchenRecipe | null>(null);
+  const [showGiftPaymentSheet, setShowGiftPaymentSheet] = React.useState(false);
   const [favorites, setFavorites] = React.useState<string[]>(persisted.favorites);
   const [orders, setOrders] = React.useState<DeliveryOrderRecord[]>(persisted.orders);
   const [stores, setStores] = React.useState<DeliveryStore[]>(persisted.stores);
@@ -621,11 +652,11 @@ export const DeliveryApp: React.FC<AppProps> = ({ onClose }) => {
   const [generatingRecipes, setGeneratingRecipes] = React.useState(false);
   const [showCheckoutActions, setShowCheckoutActions] = React.useState(false);
   const [addressDraft, setAddressDraft] = React.useState<DeliveryAddressRecord>(persisted.address);
-  const [dismissedDeliveryOrderId, setDismissedDeliveryOrderId] = React.useState<string | null>(null);
   const [checkoutPanel, setCheckoutPanel] = React.useState<'place' | 'history'>('place');
   const [mePanel, setMePanel] = React.useState<'overview' | 'account' | 'orders' | 'management' | 'address' | 'recipe'>('account');
   const [addressOriginPage, setAddressOriginPage] = React.useState<'checkout' | 'me' | null>(null);
   const [profileDraft, setProfileDraft] = React.useState<DeliveryProfileRecord>(persisted.profile);
+  const [isProfileEditing, setIsProfileEditing] = React.useState(false);
   const [storeDraft, setStoreDraft] = React.useState<StoreDraft>(buildInitialStoreDraft);
   const [recipeDraft, setRecipeDraft] = React.useState<RecipeDraft>(buildRecipeDraft());
   const [recipeGenerationPrompt, setRecipeGenerationPrompt] = React.useState('请生成一些适合家庭晚餐的家常菜，偏清淡、下饭、做法简单。');
@@ -642,15 +673,16 @@ export const DeliveryApp: React.FC<AppProps> = ({ onClose }) => {
   const [managementSearch, setManagementSearch] = React.useState('');
   const [importError, setImportError] = React.useState<string | null>(null);
   const [clockTick, setClockTick] = React.useState(Date.now());
+  const returnOrderIds = React.useMemo(
+    () => normalizeDeliveryReturnOrderIds(context?.params?.deliveryReturnOrderIds),
+    [context?.params?.deliveryReturnOrderIds],
+  );
+  const returnOrderIdsKey = returnOrderIds.join('|');
   const importInputRef = React.useRef<HTMLInputElement | null>(null);
   const profileAvatarInputRef = React.useRef<HTMLInputElement | null>(null);
   const storeDraftIconInputRef = React.useRef<HTMLInputElement | null>(null);
   const storeMap = React.useMemo(() => new Map(stores.map((store) => [store.id, store])), [stores]);
   const productMap = React.useMemo(() => new Map(products.map((product) => [product.id, product])), [products]);
-  const activeCategory = React.useMemo(
-    () => DELIVERY_CATEGORIES.find((item) => item.id === activeCategoryId) ?? DELIVERY_CATEGORIES.find((item) => item.id === 'food') ?? DELIVERY_CATEGORIES[0],
-    [activeCategoryId],
-  );
   const activeStore = activeStoreId ? storeMap.get(activeStoreId) ?? null : null;
   const activeStoreSections = React.useMemo(() => getStoreSections(activeStore), [activeStore]);
   const activeCategoryStores = React.useMemo(() => {
@@ -670,13 +702,9 @@ export const DeliveryApp: React.FC<AppProps> = ({ onClose }) => {
     () => activeStoreProducts.filter((product) => product.status === '上架'),
     [activeStoreProducts],
   );
-  const activeDeliveryOrder = React.useMemo(
-    () => orders.find((order) => order.status === '配送中' || order.status === '已送达' || Boolean(order.delivery)) ?? null,
+  const deliveryProgressOrders = React.useMemo(
+    () => orders.filter((order) => order.status === '配送中' || order.status === '已送达' || Boolean(order.delivery)),
     [orders],
-  );
-  const activeDeliverySnapshot = React.useMemo(
-    () => (activeDeliveryOrder ? createDeliveryTracking(activeDeliveryOrder.createdAt, activeDeliveryOrder.deliveryAddress ?? deliveryAddress, clockTick) : null),
-    [activeDeliveryOrder, clockTick, deliveryAddress],
   );
   const cartProducts = React.useMemo(
     () => cart
@@ -721,7 +749,6 @@ export const DeliveryApp: React.FC<AppProps> = ({ onClose }) => {
       items: group.items,
     }));
   }, [cartProducts, storeMap]);
-  const cartCount = cart.reduce((sum, item) => sum + item.qty, 0);
   const cartTotal = cartProducts.reduce((sum, item) => sum + item.product.price * item.qty, 0);
   const activeStoreCartProducts = React.useMemo(
     () => (activeStoreId ? cartProducts.filter((item) => item.product.storeId === activeStoreId) : []),
@@ -734,6 +761,10 @@ export const DeliveryApp: React.FC<AppProps> = ({ onClose }) => {
   const activeStoreCartTotal = React.useMemo(
     () => activeStoreCartProducts.reduce((sum, item) => sum + item.product.price * item.qty, 0),
     [activeStoreCartProducts],
+  );
+  const wechatContacts = React.useMemo(
+    () => contacts.filter((contact) => contact.wechatRelation === 'friend'),
+    [contacts],
   );
   const activeTab = page === 'management' ? 'me' : page;
 
@@ -761,16 +792,72 @@ export const DeliveryApp: React.FC<AppProps> = ({ onClose }) => {
   }, [toasts]);
 
   React.useEffect(() => {
-    if (!activeDeliveryOrder || !activeDeliverySnapshot) return;
-    if (activeDeliverySnapshot.stage !== '送达' || activeDeliveryOrder.status === '已送达') return;
+    const deliveredOrders = deliveryProgressOrders
+      .map((order) => ({
+        order,
+        snapshot: createDeliveryTracking(order.createdAt, order.deliveryAddress ?? deliveryAddress, clockTick),
+      }))
+      .filter((item) => item.order.status === '配送中' && item.snapshot.stage === '送达');
+    if (!deliveredOrders.length) return;
+    const deliveredSnapshots = new Map(deliveredOrders.map((item) => [item.order.id, item.snapshot]));
     setOrders((current) =>
-      current.map((order) =>
-        order.id === activeDeliveryOrder.id
-          ? { ...order, status: '已送达', delivery: activeDeliverySnapshot }
-          : order,
-      ),
+      current.map((order) => {
+        const snapshot = deliveredSnapshots.get(order.id);
+        return snapshot ? { ...order, status: '已送达', delivery: snapshot } : order;
+      }),
     );
-  }, [activeDeliveryOrder, activeDeliverySnapshot]);
+  }, [clockTick, deliveryAddress, deliveryProgressOrders]);
+
+  React.useEffect(() => {
+    if (typeof window === 'undefined') return;
+    const syncOrders = (event: Event) => {
+      const detail = event instanceof CustomEvent ? event.detail : null;
+      const persistedState = loadPersistedState();
+      const nextOrders = Array.isArray(detail?.orders) ? normalizePersistedOrders(detail.orders) : persistedState.orders;
+      setOrders(nextOrders);
+      setCart(persistedState.cart);
+      if (Array.isArray(detail?.orderIds) && detail.orderIds.length > 0) {
+        const returnRoute = resolveDeliveryReturnRoute(nextOrders, normalizeDeliveryReturnOrderIds(detail.orderIds));
+        if (returnRoute === 'progress') {
+          setCheckoutPanel('history');
+          setPage('home');
+        } else if (returnRoute === 'history') {
+          setCheckoutPanel('history');
+          setPage('checkout');
+        }
+      }
+    };
+    const syncStorageOrders = (event: StorageEvent) => {
+      if (event.key && event.key !== DELIVERY_STORAGE_KEY) return;
+      const persistedState = loadPersistedState();
+      setOrders(persistedState.orders);
+      setCart(persistedState.cart);
+    };
+    window.addEventListener(DELIVERY_ORDERS_CHANGED_EVENT, syncOrders);
+    window.addEventListener('storage', syncStorageOrders);
+    return () => {
+      window.removeEventListener(DELIVERY_ORDERS_CHANGED_EVENT, syncOrders);
+      window.removeEventListener('storage', syncStorageOrders);
+    };
+  }, []);
+
+  React.useEffect(() => {
+    const orderIds = returnOrderIdsKey.split('|').filter(Boolean);
+    if (!orderIds.length) return;
+    const persistedState = loadPersistedState();
+    const persistedOrders = persistedState.orders;
+    const returnRoute = resolveDeliveryReturnRoute(persistedOrders, orderIds);
+    if (!returnRoute) return;
+    setOrders(persistedOrders);
+    setCart(persistedState.cart);
+    if (returnRoute === 'progress') {
+      setCheckoutPanel('history');
+      setPage('home');
+      return;
+    }
+    setCheckoutPanel('history');
+    setPage('checkout');
+  }, [returnOrderIdsKey]);
 
   React.useEffect(() => {
     const timer = window.setInterval(() => {
@@ -881,6 +968,7 @@ export const DeliveryApp: React.FC<AppProps> = ({ onClose }) => {
     };
     setProfile(nextProfile);
     setProfileDraft(nextProfile);
+    setIsProfileEditing(false);
     pushToast('资料已更新', '头像和用户名已保存');
   }, [profileDraft, pushToast]);
 
@@ -983,30 +1071,20 @@ export const DeliveryApp: React.FC<AppProps> = ({ onClose }) => {
     setSelectedKitchenRecipe(null);
   }, [pushToast]);
 
-  const handleShareRecipe = React.useCallback(async (recipe: PrivateKitchenRecipe) => {
-    const ingredientNames = recipe.ingredients
-      .map((ingredient) => ingredient.name ?? productMap.get(ingredient.productId)?.name ?? ingredient.productId)
-      .join('、');
-    const text = `${recipe.name} · ${recipe.subtitle}\n食材：${ingredientNames}\n${recipe.shareText}`;
-    const nav = typeof navigator === 'undefined' ? null : navigator;
-
-    try {
-      if (nav && 'share' in nav) {
-        await nav.share({
-          title: recipe.name,
-          text,
-          url: window.location.href,
-        });
-      } else if (nav?.clipboard?.writeText) {
-        await nav.clipboard.writeText(text);
-        pushToast('已复制菜谱', '分享文案已复制到剪贴板');
-        return;
-      }
-      pushToast('分享成功', '菜谱已发送');
-    } catch {
-      pushToast('分享失败', '当前设备不支持分享');
+  const handleShareRecipe = React.useCallback((recipe: PrivateKitchenRecipe) => {
+    if (!wechatContacts.length) {
+      pushToast('暂无微信好友', '请先在通讯录添加好友');
+      return;
     }
-  }, [productMap, pushToast]);
+    setPendingRecipeShare(recipe);
+    setPendingContactMode('recipe');
+    setPendingCheckoutSnapshot(null);
+    setPendingCheckoutShouldClearCart(false);
+    setShowCheckoutActions(false);
+    setShowGiftPaymentSheet(false);
+    setSelectedKitchenRecipe(null);
+    setShowContactPicker(true);
+  }, [pushToast, wechatContacts.length]);
 
   const adjustCartQty = React.useCallback((productId: string, delta: number) => {
     setCart((current) => {
@@ -1034,58 +1112,305 @@ export const DeliveryApp: React.FC<AppProps> = ({ onClose }) => {
     });
   }, [pushToast]);
 
-  const appendOrder = React.useCallback((type: DeliveryOrderRecord['type'], product: DeliveryMenuProduct) => {
-    const storeName = storeMap.get(product.storeId)?.name ?? DELIVERY_MERCHANT.name;
+  const buildCheckoutSnapshot = React.useCallback(
+    (items: Array<{ product: DeliveryMenuProduct; qty: number }>): DeliveryCheckoutSnapshot | null => {
+      const normalizedItems = items.filter((item) => item.qty > 0);
+      if (!normalizedItems.length) return null;
+      const amount = normalizedItems.reduce((sum, item) => sum + item.product.price * item.qty, 0);
+      const title = normalizedItems.slice(0, 2).map((item) => item.product.name).join('、') || '外卖订单';
+      const storeNames = Array.from(
+        new Set(
+          normalizedItems.map((item) => storeMap.get(item.product.storeId)?.name ?? DELIVERY_MERCHANT.name),
+        ),
+      );
+      return {
+        title: normalizedItems.length > 2 ? `${title} 等` : title,
+        merchantName: storeNames.length > 1 ? `${storeNames[0]}等${storeNames.length}家店铺` : storeNames[0] ?? '外卖订单',
+        amount,
+        items: normalizedItems,
+        orderPreview: {
+          storeNames,
+          items: normalizedItems.slice(0, 4).map((item) => ({ name: item.product.name, qty: item.qty })),
+          totalItemCount: normalizedItems.reduce((sum, item) => sum + item.qty, 0),
+        },
+      };
+    },
+    [storeMap],
+  );
+
+  const openWeChatChat = React.useCallback((contactId: string, orderIds?: string[]) => {
+    if (typeof window === 'undefined') return;
+    const normalizedOrderIds = normalizeDeliveryReturnOrderIds(orderIds);
+    const params: Record<string, unknown> = {
+      openChatCharacterId: contactId,
+      returnAppId: 'delivery',
+    };
+    if (normalizedOrderIds.length > 0) {
+      params.returnParams = { deliveryReturnOrderIds: normalizedOrderIds };
+    }
+    window.dispatchEvent(
+      new CustomEvent(PUSH_OPEN_APP_MESSAGE_TYPE, {
+        detail: {
+          appId: 'wechat',
+          params,
+        },
+      }),
+    );
+  }, []);
+
+  const assertWalletBalance = React.useCallback((amount: number): boolean => {
+    if (amount <= wechatBalance) return true;
+    pushToast('微信余额不足', '请先前往微信钱包充值');
+    setShowCheckoutActions(false);
+    setShowContactPicker(false);
+    setShowGiftPaymentSheet(false);
+    return false;
+  }, [pushToast, wechatBalance]);
+
+  const commitCheckoutOrder = React.useCallback((
+    snapshot: DeliveryCheckoutSnapshot,
+    type: DeliveryOrderRecord['type'],
+    options?: {
+      contact?: Contact;
+      clearCart?: boolean;
+      paymentStatus?: DeliveryOrderRecord['paymentStatus'];
+      status?: DeliveryOrderRecord['status'];
+      withDelivery?: boolean;
+    },
+  ): DeliveryOrderRecord => {
+    const createdAt = Date.now();
+    const contact = options?.contact;
     const order: DeliveryOrderRecord = {
       id: makeId('order'),
       type,
-      title: product.name,
-      merchantName: storeName,
-      amount: product.price,
-      status: '配送中',
-      createdAt: Date.now(),
-      delivery: createDeliveryTracking(Date.now(), deliveryAddress),
+      title: snapshot.title,
+      merchantName: snapshot.merchantName,
+      amount: snapshot.amount,
+      status: options?.status ?? '配送中',
+      createdAt,
+      paymentMode: type === '购买' ? 'wechat' : type === '发起代付' ? 'delegate' : 'gift',
+      paymentStatus: options?.paymentStatus ?? 'paid',
+      paymentContactId: contact?.id,
+      paymentContactName: contact?.name,
+      paymentContactAvatar: contact?.avatar,
+      delivery: options?.withDelivery === false ? undefined : createDeliveryTracking(createdAt, deliveryAddress, createdAt),
       deliveryAddress,
     };
-    setOrders((current) => [order, ...current]);
-    pushToast(type, `${product.name} 已加入订单`);
-  }, [deliveryAddress, pushToast, storeMap]);
+    const nextOrders = updatePersistedDeliveryOrders((current) => [
+      order,
+      ...current.filter((item) => item.id !== order.id),
+    ], { clearCart: Boolean(options?.clearCart) });
+    setOrders(nextOrders.length ? nextOrders : [order]);
+    if (options?.clearCart) setCart([]);
+    setCheckoutPanel('history');
+    setPage('checkout');
+    return order;
+  }, [deliveryAddress]);
+
+  const handleWechatPayment = React.useCallback((snapshot: DeliveryCheckoutSnapshot, clearCart: boolean) => {
+    if (!assertWalletBalance(snapshot.amount)) return;
+    const order = commitCheckoutOrder(snapshot, '购买', {
+      clearCart,
+      paymentStatus: 'paid',
+      status: '配送中',
+      withDelivery: true,
+    });
+    withdrawWeChatBalance(snapshot.amount, {
+      title: '外卖订单',
+      counterparty: snapshot.merchantName,
+      statusText: '支付成功',
+    });
+    setShowCheckoutActions(false);
+    setSelectedProduct(null);
+    pushToast('微信支付成功', `${formatOrderCode(order.createdAt)} 已进入配送流程`);
+  }, [assertWalletBalance, commitCheckoutOrder, pushToast, withdrawWeChatBalance]);
+
+  const sendDeliveryCardToContact = React.useCallback((
+    contact: Contact,
+    message: Omit<WeChatMessage, 'id' | 'timestamp'>,
+  ) => {
+    const sessionId = ensureWeChatSession(contact.id, { switchCurrent: true });
+    if (!sessionId) {
+      pushToast('发送失败', '没有找到对应的微信聊天');
+      return;
+    }
+    addWeChatMessage(sessionId, message);
+    openWeChatChat(contact.id, message.orderIds);
+  }, [addWeChatMessage, ensureWeChatSession, openWeChatChat, pushToast]);
+
+  const openContactPaymentPicker = React.useCallback((mode: 'delegate' | 'gift', snapshot: DeliveryCheckoutSnapshot, clearCart: boolean) => {
+    setPendingCheckoutSnapshot(snapshot);
+    setPendingCheckoutShouldClearCart(clearCart);
+    setPendingContactMode(mode);
+    setPendingRecipeShare(null);
+    setShowCheckoutActions(false);
+    setShowGiftPaymentSheet(false);
+    setShowContactPicker(true);
+  }, []);
+
+  const openGiftPaymentSheet = React.useCallback((snapshot: DeliveryCheckoutSnapshot, clearCart: boolean) => {
+    setPendingCheckoutSnapshot(snapshot);
+    setPendingCheckoutShouldClearCart(clearCart);
+    setPendingContactMode('gift');
+    setPendingRecipeShare(null);
+    setShowCheckoutActions(false);
+    setShowContactPicker(false);
+    setShowGiftPaymentSheet(true);
+  }, []);
+
+  const handleGiftWechatPaymentConfirm = React.useCallback(() => {
+    if (!pendingCheckoutSnapshot) return;
+    if (!assertWalletBalance(pendingCheckoutSnapshot.amount)) return;
+    setShowGiftPaymentSheet(false);
+    setShowContactPicker(true);
+  }, [assertWalletBalance, pendingCheckoutSnapshot]);
 
   const handleSheetAction = React.useCallback((type: DeliveryOrderRecord['type']) => {
     if (!selectedProduct) return;
-    appendOrder(type, selectedProduct);
-    setSelectedProduct(null);
+    const snapshot = buildCheckoutSnapshot([{ product: selectedProduct, qty: 1 }]);
+    if (!snapshot) return;
     if (type === '购买') {
-      setPage('me');
+      handleWechatPayment(snapshot, false);
+      return;
     }
-  }, [appendOrder, selectedProduct]);
+    setSelectedProduct(null);
+    if (type === '为TA买单') {
+      openGiftPaymentSheet(snapshot, false);
+      return;
+    }
+    openContactPaymentPicker('delegate', snapshot, false);
+  }, [buildCheckoutSnapshot, handleWechatPayment, openContactPaymentPicker, openGiftPaymentSheet, selectedProduct]);
 
   const handlePlaceOrder = React.useCallback((type: DeliveryOrderRecord['type']) => {
-    if (!cartProducts.length) {
+    const snapshot = buildCheckoutSnapshot(cartProducts);
+    if (!snapshot) {
       pushToast('购物车为空', '请先加入商品');
       return;
     }
 
-    const title = cartProducts.slice(0, 2).map((item) => item.product.name).join('、') || '外卖订单';
-    const order: DeliveryOrderRecord = {
-      id: makeId('order'),
-      type,
-      title: cartProducts.length > 2 ? `${title} 等` : title,
-      merchantName: storeMap.get(cartProducts[0]?.product.storeId ?? '')?.name ?? '外卖订单',
-      amount: cartTotal,
-      status: '配送中',
-      createdAt: Date.now(),
-      delivery: createDeliveryTracking(Date.now(), deliveryAddress),
-      deliveryAddress,
-    };
+    if (type === '购买') {
+      handleWechatPayment(snapshot, true);
+      return;
+    }
 
-    setOrders((current) => [order, ...current]);
-    setCart([]);
-    setShowCheckoutActions(false);
-    setCheckoutPanel('history');
-    setPage('checkout');
-    pushToast(type === '购买' ? '微信支付成功' : '下单成功', '订单已提交');
-  }, [cartProducts, cartTotal, deliveryAddress, pushToast, storeMap]);
+    if (type === '为TA买单') {
+      openGiftPaymentSheet(snapshot, true);
+      return;
+    }
+
+    openContactPaymentPicker('delegate', snapshot, true);
+  }, [buildCheckoutSnapshot, cartProducts, handleWechatPayment, openContactPaymentPicker, openGiftPaymentSheet, pushToast]);
+
+  const handleContactPaymentSelect = React.useCallback((contact: Contact) => {
+    if (!pendingContactMode) return;
+
+    if (pendingContactMode === 'recipe') {
+      if (!pendingRecipeShare) return;
+      const recipe = pendingRecipeShare;
+      sendDeliveryCardToContact(contact, {
+        role: 'user',
+        type: 'recipe_card',
+        appSource: 'delivery',
+        content: `分享菜谱：${recipe.name}`,
+        recipeCard: {
+          recipeId: recipe.id,
+          title: recipe.name,
+          subtitle: recipe.subtitle,
+          accent: recipe.accent,
+          time: recipe.time,
+          servings: recipe.servings,
+          shareText: recipe.shareText,
+          ingredients: recipe.ingredients.map((ingredient) => ({
+            name: ingredient.name ?? productMap.get(ingredient.productId)?.name ?? ingredient.productId,
+            amount: ingredient.amount,
+          })),
+          steps: recipe.steps,
+        },
+      });
+      pushToast('菜谱已发送', `已分享给 ${contact.name}`);
+      setShowContactPicker(false);
+      setPendingContactMode(null);
+      setPendingRecipeShare(null);
+      return;
+    }
+
+    if (!pendingCheckoutSnapshot) return;
+    const snapshot = pendingCheckoutSnapshot;
+
+    if (pendingContactMode === 'delegate') {
+      const order = commitCheckoutOrder(snapshot, '发起代付', {
+        contact,
+        clearCart: pendingCheckoutShouldClearCart,
+        paymentStatus: 'pending',
+        status: '待支付',
+        withDelivery: false,
+      });
+      sendDeliveryCardToContact(contact, {
+        role: 'user',
+        type: 'order_request',
+        appSource: 'delivery',
+        content: '帮我支付这笔外卖订单',
+        amount: snapshot.amount,
+        orderIds: [order.id],
+        orderPreview: snapshot.orderPreview,
+        orderRequestStatus: 'pending',
+      });
+      pushToast('代付已发送', `已发送给 ${contact.name}`);
+    } else {
+      if (!assertWalletBalance(snapshot.amount)) return;
+      const order = commitCheckoutOrder(snapshot, '为TA买单', {
+        contact,
+        clearCart: pendingCheckoutShouldClearCart,
+        paymentStatus: 'paid',
+        status: '配送中',
+        withDelivery: true,
+      });
+      withdrawWeChatBalance(snapshot.amount, {
+        title: '外卖买单',
+        counterparty: contact.name,
+        avatar: contact.avatar,
+        statusText: '支付成功',
+      });
+      sendDeliveryCardToContact(contact, {
+        role: 'user',
+        type: 'gift_delivery',
+        appSource: 'delivery',
+        content: `我为你点了一份外卖，正在配送中`,
+        amount: snapshot.amount,
+        orderIds: [order.id],
+        orderPreview: snapshot.orderPreview,
+        giftDelivery: {
+          orderId: formatOrderCode(order.createdAt),
+          title: '为你点了一份外卖',
+          productName: snapshot.title,
+          coverEmoji: '🍱',
+          deliveryStage: order.delivery?.stage,
+          deliveryEtaMinutes: order.delivery?.etaMinutes,
+          recipientName: contact.name,
+          addressTitle: deliveryAddress.title,
+        },
+      });
+      pushToast('买单成功', `配送卡片已发送给 ${contact.name}`);
+    }
+
+    setShowContactPicker(false);
+    setPendingContactMode(null);
+    setPendingCheckoutSnapshot(null);
+    setPendingCheckoutShouldClearCart(false);
+    setPendingRecipeShare(null);
+  }, [
+    assertWalletBalance,
+    commitCheckoutOrder,
+    deliveryAddress.title,
+    pendingCheckoutSnapshot,
+    pendingCheckoutShouldClearCart,
+    pendingContactMode,
+    pendingRecipeShare,
+    productMap,
+    pushToast,
+    sendDeliveryCardToContact,
+    withdrawWeChatBalance,
+  ]);
 
   const handleCreateStore = React.useCallback(() => {
     const name = storeDraft.name.trim();
@@ -1450,6 +1775,7 @@ export const DeliveryApp: React.FC<AppProps> = ({ onClose }) => {
       onClick={() => {
         if (nextPage === 'me') {
           setProfileDraft(profile);
+          setIsProfileEditing(false);
           setMePanel('account');
         }
         if (nextPage === 'checkout') {
@@ -1467,80 +1793,90 @@ export const DeliveryApp: React.FC<AppProps> = ({ onClose }) => {
     </button>
   );
 
-  const renderHome = () => (
-    <>
-      {!(activeDeliverySnapshot?.stage === '送达' && activeDeliveryOrder && dismissedDeliveryOrderId === activeDeliveryOrder.id) ? (
-        <section className={`${styles.section} ${styles.homeDeliverySection}`}>
-          <div className={styles.deliveryProgressCard}>
-            {activeDeliverySnapshot?.stage === '送达' && activeDeliveryOrder ? (
-              <div className={styles.deliveryDeliveredSummary}>
-                <p className={styles.deliveryProgressKicker}>配送进度</p>
-                <h2 className={styles.deliveryProgressTitle}>{formatOrderCode(activeDeliveryOrder.createdAt)}</h2>
-                <p className={styles.deliveryDeliveredText}>骑手已送达</p>
-                <button
-                  type="button"
-                  className={styles.deliveryDeliveredButton}
-                  onClick={() => setDismissedDeliveryOrderId(activeDeliveryOrder.id)}
-                >
-                  确定
-                </button>
-              </div>
-            ) : (
-              <>
-                <div className={styles.deliveryProgressHeader}>
-                  <div>
-                    <p className={styles.deliveryProgressKicker}>配送进度</p>
-                    <h2 className={styles.deliveryProgressTitle}>{activeDeliveryOrder ? activeDeliveryOrder.title : '暂无配送中的订单'}</h2>
-                  </div>
-                  {activeDeliverySnapshot ? (
-                    <div className={styles.deliveryProgressDistance}>
-                      距您 {formatDistance(activeDeliverySnapshot.driverDistanceKm)}
-                    </div>
-                  ) : null}
-                </div>
-                {activeDeliverySnapshot ? (
-                  <div className={styles.deliveryProgressTime}>
-                    预计还有 {activeDeliverySnapshot.etaMinutes} 分钟送达
-                  </div>
-                ) : null}
+  const renderHome = () => {
+    const deliveryCards = deliveryProgressOrders
+      .map((order) => ({
+        order,
+        snapshot: createDeliveryTracking(order.createdAt, order.deliveryAddress ?? deliveryAddress, clockTick),
+      }))
+      .filter((item) => {
+        const isDelivered = item.order.status === '已送达' || item.snapshot.stage === '送达';
+        return !(isDelivered && item.order.deliveryProgressDismissed);
+      });
 
-                {activeDeliverySnapshot ? (
-                  <>
-                    <div className={styles.deliveryTimeline}>
-                      <div className={styles.deliveryTimelineRail} />
-                      <div className={styles.deliveryTimelineFill} style={{ width: `${activeDeliverySnapshot.progress}%` }} />
-                      {[
-                        { label: '接单', at: 12 },
-                        { label: '出餐', at: 38 },
-                        { label: '配送', at: 68 },
-                        { label: '送达', at: 100 },
-                      ].map((step) => (
-                        <div key={step.label} className={styles.deliveryTimelineStep}>
-                          <span className={`${styles.deliveryTimelineDot} ${activeDeliverySnapshot.progress >= step.at ? styles.deliveryTimelineDotActive : ''}`} />
-                          <span>{step.label}</span>
+    return (
+      <>
+        {deliveryCards.length > 0 ? (
+          <section className={`${styles.section} ${styles.homeDeliverySection}`}>
+            <div className={styles.deliveryProgressCarousel} aria-label="配送进度">
+              {deliveryCards.map(({ order, snapshot }) => (
+                <div key={order.id} className={styles.deliveryProgressCard}>
+                  {order.status === '已送达' || snapshot.stage === '送达' ? (
+                    <div className={styles.deliveryDeliveredSummary}>
+                      <p className={styles.deliveryProgressKicker}>配送进度</p>
+                      <h2 className={styles.deliveryProgressTitle}>{formatOrderCode(order.createdAt)}</h2>
+                      <p className={styles.deliveryDeliveredText}>骑手已送达</p>
+                      <button
+                        type="button"
+                        className={styles.deliveryDeliveredButton}
+                        onClick={() => {
+                          setOrders((current) =>
+                            current.map((item) => (
+                              item.id === order.id ? { ...item, deliveryProgressDismissed: true } : item
+                            )),
+                          );
+                        }}
+                      >
+                        确定
+                      </button>
+                    </div>
+                  ) : (
+                    <>
+                      <div className={styles.deliveryProgressHeader}>
+                        <div>
+                          <p className={styles.deliveryProgressKicker}>配送进度</p>
+                          <h2 className={styles.deliveryProgressTitle}>{order.title}</h2>
                         </div>
-                      ))}
-                      <div className={styles.deliveryTimelineBubble} style={{ left: `${activeDeliverySnapshot.progress}%` }}>
-                        <Bike size={14} />
-                        <span>{formatDistance(activeDeliverySnapshot.driverDistanceKm)}</span>
+                        <div className={styles.deliveryProgressDistance}>
+                          距您 {formatDistance(snapshot.driverDistanceKm)}
+                        </div>
                       </div>
-                    </div>
-                    <p className={styles.deliveryProgressCaption}>
-                      {activeDeliverySnapshot.stage === '送达'
-                        ? '骑手已送达目的地'
-                        : `骑手已取餐，正在快马加鞭赶往目的地`}
-                    </p>
-                  </>
-                ) : (
-                  <p className={styles.deliveryProgressEmpty}>下单后会在这里展示骑手距离和配送进度。</p>
-                )}
-              </>
-            )}
-          </div>
-        </section>
-      ) : null}
+                      <div className={styles.deliveryProgressTime}>
+                        预计还有 {snapshot.etaMinutes} 分钟送达
+                      </div>
+                      <div className={styles.deliveryTimeline}>
+                        <div className={styles.deliveryTimelineRail} />
+                        <div className={styles.deliveryTimelineFill} style={{ width: `${snapshot.progress}%` }} />
+                        {[
+                          { label: '接单', at: 12 },
+                          { label: '出餐', at: 38 },
+                          { label: '配送', at: 68 },
+                          { label: '送达', at: 100 },
+                        ].map((step) => (
+                          <div key={step.label} className={styles.deliveryTimelineStep}>
+                            <span className={`${styles.deliveryTimelineDot} ${snapshot.progress >= step.at ? styles.deliveryTimelineDotActive : ''}`} />
+                            <span>{step.label}</span>
+                          </div>
+                        ))}
+                        <div className={styles.deliveryTimelineBubble} style={{ left: `${snapshot.progress}%` }}>
+                          <Bike size={14} />
+                          <span>{formatDistance(snapshot.driverDistanceKm)}</span>
+                        </div>
+                      </div>
+                      <p className={styles.deliveryProgressCaption}>
+                        {snapshot.stage === '送达'
+                          ? '骑手已送达目的地'
+                          : '骑手已取餐，正在快马加鞭赶往目的地'}
+                      </p>
+                    </>
+                  )}
+                </div>
+              ))}
+            </div>
+          </section>
+        ) : null}
 
-      <section className={styles.section}>
+        <section className={styles.section}>
         <div className={styles.sectionTitleRow}>
           <div>
             <h2 className={styles.sectionTitle}>快捷入口</h2>
@@ -1616,8 +1952,9 @@ export const DeliveryApp: React.FC<AppProps> = ({ onClose }) => {
           ))}
         </div>
       </section>
-    </>
-  );
+      </>
+    );
+  };
 
   const renderKitchenView = () => (
     <div className={styles.storePage}>
@@ -1630,22 +1967,6 @@ export const DeliveryApp: React.FC<AppProps> = ({ onClose }) => {
         >
           <span>全部菜谱</span>
         </button>
-        {kitchenRecipes.map((recipe) => (
-          <button
-            key={recipe.id}
-            type="button"
-            className={`${styles.categoryItem} ${selectedKitchenRecipe?.id === recipe.id ? styles.categoryItemActive : ''}`}
-            onClick={() => {
-              const node = document.querySelector(`[data-recipe-id="${recipe.id}"]`) as HTMLElement | null;
-              if (node) {
-                node.scrollIntoView({ behavior: 'smooth', block: 'start' });
-              }
-              setSelectedKitchenRecipe(recipe);
-            }}
-          >
-            <span>{recipe.name}</span>
-          </button>
-        ))}
         <button type="button" className={styles.storeSectionBack} onClick={() => handleCategorySelect('custom')}>
           去购物车
         </button>
@@ -1764,15 +2085,6 @@ export const DeliveryApp: React.FC<AppProps> = ({ onClose }) => {
       </aside>
 
       <main className={styles.storeMain}>
-        <section className={styles.deliveryHeaderCard}>
-          <div>
-            <p className={styles.deliveryHeaderKicker}>{activeCategory?.name}</p>
-            <h2 className={styles.deliveryHeaderTitle}>店铺列表</h2>
-            <p className={styles.deliveryHeaderHint}>先看店铺，再进入店铺看分类和商品。</p>
-          </div>
-          <div className={styles.deliveryHeaderChip}>{activeCategoryStores.length} 家店铺</div>
-        </section>
-
         <div className={styles.searchBar}>
           <Search size={18} />
           <input
@@ -1934,16 +2246,7 @@ export const DeliveryApp: React.FC<AppProps> = ({ onClose }) => {
         ))}
       </aside>
 
-      <main className={styles.storeMain}>
-        <section className={styles.deliveryHeaderCard}>
-          <div>
-            <p className={styles.deliveryHeaderKicker}>购物车</p>
-            <h2 className={styles.deliveryHeaderTitle}>加购清单</h2>
-            <p className={styles.deliveryHeaderHint}>这里展示你已经加入的商品，结算后才进入下单页面。</p>
-          </div>
-          <div className={styles.deliveryHeaderChip}>{cartCount} 件</div>
-        </section>
-
+      <main className={`${styles.storeMain} ${styles.cartMain}`}>
         <div className={styles.cartList}>
           {cartStoreGroups.length ? cartStoreGroups.map(({ storeId, store, items }) => (
             <section key={storeId} className={styles.cartStoreGroup}>
@@ -2062,6 +2365,7 @@ export const DeliveryApp: React.FC<AppProps> = ({ onClose }) => {
                 <strong>{order.title}</strong>
                 <span>{formatMoney(order.amount)}</span>
               </div>
+              <div className={styles.historyCode}>订单编码 {formatOrderCode(order.createdAt)}</div>
               <div className={styles.historyMeta}>
                 <span>{order.merchantName}</span>
                 <span>{new Date(order.createdAt).toLocaleString('zh-CN', { hour12: false })}</span>
@@ -2128,6 +2432,12 @@ export const DeliveryApp: React.FC<AppProps> = ({ onClose }) => {
 
       <main className={styles.checkoutMain}>
         {checkoutPanel === 'place' ? (
+          cartProducts.length === 0 ? (
+            <section className={styles.checkoutSection}>
+              <h2 className={styles.checkoutSectionTitle}>订单清单</h2>
+              <div className={styles.emptyState}>购物车里还没有商品。</div>
+            </section>
+          ) : (
           <>
             <section className={styles.checkoutSection}>
               <h2 className={styles.checkoutSectionTitle}>配送地址</h2>
@@ -2173,6 +2483,7 @@ export const DeliveryApp: React.FC<AppProps> = ({ onClose }) => {
               </button>
             </section>
           </>
+          )
         ) : (
           <section className={styles.checkoutSection}>
             <h2 className={styles.checkoutSectionTitle}>历史订单</h2>
@@ -2212,6 +2523,7 @@ export const DeliveryApp: React.FC<AppProps> = ({ onClose }) => {
               onClick={() => {
                 if (item.key === 'account') {
                   setProfileDraft(profile);
+                  setIsProfileEditing(false);
                   setMePanel('account');
                   return;
                 }
@@ -2250,59 +2562,90 @@ export const DeliveryApp: React.FC<AppProps> = ({ onClose }) => {
             </div>
 
             <section className={styles.quickPanel}>
-              <div className={styles.profileEditorHeader}>
-                <button
-                  type="button"
-                  className={`${styles.profileAvatarPreview} ${styles.profileAvatarButton}`}
-                  onClick={() => profileAvatarInputRef.current?.click()}
-                  aria-label="上传头像"
-                >
-                  {isAvatarImage(profileDraft.avatar.trim()) ? (
-                    <img className={styles.profileAvatarImage} src={profileDraft.avatar.trim()} alt="头像预览" />
-                  ) : (
-                    <span>{profileDraft.avatar.trim() || DEFAULT_PROFILE.avatar}</span>
-                  )}
-                </button>
+              <div className={`${styles.profileEditorHeader} ${!isProfileEditing ? styles.profileEditorHeaderView : ''}`}>
+                {isProfileEditing ? (
+                  <button
+                    type="button"
+                    className={`${styles.profileAvatarPreview} ${styles.profileAvatarButton}`}
+                    onClick={() => profileAvatarInputRef.current?.click()}
+                    aria-label="上传头像"
+                  >
+                    {isAvatarImage(profileDraft.avatar.trim()) ? (
+                      <img className={styles.profileAvatarImage} src={profileDraft.avatar.trim()} alt="头像预览" />
+                    ) : (
+                      <span>{profileDraft.avatar.trim() || DEFAULT_PROFILE.avatar}</span>
+                    )}
+                  </button>
+                ) : (
+                  <div className={styles.profileAvatarPreview}>
+                    {isAvatarImage(profile.avatar.trim()) ? (
+                      <img className={styles.profileAvatarImage} src={profile.avatar.trim()} alt="头像" />
+                    ) : (
+                      <span>{profile.avatar.trim() || DEFAULT_PROFILE.avatar}</span>
+                    )}
+                  </div>
+                )}
                 <div className={styles.profileEditorMeta}>
-                  <p className={styles.addressPanelLabel}>当前头像</p>
-                  <h4 className={styles.addressPanelTitle}>{profileDraft.username.trim() || DEFAULT_PROFILE.username}</h4>
+                  <h4 className={styles.addressPanelTitle}>
+                    {(isProfileEditing ? profileDraft.username : profile.username).trim() || DEFAULT_PROFILE.username}
+                  </h4>
                 </div>
+                {!isProfileEditing ? (
+                  <button
+                    type="button"
+                    className={styles.profileEditButton}
+                    onClick={() => {
+                      setProfileDraft(profile);
+                      setIsProfileEditing(true);
+                    }}
+                  >
+                    <Pencil size={15} />
+                    <span>编辑</span>
+                  </button>
+                ) : null}
               </div>
 
-              <input
-                ref={profileAvatarInputRef}
-                type="file"
-                accept="image/*"
-                hidden
-                onChange={(event) => {
-                  handleProfileAvatarChange(event.target.files?.[0] ?? null);
-                  event.target.value = '';
-                }}
-              />
-
-              <div className={styles.modalForm}>
-                <div className={styles.modalField}>
-                  <label>用户名</label>
+              {isProfileEditing ? (
+                <>
                   <input
-                    value={profileDraft.username}
-                    onChange={(event) => setProfileDraft((current) => ({ ...current, username: event.target.value }))}
-                    placeholder="请输入用户名"
+                    ref={profileAvatarInputRef}
+                    type="file"
+                    accept="image/*"
+                    hidden
+                    onChange={(event) => {
+                      handleProfileAvatarChange(event.target.files?.[0] ?? null);
+                      event.target.value = '';
+                    }}
                   />
-                </div>
-              </div>
 
-              <div className={styles.addressActions}>
-                <button className={styles.sheetActionPrimary} type="button" onClick={handleSaveProfile}>
-                  保存资料
-                </button>
-                <button
-                  className={styles.sheetActionGhost}
-                  type="button"
-                  onClick={() => setProfileDraft(profile)}
-                >
-                  重置
-                </button>
-              </div>
+                  <div className={styles.modalForm}>
+                    <div className={styles.modalField}>
+                      <label>用户名</label>
+                      <input
+                        value={profileDraft.username}
+                        onChange={(event) => setProfileDraft((current) => ({ ...current, username: event.target.value }))}
+                        placeholder="请输入用户名"
+                      />
+                    </div>
+                  </div>
+
+                  <div className={styles.addressActions}>
+                    <button className={styles.sheetActionPrimary} type="button" onClick={handleSaveProfile}>
+                      保存资料
+                    </button>
+                    <button
+                      className={styles.sheetActionGhost}
+                      type="button"
+                      onClick={() => {
+                        setProfileDraft(profile);
+                        setIsProfileEditing(false);
+                      }}
+                    >
+                      取消
+                    </button>
+                  </div>
+                </>
+              ) : null}
             </section>
           </div>
         ) : mePanel === 'orders' ? (
@@ -2658,6 +3001,7 @@ export const DeliveryApp: React.FC<AppProps> = ({ onClose }) => {
             <div className={styles.quickButtons}>
               <button className={styles.quickButton} type="button" onClick={() => {
                 setProfileDraft(profile);
+                setIsProfileEditing(false);
                 setMePanel('account');
               }}>
                 账户信息
@@ -3341,6 +3685,124 @@ export const DeliveryApp: React.FC<AppProps> = ({ onClose }) => {
                 为TA买单
               </button>
               <button className={styles.sheetActionGhost} type="button" onClick={() => setShowCheckoutActions(false)}>
+                取消
+              </button>
+            </div>
+          </div>
+        </div>
+      ) : null}
+
+      {showGiftPaymentSheet ? (
+        <div
+          className={styles.sheetBackdrop}
+          onClick={() => {
+            setShowGiftPaymentSheet(false);
+            setPendingContactMode(null);
+            setPendingCheckoutSnapshot(null);
+            setPendingCheckoutShouldClearCart(false);
+            setPendingRecipeShare(null);
+          }}
+        >
+          <div className={styles.sheet} onClick={(event) => event.stopPropagation()}>
+            <div className={styles.sheetHeader}>
+              <div className={`${styles.sheetIcon} ${styles.paymentBadgeWeChat}`}>微</div>
+              <h3 className={styles.sheetTitle}>选择微信支付</h3>
+              <p className={styles.sheetDesc}>
+                为 TA 买单需先完成支付，当前微信余额 {formatMoney(wechatBalance)}。
+              </p>
+            </div>
+            <div className={styles.sheetActions}>
+              <button className={styles.sheetActionPrimary} type="button" onClick={handleGiftWechatPaymentConfirm}>
+                微信支付 {formatMoney(pendingCheckoutSnapshot?.amount ?? 0)}
+              </button>
+              <button
+                className={styles.sheetActionGhost}
+                type="button"
+                onClick={() => {
+                  setShowGiftPaymentSheet(false);
+                  setPendingContactMode(null);
+                  setPendingCheckoutSnapshot(null);
+                  setPendingCheckoutShouldClearCart(false);
+                  setPendingRecipeShare(null);
+                }}
+              >
+                取消
+              </button>
+            </div>
+          </div>
+        </div>
+      ) : null}
+
+      {showContactPicker ? (
+        <div
+          className={styles.sheetBackdrop}
+          onClick={() => {
+            setShowContactPicker(false);
+            setShowGiftPaymentSheet(false);
+            setPendingContactMode(null);
+            setPendingCheckoutSnapshot(null);
+            setPendingCheckoutShouldClearCart(false);
+            setPendingRecipeShare(null);
+          }}
+        >
+          <div className={`${styles.sheet} ${styles.contactPickerSheet}`} onClick={(event) => event.stopPropagation()}>
+            <div className={styles.sheetHeader}>
+              <div className={styles.sheetIcon}>
+                <UserRound size={18} />
+              </div>
+              <h3 className={styles.sheetTitle}>
+                {pendingContactMode === 'delegate'
+                  ? '选择代付联系人'
+                  : pendingContactMode === 'recipe'
+                    ? '选择分享联系人'
+                    : '选择收餐联系人'}
+              </h3>
+              <p className={styles.sheetDesc}>
+                {pendingContactMode === 'delegate'
+                  ? `将发送 ${formatMoney(pendingCheckoutSnapshot?.amount ?? 0)} 的外卖代付卡片。`
+                  : pendingContactMode === 'recipe'
+                    ? `将把「${pendingRecipeShare?.name ?? '菜谱'}」作为微信菜谱卡片发送。`
+                    : `微信支付 ${formatMoney(pendingCheckoutSnapshot?.amount ?? 0)} 后，发送配送流程卡片。`}
+              </p>
+            </div>
+            <div className={styles.contactPickerList}>
+              {wechatContacts.length ? wechatContacts.map((contact) => (
+                <button
+                  key={contact.id}
+                  type="button"
+                  className={styles.contactPickerItem}
+                  onClick={() => handleContactPaymentSelect(contact)}
+                >
+                  <span className={styles.contactPickerAvatar}>
+                    {isAvatarImage(contact.avatar || '') ? (
+                      <img className={styles.contactPickerAvatarImage} src={contact.avatar} alt="" />
+                    ) : (
+                      contact.avatar || contact.name.slice(0, 1) || '友'
+                    )}
+                  </span>
+                  <span className={styles.contactPickerMeta}>
+                    <strong>{contact.name}</strong>
+                    <small>{contact.phone || '微信好友'}</small>
+                  </span>
+                  <ChevronRight size={18} />
+                </button>
+              )) : (
+                <div className={styles.contactPickerEmpty}>暂无微信好友，请先在通讯录添加好友。</div>
+              )}
+            </div>
+            <div className={styles.sheetActions}>
+              <button
+                className={styles.sheetActionGhost}
+                type="button"
+                onClick={() => {
+                  setShowContactPicker(false);
+                  setShowGiftPaymentSheet(false);
+                  setPendingContactMode(null);
+                  setPendingCheckoutSnapshot(null);
+                  setPendingCheckoutShouldClearCart(false);
+                  setPendingRecipeShare(null);
+                }}
+              >
                 取消
               </button>
             </div>

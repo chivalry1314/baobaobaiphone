@@ -30,12 +30,15 @@ export interface WeChatMessage {
     | 'order_request'
     | 'movie_ticket'
     | 'gift_delivery'
+    | 'recipe_card'
     | 'shopping_invite';
   amount?: number;
+  appSource?: 'shopping' | 'delivery';
   orderRequestStatus?: 'pending' | 'accepted' | 'rejected';
   orderIds?: string[];
   orderPreview?: WeChatOrderPreview;
   giftDelivery?: WeChatGiftDeliveryCard;
+  recipeCard?: WeChatRecipeCard;
   shoppingInvite?: {
     mode: 'together';
     inviterName?: string;
@@ -77,6 +80,25 @@ export interface WeChatGiftDeliveryCard {
   subtitle?: string;
   productName: string;
   coverEmoji?: string;
+  deliveryStage?: string;
+  deliveryEtaMinutes?: number;
+  recipientName?: string;
+  addressTitle?: string;
+}
+
+export interface WeChatRecipeCard {
+  recipeId: string;
+  title: string;
+  subtitle: string;
+  accent?: string;
+  time: string;
+  servings: string;
+  shareText: string;
+  ingredients: Array<{
+    name: string;
+    amount: string;
+  }>;
+  steps: string[];
 }
 
 export interface WeChatSession {
@@ -224,6 +246,7 @@ export interface WeChatChatViewProps {
   characterId: string;
   onBack: () => void;
   onReturnToShopping?: () => void;
+  returnToShoppingLabel?: string;
   restoreVoiceCallSignal?: number;
   onVoiceCallUiStateChange?: (state: WeChatVoiceCallUiState) => void;
   readOnly?: boolean;

@@ -179,6 +179,13 @@ const normalizeMessageContentForMemory = (
     return `收到礼物卡片：${gift.productName}，金额¥${message.amount.toFixed(2)}，订单号${gift.orderId}`;
   }
 
+  if (message.type === 'recipe_card' && message.recipeCard) {
+    const recipe = message.recipeCard;
+    const ingredients = Array.isArray(recipe.ingredients) ? recipe.ingredients : [];
+    const ingredientText = ingredients.map((item) => `${item.name}${item.amount}`).join('、');
+    return `分享菜谱：${recipe.title}，${recipe.subtitle}，${recipe.time}，${recipe.servings}，食材：${ingredientText}`;
+  }
+
   if (message.type === 'image') {
     const caption = message.content.trim();
     if (caption && caption !== WECHAT_IMAGE_PLACEHOLDER) {

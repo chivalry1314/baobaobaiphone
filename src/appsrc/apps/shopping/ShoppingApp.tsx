@@ -15,7 +15,7 @@ import { useShoppingStore } from './store';
 import { useContactsStore } from '../contacts/store';
 import { useWeChatFriendCharactersFromContacts } from '../WeChat/contactAdapter';
 import { useWeChatStore } from '../WeChat/store';
-import type { WeChatGiftDeliveryCard, WeChatOrderPreview } from '../WeChat/types';
+import type { WeChatGiftDeliveryCard, WeChatMessage, WeChatOrderPreview } from '../WeChat/types';
 import { PUSH_OPEN_APP_MESSAGE_TYPE } from '../../../core/push/webPush';
 import type { GlobalSettings } from '../../../core/sdk/types';
 import styles from './ShoppingApp.module.css';
@@ -1288,6 +1288,7 @@ export const ShoppingApp: React.FC<ShoppingAppProps> = ({ onClose, context }) =>
   const shareWechatMessage = React.useCallback((message: {
     content: string;
     type?: 'text' | 'order_request' | 'movie_ticket' | 'gift_delivery' | 'shopping_invite';
+    appSource?: WeChatMessage['appSource'];
     amount?: number;
     orderRequestStatus?: 'pending' | 'accepted' | 'rejected';
     orderIds?: string[];
@@ -1324,6 +1325,7 @@ export const ShoppingApp: React.FC<ShoppingAppProps> = ({ onClose, context }) =>
       content: message.content,
       assistantReplyPending: message.assistantReplyPending ?? true,
       type: message.type || 'text',
+      appSource: message.appSource,
       amount: message.amount,
       orderRequestStatus: message.orderRequestStatus,
       orderIds: message.orderIds,
@@ -1493,6 +1495,7 @@ export const ShoppingApp: React.FC<ShoppingAppProps> = ({ onClose, context }) =>
         {
           content: '有一笔订单等你支付~',
           type: 'order_request',
+          appSource: 'shopping',
           amount: mergedSelectedCartTotalAmount,
           orderRequestStatus: 'pending',
           orderIds: nextOrders.map((order) => order.id),
@@ -1758,6 +1761,7 @@ export const ShoppingApp: React.FC<ShoppingAppProps> = ({ onClose, context }) =>
       {
         content: '有一笔订单等你支付~',
         type: 'order_request',
+        appSource: 'shopping',
         amount: targetOrder.total,
         orderRequestStatus: 'pending',
         orderIds: [orderId],

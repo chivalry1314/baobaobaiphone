@@ -7,7 +7,6 @@ const deliveryManifest: AppManifest = {
   icon: 'UtensilsCrossed',
   color: '#FF6A3D',
   component: DeliveryApp,
-  isSystem: true,
   market: {
     icon: '🍔',
     tags: ['外卖', '点餐', '商家管理'],

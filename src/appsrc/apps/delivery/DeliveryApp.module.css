@@ -11,6 +11,7 @@
   --primary: #ff6a3d;
   --primary-2: #ff8f6b;
   --shadow: 0 14px 40px rgba(15, 23, 42, 0.12);
+  --delivery-status-clearance: max(env(safe-area-inset-top, 0px), 44px);
   min-height: 100vh;
   min-height: 100dvh;
   display: flex;
@@ -37,9 +38,11 @@
 }
 
 .topBar {
-  min-height: 88px;
-  padding: calc(env(safe-area-inset-top, 0px) + 8px) 12px 10px;
-  position: sticky;
+  flex: 0 0 auto;
+  box-sizing: border-box;
+  min-height: calc(56px + var(--delivery-status-clearance));
+  padding: calc(var(--delivery-status-clearance) + 6px) 12px 8px;
+  position: relative;
   top: 0;
   z-index: 20;
   display: grid;
@@ -69,7 +72,7 @@
   font-size: 17px;
   line-height: 1.25;
   font-weight: 600;
-  letter-spacing: -0.01em;
+  letter-spacing: 0;
   white-space: nowrap;
   overflow: hidden;
   text-overflow: ellipsis;
@@ -91,7 +94,6 @@
 .iconButton {
   width: 44px;
   height: 44px;
-  margin-top: 26px;
   border: 0;
   border-radius: 999px;
   background: rgba(255, 255, 255, 0.86);
@@ -109,6 +111,7 @@
   overflow-x: hidden;
   -webkit-overflow-scrolling: touch;
   padding: 16px 16px calc(100px + env(safe-area-inset-bottom, 0px));
+  scroll-padding-bottom: calc(116px + env(safe-area-inset-bottom, 0px));
 }
 
 .mainHome {
@@ -362,13 +365,16 @@
   min-height: 0;
   display: grid;
   grid-template-columns: 128px minmax(0, 1fr);
+  overflow: hidden;
 }
 
 .sideRail {
   padding: 18px 10px 16px;
   background: linear-gradient(180deg, #f7f5ef 0%, #f2efe6 100%);
   border-right: 1px solid rgba(15, 23, 42, 0.06);
-  overflow: hidden;
+  min-height: 0;
+  overflow: auto;
+  -webkit-overflow-scrolling: touch;
 }
 
 .sideTitle {
@@ -407,8 +413,10 @@
 .sideContent {
   min-width: 0;
   min-height: 0;
-  padding: 18px 16px 20px;
+  padding: 18px 16px calc(104px + env(safe-area-inset-bottom, 0px));
   overflow: auto;
+  -webkit-overflow-scrolling: touch;
+  scroll-padding-bottom: calc(104px + env(safe-area-inset-bottom, 0px));
   background: linear-gradient(180deg, #ffffff 0%, #f7f8fb 100%);
 }
 
@@ -450,7 +458,6 @@
 .headerSpacer {
   width: 44px;
   height: 44px;
-  margin-top: 26px;
 }
 
 .meProfile {
@@ -552,23 +559,24 @@
 }
 
 .storePage {
-  min-height: 100%;
-  display: block;
+  height: 100%;
+  min-height: 0;
+  display: grid;
+  grid-template-columns: 128px minmax(0, 1fr);
+  overflow: hidden;
   background: rgba(255, 255, 255, 0.94);
   border-radius: 0;
 }
 
 .storeSidebar {
-  position: fixed;
-  top: 70px;
-  left: 0;
-  bottom: 82px;
-  width: 128px;
+  position: relative;
+  min-height: 0;
   border-right: 1px solid rgba(15, 23, 42, 0.06);
   background: linear-gradient(180deg, #f9fafb 0%, #f4f6f8 100%);
-  padding: 0 0 14px;
+  padding: 0 0 calc(14px + env(safe-area-inset-bottom, 0px));
   overflow: auto;
-  z-index: 2;
+  -webkit-overflow-scrolling: touch;
+  z-index: 1;
 }
 
 .sidebarHeader {
@@ -620,33 +628,55 @@
 
 .storeMain {
   min-width: 0;
-  margin-left: 128px;
-  height: calc(100vh - 70px - 82px);
-  padding: 12px 14px 14px;
+  min-height: 0;
+  padding: 12px 14px calc(108px + env(safe-area-inset-bottom, 0px));
   overflow: auto;
+  -webkit-overflow-scrolling: touch;
+  scroll-padding-bottom: calc(108px + env(safe-area-inset-bottom, 0px));
   background: linear-gradient(180deg, #ffffff 0%, #fbfbfb 100%);
+}
+
+.cartMain {
+  display: flex;
+  flex-direction: column;
+  padding-bottom: calc(12px + env(safe-area-inset-bottom, 0px));
+  overflow: hidden;
+}
+
+.cartMain .cartList {
+  flex: 1 1 auto;
+  min-height: 0;
+  overflow: auto;
+  -webkit-overflow-scrolling: touch;
+  padding: 0 2px 14px 0;
+}
+
+.cartMain .cartFooter {
+  position: static;
+  flex: 0 0 auto;
+  margin-top: 12px;
+  padding: 12px 0 0;
 }
 
 .checkoutMain {
   min-width: 0;
-  margin-left: 128px;
-  height: calc(100vh - 70px - 90px);
-  padding: 12px 14px 14px;
+  min-height: 0;
+  padding: 12px 14px calc(112px + env(safe-area-inset-bottom, 0px));
   overflow: auto;
+  -webkit-overflow-scrolling: touch;
+  scroll-padding-bottom: calc(112px + env(safe-area-inset-bottom, 0px));
   background: linear-gradient(180deg, #ffffff 0%, #fbfbfb 100%);
 }
 
 .checkoutSidebar {
-  position: fixed;
-  top: 70px;
-  left: 0;
-  bottom: 90px;
-  width: 128px;
+  position: relative;
+  min-height: 0;
   border-right: 1px solid rgba(15, 23, 42, 0.06);
   background: linear-gradient(180deg, #f9fafb 0%, #f4f6f8 100%);
-  padding: 0 0 14px;
+  padding: 0 0 calc(14px + env(safe-area-inset-bottom, 0px));
   overflow: auto;
-  z-index: 2;
+  -webkit-overflow-scrolling: touch;
+  z-index: 1;
 }
 
 .checkoutSideItem {
@@ -1177,6 +1207,13 @@
   color: #111827;
 }
 
+.historyCode {
+  margin-top: 6px;
+  font-size: 12px;
+  font-weight: 700;
+  color: #6b7280;
+}
+
 .historyMeta {
   margin-top: 6px;
   display: flex;
@@ -1277,6 +1314,77 @@
   flex-direction: column;
   gap: 10px;
   margin-top: 18px;
+}
+
+.contactPickerSheet {
+  max-height: min(620px, 88vh);
+}
+
+.contactPickerList {
+  display: grid;
+  gap: 10px;
+  margin-top: 16px;
+  overflow: auto;
+  min-height: 0;
+  padding-right: 2px;
+}
+
+.contactPickerItem {
+  width: 100%;
+  min-height: 64px;
+  border: 1px solid rgba(15, 23, 42, 0.07);
+  border-radius: 18px;
+  background: #fff;
+  display: grid;
+  grid-template-columns: 44px minmax(0, 1fr) auto;
+  align-items: center;
+  gap: 12px;
+  padding: 10px 12px;
+  color: var(--text);
+  text-align: left;
+}
+
+.contactPickerAvatar {
+  width: 44px;
+  height: 44px;
+  border-radius: 16px;
+  display: grid;
+  place-items: center;
+  background: linear-gradient(135deg, rgba(255, 106, 61, 0.16), rgba(148, 163, 184, 0.16));
+  font-size: 20px;
+  font-weight: 850;
+  overflow: hidden;
+}
+
+.contactPickerAvatarImage {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  display: block;
+}
+
+.contactPickerMeta {
+  min-width: 0;
+  display: grid;
+  gap: 3px;
+}
+
+.contactPickerMeta strong {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  font-size: 15px;
+}
+
+.contactPickerMeta small,
+.contactPickerEmpty {
+  color: var(--muted);
+  font-size: 12px;
+}
+
+.contactPickerEmpty {
+  padding: 20px 12px;
+  text-align: center;
 }
 
 .orderDetailList {
@@ -1470,6 +1578,14 @@
   gap: 14px;
 }
 
+.profileEditorHeaderView {
+  flex-direction: column;
+  justify-content: center;
+  text-align: center;
+  gap: 10px;
+  padding: 6px 0;
+}
+
 .profileAvatarPreview {
   width: 72px;
   height: 72px;
@@ -1511,7 +1627,39 @@
 }
 
 .profileEditorMeta {
+  flex: 1;
   min-width: 0;
+}
+
+.profileEditorHeaderView .profileEditorMeta {
+  flex: 0 1 auto;
+  width: 100%;
+}
+
+.profileEditorMeta .addressPanelTitle {
+  margin-top: 0;
+}
+
+.profileEditorHeaderView .addressPanelTitle {
+  font-size: 20px;
+  text-align: center;
+}
+
+.profileEditButton {
+  flex: 0 0 auto;
+  height: 34px;
+  border: 0;
+  border-radius: 999px;
+  padding: 0 12px;
+  background: rgba(143, 164, 91, 0.14);
+  color: #6f8740;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 6px;
+  font-size: 13px;
+  font-weight: 900;
+  cursor: pointer;
 }
 
 .ordersHint {
@@ -2031,12 +2179,27 @@
   box-shadow: none;
 }
 
-.deliveryProgressCard {
+.deliveryProgressCarousel {
   position: fixed;
   left: 16px;
   right: 16px;
   bottom: calc(92px + env(safe-area-inset-bottom, 0px));
   z-index: 18;
+  display: flex;
+  gap: 12px;
+  overflow-x: auto;
+  overscroll-behavior-x: contain;
+  scroll-snap-type: x mandatory;
+  scrollbar-width: none;
+}
+
+.deliveryProgressCarousel::-webkit-scrollbar {
+  display: none;
+}
+
+.deliveryProgressCard {
+  flex: 0 0 100%;
+  scroll-snap-align: start;
   padding: 16px 16px 18px;
   border-radius: 22px;
   background: rgba(255, 255, 255, 0.74);
@@ -2908,7 +3071,8 @@
   }
 
   .storePage {
-    min-height: 100%;
+    min-height: 0;
+    grid-template-columns: 92px minmax(0, 1fr);
   }
 
   .categoryItem {
@@ -2919,19 +3083,19 @@
   }
 
   .storeSidebar {
-    width: 92px;
+    width: auto;
   }
 
   .storeMain {
-    margin-left: 92px;
+    margin-left: 0;
   }
 
   .checkoutMain {
-    margin-left: 92px;
+    margin-left: 0;
   }
 
   .checkoutSidebar {
-    width: 92px;
+    width: auto;
   }
 
   .sideLayout {

@@ -8,6 +8,7 @@ interface WeChatChatHeaderProps {
   isTyping: boolean;
   onBack: () => void;
   onReturnToShopping?: () => void;
+  returnToShoppingLabel?: string;
   onExitSelection: () => void;
 }
 
@@ -18,6 +19,7 @@ export const WeChatChatHeader: React.FC<WeChatChatHeaderProps> = ({
   isTyping,
   onBack,
   onReturnToShopping,
+  returnToShoppingLabel,
   onExitSelection,
 }) => {
   if (isSelectionMode) {
@@ -46,7 +48,7 @@ export const WeChatChatHeader: React.FC<WeChatChatHeaderProps> = ({
             className="flex items-center gap-0.5 pl-1 text-[11px] font-medium text-[#576B95] active:opacity-50"
           >
             <ChevronLeft size={12} strokeWidth={2} />
-            <span>去购物</span>
+            <span>{returnToShoppingLabel ?? '返回购物'}</span>
           </button>
         ) : null}
         <button onClick={onBack} className="text-gray-900 flex items-center active:opacity-50">

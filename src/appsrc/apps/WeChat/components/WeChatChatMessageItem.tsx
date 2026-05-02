@@ -3,6 +3,9 @@ import React from 'react';
 import { Check, ArrowRightLeft, User, Pause, Volume2 } from 'lucide-react';
 import type { CSSProperties } from 'react';
 import type { WeChatBubblePreset, WeChatMessage, WeChatUiRenderConfig } from '../types';
+import { DELIVERY_STORAGE_KEY } from '../../delivery/data';
+import { DELIVERY_ORDERS_CHANGED_EVENT } from '../../delivery/paymentBridge';
+import type { DeliveryOrderRecord, DeliveryTrackingRecord } from '../../delivery/types';
 
 // 通用头像组件
 export const Avatar: React.FC<{ url?: string | null }> = ({ url }) => (
@@ -70,6 +73,71 @@ const normalizeStyle = (
   }, {});
 };
 
+const isRecord = (value: unknown): value is Record<string, unknown> =>
+  typeof value === 'object' && value !== null && !Array.isArray(value);
+
+const readDeliveryOrderById = (orderId: string | undefined): DeliveryOrderRecord | null => {
+  if (!orderId || typeof window === 'undefined') return null;
+  try {
+    const raw = window.localStorage.getItem(DELIVERY_STORAGE_KEY);
+    if (!raw) return null;
+    const parsed = JSON.parse(raw);
+    const orders = isRecord(parsed) && Array.isArray(parsed.orders) ? parsed.orders : [];
+    const match = orders.find((item) => isRecord(item) && item.id === orderId);
+    return match ? (match as DeliveryOrderRecord) : null;
+  } catch {
+    return null;
+  }
+};
+
+const createLiveDeliveryTracking = (
+  order: DeliveryOrderRecord | null,
+  fallback: NonNullable<WeChatMessage['giftDelivery']>,
+  now: number,
+): DeliveryTrackingRecord | null => {
+  if (!order) {
+    if (!fallback.deliveryStage && typeof fallback.deliveryEtaMinutes !== 'number' && !fallback.addressTitle) return null;
+    return {
+      stage: fallback.deliveryStage === '接单' || fallback.deliveryStage === '出餐' || fallback.deliveryStage === '配送' || fallback.deliveryStage === '送达'
+        ? fallback.deliveryStage
+        : '配送',
+      progress: 58,
+      driverName: '骑手阿泽',
+      driverDistanceKm: 1.2,
+      etaMinutes: Math.max(0, Math.round(fallback.deliveryEtaMinutes ?? 18)),
+      destination: fallback.addressTitle || '等待骑手更新配送信息',
+      updatedAt: now,
+    };
+  }
+
+  const destination = order.deliveryAddress?.title || order.delivery?.destination || fallback.addressTitle || '等待骑手更新配送信息';
+  if (order.status === '已送达') {
+    return {
+      stage: '送达',
+      progress: 100,
+      driverName: order.delivery?.driverName || '骑手阿泽',
+      driverDistanceKm: 0,
+      etaMinutes: 0,
+      destination,
+      updatedAt: now,
+    };
+  }
+
+  const elapsedMinutes = Math.max(0, (now - order.createdAt) / 60000);
+  const progress = Math.min(100, Math.round(14 + elapsedMinutes * 4.8));
+  const stage = progress < 25 ? '接单' : progress < 55 ? '出餐' : progress < 90 ? '配送' : '送达';
+
+  return {
+    stage,
+    progress,
+    driverName: order.delivery?.driverName || '骑手阿泽',
+    driverDistanceKm: Math.max(0.1, Number((2.3 - elapsedMinutes * 0.12).toFixed(1))),
+    etaMinutes: Math.max(0, Math.round(18 - elapsedMinutes * 1.2)),
+    destination,
+    updatedAt: now,
+  };
+};
+
 export const WeChatChatMessageItem: React.FC<WeChatChatMessageItemProps> = ({
   message, isUser, userAvatar, characterAvatar, characterName,
   selfBubblePreset, peerBubblePreset, customRenderConfig,
@@ -81,6 +149,7 @@ export const WeChatChatMessageItem: React.FC<WeChatChatMessageItemProps> = ({
   const isShoppingInvite = message.type === 'shopping_invite';
   const isMovieTicket = message.type === 'movie_ticket' && Boolean(message.movieTicket);
   const isGiftDelivery = message.type === 'gift_delivery' && Boolean(message.giftDelivery);
+  const isRecipeCard = message.type === 'recipe_card' && Boolean(message.recipeCard);
   const isVoice = message.type === 'voice' && Boolean(message.voiceAudioDataUrl);
   const isImage = message.type === 'image' && Boolean(message.imageDataUrl);
   const imageCaption = message.content.trim();
@@ -103,10 +172,29 @@ export const WeChatChatMessageItem: React.FC<WeChatChatMessageItemProps> = ({
     !isOrderRequest &&
     !isShoppingInvite &&
     !isMovieTicket &&
-    !isGiftDelivery;
+    !isGiftDelivery &&
+    !isRecipeCard;
   const tailClass = isUser ? 'border-l-[#95ec69]' : 'border-r-white';
   const movieTicket = message.movieTicket;
   const giftDelivery = message.giftDelivery;
+  const recipeCard = message.recipeCard;
+  const recipeIngredients = Array.isArray(recipeCard?.ingredients)
+    ? recipeCard.ingredients
+    : [];
+  const recipeIngredientsText = recipeIngredients
+    .map((ingredient) => `${ingredient.name}${ingredient.amount}`)
+    .join('、');
+  const recipeSeasoningIngredients = recipeIngredients.filter((ingredient) =>
+    /酱|糖|醋|料|盐|油|葱|姜|蒜|香|粉|汁/.test(ingredient.name)
+  );
+  const recipeSeasoningText = recipeSeasoningIngredients.length > 0
+    ? recipeSeasoningIngredients
+      .map((ingredient) => `${ingredient.name}${ingredient.amount}`)
+      .join(' + ')
+    : '按口味加入盐、生抽和少许香油';
+  const recipeStepsText = Array.isArray(recipeCard?.steps) && recipeCard.steps.length > 0
+    ? recipeCard.steps.map((step, index) => `${index + 1}. ${step}`).join(' ')
+    : recipeCard?.shareText ?? '';
   const orderPreviewItems = Array.isArray(message.orderPreview?.items)
     ? message.orderPreview.items.filter((item) => item.name.trim())
     : [];
@@ -130,6 +218,46 @@ export const WeChatChatMessageItem: React.FC<WeChatChatMessageItemProps> = ({
   const orderAmountText = `¥${Number(message.amount || 0).toFixed(2)}`;
   const isLongOrderAmount = orderAmountText.length >= 8;
   const isVeryLongOrderAmount = orderAmountText.length >= 10;
+  const [giftDetailsVisible, setGiftDetailsVisible] = React.useState(false);
+  const [giftDeliveryRefreshKey, setGiftDeliveryRefreshKey] = React.useState(0);
+  const giftDeliveryOrderId = Array.isArray(message.orderIds)
+    ? message.orderIds.find((item) => typeof item === 'string' && item.trim())?.trim()
+    : undefined;
+  const liveGiftOrder = React.useMemo(
+    () => (isGiftDelivery ? readDeliveryOrderById(giftDeliveryOrderId) : null),
+    [giftDeliveryOrderId, giftDeliveryRefreshKey, isGiftDelivery],
+  );
+  const liveGiftTracking = React.useMemo(
+    () => (giftDelivery ? createLiveDeliveryTracking(liveGiftOrder, giftDelivery, Date.now()) : null),
+    [giftDelivery, giftDeliveryRefreshKey, liveGiftOrder],
+  );
+  const giftDeliveryStatusText = liveGiftOrder?.status === '已取消'
+    ? '订单已取消'
+    : liveGiftTracking?.stage === '送达'
+      ? '已送达'
+      : liveGiftTracking?.stage
+        ? `${liveGiftTracking.stage}中`
+        : '配送中';
+
+  React.useEffect(() => {
+    if (!isGiftDelivery) return undefined;
+
+    const refresh = () => setGiftDeliveryRefreshKey((value) => value + 1);
+    window.addEventListener(DELIVERY_ORDERS_CHANGED_EVENT, refresh);
+    window.addEventListener('storage', refresh);
+    return () => {
+      window.removeEventListener(DELIVERY_ORDERS_CHANGED_EVENT, refresh);
+      window.removeEventListener('storage', refresh);
+    };
+  }, [isGiftDelivery]);
+
+  React.useEffect(() => {
+    if (!isGiftDelivery || !giftDetailsVisible) return undefined;
+    const timer = window.setInterval(() => {
+      setGiftDeliveryRefreshKey((value) => value + 1);
+    }, 15000);
+    return () => window.clearInterval(timer);
+  }, [giftDetailsVisible, isGiftDelivery]);
 
   const openMenuByPoint = (clientX: number, clientY: number) => {
     if (onOpenMessageMenu) {
@@ -230,12 +358,12 @@ export const WeChatChatMessageItem: React.FC<WeChatChatMessageItemProps> = ({
               className={`relative cursor-pointer ${isMenuOpen ? 'brightness-90' : ''} ${
                 isTransfer
                   ? `bg-[#F39B3A] text-white overflow-hidden ${message.type === 'transfer_accepted' ? 'opacity-95' : ''}` 
-                  : isOrderRequest || isShoppingInvite || isMovieTicket || isGiftDelivery
+                  : isOrderRequest || isShoppingInvite || isMovieTicket || isGiftDelivery || isRecipeCard
                     ? 'overflow-hidden rounded-[18px] border border-[#EAECEF] bg-white shadow-[0_8px_20px_rgba(15,23,42,0.06)]'
                   : `${bubblePresetClass} ${isImage ? 'p-1.5' : 'px-3.5 py-2.5'}`
                 }`}
               style={
-                !isTransfer && !isOrderRequest && !isShoppingInvite && !isMovieTicket && !isGiftDelivery
+                !isTransfer && !isOrderRequest && !isShoppingInvite && !isMovieTicket && !isGiftDelivery && !isRecipeCard
                   ? customBubbleStyle
                   : undefined
               }
@@ -367,41 +495,122 @@ export const WeChatChatMessageItem: React.FC<WeChatChatMessageItemProps> = ({
                 </div>
               ) : isGiftDelivery && giftDelivery ? (
                 <div
-                  className="relative flex w-[214px] max-w-full flex-col overflow-hidden rounded-[20px] px-3 pb-3 pt-3"
-                  style={{ background: 'linear-gradient(180deg, #FDE7ED 0%, #FBD0DA 100%)' }}
+                  className="flex w-[190px] max-w-full flex-col overflow-hidden rounded-[16px] border border-[#EAECEF] bg-white shadow-[0_8px_20px_rgba(15,23,42,0.06)]"
                 >
-                  <div className="pointer-events-none absolute inset-0 opacity-70">
-                    <span className="absolute left-[16px] top-[18px] text-[18px] text-white/70">♡</span>
-                    <span className="absolute right-[18px] top-[22px] text-[15px] text-white/70">♡</span>
-                    <span className="absolute right-[24px] bottom-[58px] text-[17px] text-white/65">♡</span>
-                  </div>
-                  <div className="relative text-center">
-                    <div className="text-[14px] font-semibold tracking-[0.02em] text-[#B4536C]">
-                      {giftDelivery.title || '送你一份小礼物'}
+                  <div className="px-3.5 pb-3 pt-3">
+                    <div className="text-[14px] font-semibold leading-[1.35] text-[#0F172A]">
+                      {giftDelivery.title || '为你点了一份外卖'}
                     </div>
-                    <div className="mt-1 text-[11px] text-[#C26B84]">
-                      {giftDelivery.subtitle || '希望你能喜欢~'}
+                    <div className="mt-2 flex items-center gap-2.5">
+                      <div className="flex h-[44px] w-[44px] shrink-0 items-center justify-center rounded-[12px] bg-[#FFF7ED] text-[28px] shadow-[inset_0_0_0_1px_rgba(251,146,60,0.18)]">
+                        {giftDelivery.coverEmoji || '🍱'}
+                      </div>
+                      <div className="min-w-0 flex-1">
+                        <div className="truncate text-[13px] font-semibold text-[#1F2937]">
+                          {giftDelivery.productName}
+                        </div>
+                        <div className="mt-0.5 text-[15px] font-black text-[#F97316]">
+                          ¥ {Number(message.amount || 0).toFixed(2)}
+                        </div>
+                      </div>
                     </div>
-                  </div>
-                  <div className="relative mt-3 rounded-[16px] bg-white px-4 pb-4 pt-4 shadow-[0_10px_20px_rgba(244,114,182,0.10)]">
-                    <div className="flex justify-center">
-                      <div
-                        className="flex h-[84px] w-[84px] items-center justify-center rounded-[20px] text-[54px] shadow-[inset_0_0_0_1px_rgba(251,191,202,0.45)]"
-                        style={{ background: 'linear-gradient(180deg, #FFF7F2 0%, #FFE8DD 100%)' }}
+
+                    {giftDetailsVisible ? (
+                      <div className="mt-3 rounded-[12px] bg-[#F8FAFC] px-3 py-2.5">
+                        <div className="flex items-center justify-between gap-2 text-[12px] font-semibold text-[#334155]">
+                          <span>{giftDeliveryStatusText}</span>
+                          {liveGiftTracking ? (
+                            <span>{liveGiftTracking.etaMinutes > 0 ? `约 ${liveGiftTracking.etaMinutes} 分钟` : '即将完成'}</span>
+                          ) : null}
+                        </div>
+                        <div className="mt-1.5 h-1.5 overflow-hidden rounded-full bg-[#E2E8F0]">
+                          <div
+                            className="h-full rounded-full bg-[#94A3B8]"
+                            style={{ width: `${liveGiftTracking?.progress ?? 0}%` }}
+                          />
+                        </div>
+                        <div className="mt-2 truncate text-[11px] text-[#64748B]">
+                          {giftDelivery.recipientName ? `${giftDelivery.recipientName} · ` : ''}
+                          {liveGiftTracking?.destination || '等待骑手更新配送信息'}
+                        </div>
+                      </div>
+                    ) : null}
+
+                    <div className="mt-3">
+                      <button
+                        type="button"
+                        onClick={(event) => {
+                          event.stopPropagation();
+                          setGiftDetailsVisible((visible) => !visible);
+                          setGiftDeliveryRefreshKey((value) => value + 1);
+                        }}
+                        className="w-full rounded-full border border-[#CBD5E1] bg-white px-3 py-1.5 text-[12px] font-semibold text-[#475569] active:bg-[#F8FAFC]"
                       >
-                        {giftDelivery.coverEmoji || '🎁'}
+                        {giftDetailsVisible ? '收起详情' : '查看详情'}
+                      </button>
+                    </div>
+                  </div>
+                </div>
+              ) : isRecipeCard && recipeCard ? (
+                <div className="flex w-[220px] max-w-full flex-col overflow-hidden rounded-[16px] border border-[#F1E5A2] bg-white shadow-[0_8px_20px_rgba(15,23,42,0.06)]">
+                  <div className="flex items-center gap-2 bg-[#FFF6A8] px-2.5 py-2">
+                    <div className="relative h-[46px] w-[50px] shrink-0">
+                      <div className="absolute left-0 top-5 h-5 w-7 rounded-[50%] bg-[#F5B2A9] shadow-[inset_0_0_0_1px_rgba(120,53,15,0.12)]" />
+                      <div className="absolute left-3 top-6 h-5 w-7 rounded-[50%] bg-[#FFD0BE] shadow-[inset_0_0_0_1px_rgba(120,53,15,0.1)]" />
+                      <div className="absolute left-5 top-2 h-6 w-6 rounded-full border border-[#F4C84A] bg-[#FFE36B] text-center text-[15px] leading-6">
+                        🍋
+                      </div>
+                      <div className="absolute right-0 top-1 h-4 w-6 rotate-[-22deg] rounded-[50%] bg-[#9BC75A]" />
+                      <div className="absolute right-2 top-7 h-5 w-4 rotate-[-18deg] rounded-[50%] bg-[#E7D240]" />
+                    </div>
+                    <div className="min-w-0 flex-1">
+                      <div className="flex min-w-0 items-center gap-1">
+                        <span className="shrink-0 text-[14px] leading-none">🍋</span>
+                        <div className="min-w-0 truncate text-[16px] font-black leading-[1.08] text-[#111111]">
+                          {recipeCard.title}
+                        </div>
+                      </div>
+                      <div className="mt-1 truncate text-[10px] font-semibold leading-[1.3] text-[#8A7A3B]">
+                        *{recipeCard.subtitle || recipeCard.shareText} | {recipeCard.time}搞定*
                       </div>
                     </div>
-                    <div className="mt-3 text-center text-[13px] font-semibold leading-[1.4] text-[#475569]">
-                      {giftDelivery.productName}
-                    </div>
-                    <div className="mt-1.5 text-center text-[16px] font-black text-[#F59E0B]">
-                      ¥ {Number(message.amount || 0).toFixed(2)}
-                    </div>
-                    <div className="mt-3 flex justify-center">
-                      <div className="rounded-full border border-[#E8B8C5] bg-white px-5 py-1.5 text-[12px] font-semibold text-[#B4536C] shadow-[0_4px_10px_rgba(244,114,182,0.08)]">
-                        查看详情
+                  </div>
+                  <div className="space-y-2 px-3 py-3 text-[#111827]">
+                    <div>
+                      <div className="flex items-center gap-1.5 text-[14px] font-black leading-none">
+                        <span className="text-[15px]">🧺</span>
+                        <span>食材</span>
                       </div>
+                      <p
+                        className="mt-1 overflow-hidden break-words text-[12px] leading-[1.45]"
+                        style={{ display: '-webkit-box', WebkitBoxOrient: 'vertical', WebkitLineClamp: 2 }}
+                      >
+                        {recipeIngredientsText || '按菜谱准备食材'}
+                      </p>
+                    </div>
+                    <div>
+                      <div className="flex items-center gap-1.5 text-[14px] font-black leading-none">
+                        <span className="text-[15px]">🥣</span>
+                        <span>酱汁</span>
+                      </div>
+                      <p
+                        className="mt-1 overflow-hidden break-words text-[12px] leading-[1.45]"
+                        style={{ display: '-webkit-box', WebkitBoxOrient: 'vertical', WebkitLineClamp: 2 }}
+                      >
+                        {recipeSeasoningText}
+                      </p>
+                    </div>
+                    <div>
+                      <div className="flex items-center gap-1.5 text-[14px] font-black leading-none">
+                        <span className="text-[15px]">🔍</span>
+                        <span>做法</span>
+                      </div>
+                      <p
+                        className="mt-1 overflow-hidden break-words text-[12px] leading-[1.45]"
+                        style={{ display: '-webkit-box', WebkitBoxOrient: 'vertical', WebkitLineClamp: 3 }}
+                      >
+                        {recipeStepsText || '查看菜谱后开始制作。'}
+                      </p>
                     </div>
                   </div>
                 </div>

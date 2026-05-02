@@ -67,6 +67,8 @@ export const WeChatApp: React.FC<WeChatAppProps> = ({ onClose, context }) => {
   const returnAppId =
     typeof context?.params?.returnAppId === 'string' ? context.params.returnAppId.trim() : '';
   const returnAppParams = (context?.params?.returnParams as Record<string, unknown> | undefined) || undefined;
+  const returnToShoppingLabel =
+    returnAppId === 'delivery' ? '返回外卖' : returnAppId === 'shopping' ? '返回购物' : '返回应用';
 
   const isVoiceCallActive = Boolean(voiceCallUiState?.active);
   const showVoiceCallFloatingEntry = Boolean(
@@ -477,6 +479,7 @@ export const WeChatApp: React.FC<WeChatAppProps> = ({ onClose, context }) => {
             characterId={selectedCharacterId}
             onBack={handleBack}
             onReturnToShopping={returnAppId ? handleReturnToShopping : undefined}
+            returnToShoppingLabel={returnToShoppingLabel}
             restoreVoiceCallSignal={restoreVoiceCallSignal}
             onVoiceCallUiStateChange={handleVoiceCallUiStateChange}
             readOnly={isInspectorContactRoleMode}
