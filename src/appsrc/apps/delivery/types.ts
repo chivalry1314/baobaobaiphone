@@ -153,6 +153,18 @@ export interface DeliveryCartEntry {
   sectionId?: string;
 }
 
+export interface DeliveryOrderItem {
+  productId: string;
+  qty: number;
+  name?: string;
+  price?: number;
+  description?: string;
+  tag?: string;
+  storeId?: string;
+  categoryId?: string;
+  sectionId?: string;
+}
+
 export interface DeliveryOrderRecord {
   id: string;
   type: '购买' | '发起代付' | '为TA买单';
@@ -166,6 +178,7 @@ export interface DeliveryOrderRecord {
   paymentContactId?: string;
   paymentContactName?: string;
   paymentContactAvatar?: string;
+  items?: DeliveryOrderItem[];
   delivery?: DeliveryTrackingRecord;
   deliveryProgressDismissed?: boolean;
   deliveryAddress?: {

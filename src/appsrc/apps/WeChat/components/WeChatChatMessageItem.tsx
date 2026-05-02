@@ -495,21 +495,21 @@ export const WeChatChatMessageItem: React.FC<WeChatChatMessageItemProps> = ({
                 </div>
               ) : isGiftDelivery && giftDelivery ? (
                 <div
-                  className="flex w-[190px] max-w-full flex-col overflow-hidden rounded-[16px] border border-[#EAECEF] bg-white shadow-[0_8px_20px_rgba(15,23,42,0.06)]"
+                  className="flex w-[244px] max-w-full flex-col overflow-hidden rounded-[16px] border border-[#EAECEF] bg-white shadow-[0_8px_20px_rgba(15,23,42,0.06)]"
                 >
                   <div className="px-3.5 pb-3 pt-3">
-                    <div className="text-[14px] font-semibold leading-[1.35] text-[#0F172A]">
+                    <div className="text-[17px] font-bold leading-[1.35] text-[#0F172A]">
                       {giftDelivery.title || '为你点了一份外卖'}
                     </div>
-                    <div className="mt-2 flex items-center gap-2.5">
-                      <div className="flex h-[44px] w-[44px] shrink-0 items-center justify-center rounded-[12px] bg-[#FFF7ED] text-[28px] shadow-[inset_0_0_0_1px_rgba(251,146,60,0.18)]">
+                    <div className="mt-2.5 flex items-center gap-3">
+                      <div className="flex h-[48px] w-[48px] shrink-0 items-center justify-center rounded-[14px] bg-[#FFF7ED] text-[34px] shadow-[inset_0_0_0_1px_rgba(251,146,60,0.18)]">
                         {giftDelivery.coverEmoji || '🍱'}
                       </div>
                       <div className="min-w-0 flex-1">
-                        <div className="truncate text-[13px] font-semibold text-[#1F2937]">
+                        <div className="truncate text-[15px] font-semibold text-[#1F2937]">
                           {giftDelivery.productName}
                         </div>
-                        <div className="mt-0.5 text-[15px] font-black text-[#F97316]">
+                        <div className="mt-0.5 text-[18px] font-black text-[#F97316]">
                           ¥ {Number(message.amount || 0).toFixed(2)}
                         </div>
                       </div>
@@ -517,7 +517,7 @@ export const WeChatChatMessageItem: React.FC<WeChatChatMessageItemProps> = ({
 
                     {giftDetailsVisible ? (
                       <div className="mt-3 rounded-[12px] bg-[#F8FAFC] px-3 py-2.5">
-                        <div className="flex items-center justify-between gap-2 text-[12px] font-semibold text-[#334155]">
+                        <div className="flex items-center justify-between gap-2 text-[13px] font-semibold text-[#334155]">
                           <span>{giftDeliveryStatusText}</span>
                           {liveGiftTracking ? (
                             <span>{liveGiftTracking.etaMinutes > 0 ? `约 ${liveGiftTracking.etaMinutes} 分钟` : '即将完成'}</span>
@@ -529,7 +529,7 @@ export const WeChatChatMessageItem: React.FC<WeChatChatMessageItemProps> = ({
                             style={{ width: `${liveGiftTracking?.progress ?? 0}%` }}
                           />
                         </div>
-                        <div className="mt-2 truncate text-[11px] text-[#64748B]">
+                        <div className="mt-2 truncate text-[12px] text-[#64748B]">
                           {giftDelivery.recipientName ? `${giftDelivery.recipientName} · ` : ''}
                           {liveGiftTracking?.destination || '等待骑手更新配送信息'}
                         </div>
@@ -544,7 +544,7 @@ export const WeChatChatMessageItem: React.FC<WeChatChatMessageItemProps> = ({
                           setGiftDetailsVisible((visible) => !visible);
                           setGiftDeliveryRefreshKey((value) => value + 1);
                         }}
-                        className="w-full rounded-full border border-[#CBD5E1] bg-white px-3 py-1.5 text-[12px] font-semibold text-[#475569] active:bg-[#F8FAFC]"
+                        className="w-full rounded-full border border-[#CBD5E1] bg-white px-3 py-2 text-[14px] font-semibold text-[#475569] active:bg-[#F8FAFC]"
                       >
                         {giftDetailsVisible ? '收起详情' : '查看详情'}
                       </button>

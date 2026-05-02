@@ -13,7 +13,6 @@ import { isLikelyVisionChatModel } from '../../../../core/modelCapabilities';
 import { wechatMemoryController } from '../memory';
 import { queryPersonalMemoryByApp } from '../../../../core/appMemoryCenter';
 import { getAppById } from '../../../../core/registry';
-import { PUSH_OPEN_APP_MESSAGE_TYPE } from '../../../../core/push/webPush';
 import { patchPersistedDeliveryOrders, updatePersistedDeliveryOrders } from '../../delivery/paymentBridge';
 import type { DeliveryOrderRecord } from '../../delivery/types';
 import { useShoppingStore } from '../../shopping/store';
@@ -1637,10 +1636,10 @@ export const WeChatChatView: React.FC<WeChatChatViewProps> = ({
         systemPrompt += `背景：${worldBook.find(w => w.id === character.worldBookId)?.content}\n`;
       }
       systemPrompt += `\n要求：微信聊天语气，简短、口语化。直接输出内容，不带前缀。`;
-      systemPrompt += `\n如果聊天上下文里出现待支付的代付订单，并且你已经能根据上下文明确判断是否愿意代付：`;
-      systemPrompt += `\n愿意代付就在回复最前面输出 [ORDER_REQUEST:accepted]`;
-      systemPrompt += `\n不愿意代付就在回复最前面输出 [ORDER_REQUEST:rejected]`;
-      systemPrompt += `\n如果信息不足、还想继续问、或暂时不做决定，就不要输出这个标签。`;
+      systemPrompt += `\n如果聊天上下文里出现待支付的代付订单，请结合最近聊天内容、你和对方的熟悉程度、对话语气、对方是否经常找你帮忙、金额大小和当前语境，判断是否愿意代付。`;
+      systemPrompt += `\n如果愿意代付，就在回复最前面输出 [ORDER_REQUEST:accepted]`;
+      systemPrompt += `\n如果不愿意代付，就在回复最前面输出 [ORDER_REQUEST:rejected]`;
+      systemPrompt += `\n尽量给出明确决定，不要只因为“信息不足”就回避；只有真的需要继续追问时才不要输出标签。`;
       systemPrompt += `\n标签后面继续正常聊天回复，不要解释标签本身。`;
 
       const response = await fetch(`${settings.baseUrl}/chat/completions`, {
@@ -2095,6 +2094,9 @@ export const WeChatChatView: React.FC<WeChatChatViewProps> = ({
           const storeNames = Array.isArray(message.orderPreview?.storeNames)
             ? message.orderPreview.storeNames.map((item) => item.trim()).filter(Boolean)
             : [];
+          const deliveryOrderItems = Array.isArray(message.deliveryOrderItems)
+            ? message.deliveryOrderItems.filter((item) => typeof item.productId === 'string' && item.productId.trim() && Number.isFinite(item.qty) && item.qty > 0)
+            : [];
           const fallbackOrders: DeliveryOrderRecord[] = deliveryOrderIds.map((orderId) => ({
             id: orderId,
             type: '发起代付',
@@ -2105,6 +2107,10 @@ export const WeChatChatView: React.FC<WeChatChatViewProps> = ({
             createdAt: now,
             paymentMode: 'delegate',
             paymentStatus: action === 'accepted' ? 'accepted' : 'rejected',
+            paymentContactId: character.id,
+            paymentContactName: character.name,
+            paymentContactAvatar: character.avatar,
+            ...(deliveryOrderItems.length > 0 ? { items: deliveryOrderItems } : {}),
           }));
           nextDeliveryOrders = updatePersistedDeliveryOrders((current) => [
             ...fallbackOrders,
@@ -2114,18 +2120,6 @@ export const WeChatChatView: React.FC<WeChatChatViewProps> = ({
             orderIds: deliveryOrderIds,
           });
           hasMatchedDeliveryOrder = fallbackOrders.length > 0;
-        }
-        if (hasMatchedDeliveryOrder) {
-          window.dispatchEvent(
-            new CustomEvent(PUSH_OPEN_APP_MESSAGE_TYPE, {
-              detail: {
-                appId: 'delivery',
-                params: {
-                  deliveryReturnOrderIds: deliveryOrderIds,
-                },
-              },
-            })
-          );
         }
       }
 

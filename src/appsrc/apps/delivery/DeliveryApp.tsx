@@ -46,6 +46,7 @@ import type {
   DeliveryCartEntry,
   DeliveryDeliveryView,
   DeliveryMenuProduct,
+  DeliveryOrderItem,
   DeliveryOrderRecord,
   DeliveryStore,
   DeliveryStoreSection,
@@ -175,6 +176,41 @@ const formatClock = (value: number): string =>
 const formatOrderCode = (value: number): string => {
   const digits = Math.abs(Math.trunc(value)).toString();
   return `ORD${digits}`;
+};
+
+const normalizeOrderItems = (
+  items: Array<{ product: DeliveryMenuProduct; qty: number }>,
+): DeliveryOrderItem[] =>
+  items
+    .filter((item) => item.qty > 0)
+    .map((item) => ({
+      productId: item.product.id,
+      qty: Math.max(1, Math.floor(item.qty)),
+      name: item.product.name,
+      price: item.product.price,
+      description: item.product.description,
+      tag: item.product.tag,
+      storeId: item.product.storeId,
+      categoryId: item.product.categoryId,
+      sectionId: item.product.sectionId,
+    }));
+
+const mergeCartEntries = (current: DeliveryCartEntry[], additions: DeliveryCartEntry[]): DeliveryCartEntry[] => {
+  let nextCart = [...current];
+  additions.forEach((entry) => {
+    const qty = Math.max(1, Math.floor(entry.qty));
+    const existing = nextCart.find((item) => item.productId === entry.productId);
+    if (existing) {
+      nextCart = nextCart.map((item) => (
+        item.productId === entry.productId
+          ? { ...item, ...entry, qty: item.qty + qty }
+          : item
+      ));
+      return;
+    }
+    nextCart = [{ ...entry, qty }, ...nextCart];
+  });
+  return nextCart;
 };
 
 const makeId = (prefix: string): string =>
@@ -1030,46 +1066,26 @@ export const DeliveryApp: React.FC<AppProps> = ({ onClose, context }) => {
       pushToast('暂不可购买', '该商品已下架');
       return;
     }
-    setCart((current) => {
-      const exists = current.find((item) => item.productId === product.id);
-      if (exists) {
-        return current.map((item) => (item.productId === product.id ? { ...item, qty: item.qty + 1 } : item));
-      }
-      return [{ productId: product.id, qty: 1 }, ...current];
-    });
-    pushToast('已加入购物车', `${product.name} 已加入购物车`);
-  }, [pushToast]);
+    setCart((current) => mergeCartEntries(current, [{ productId: product.id, qty: 1 }]));
+  }, []);
 
   const handleAddRecipeToCart = React.useCallback((recipe: PrivateKitchenRecipe) => {
     setCart((current) => {
-      let nextCart = [...current];
-      recipe.ingredients.forEach((ingredient) => {
-        const exists = nextCart.find((item) => item.productId === ingredient.productId);
-        if (exists) {
-          nextCart = nextCart.map((item) => (
-            item.productId === ingredient.productId
-              ? { ...item, qty: item.qty + ingredient.qty, price: ingredient.price }
-              : item
-          ));
-          return;
-        }
-        nextCart = [{
-          productId: ingredient.productId,
-          qty: ingredient.qty,
-          name: ingredient.name ?? ingredient.productId,
-          price: ingredient.price,
-          description: `${recipe.name} · 需要 ${ingredient.amount}`,
-          tag: '食材',
-          storeId: 'store-kitchen',
-          categoryId: 'kitchen',
-          sectionId: 'recipe',
-        }, ...nextCart];
-      });
-      return nextCart;
+      const additions = recipe.ingredients.map((ingredient) => ({
+        productId: ingredient.productId,
+        qty: ingredient.qty,
+        name: ingredient.name ?? ingredient.productId,
+        price: ingredient.price,
+        description: `${recipe.name} · 需要 ${ingredient.amount}`,
+        tag: '食材',
+        storeId: 'store-kitchen',
+        categoryId: 'kitchen',
+        sectionId: 'recipe',
+      }));
+      return mergeCartEntries(current, additions);
     });
-    pushToast('已加购', '菜谱食材已加入购物车');
     setSelectedKitchenRecipe(null);
-  }, [pushToast]);
+  }, []);
 
   const handleShareRecipe = React.useCallback((recipe: PrivateKitchenRecipe) => {
     if (!wechatContacts.length) {
@@ -1100,6 +1116,21 @@ export const DeliveryApp: React.FC<AppProps> = ({ onClose, context }) => {
   const removeCartItem = React.useCallback((productId: string) => {
     setCart((current) => current.filter((item) => item.productId !== productId));
   }, []);
+
+  const handleRestockFailedOrder = React.useCallback((order: DeliveryOrderRecord) => {
+    const items = order.items ?? [];
+    if (!items.length) {
+      pushToast('无法加购', '这笔订单没有可恢复的商品明细');
+      return;
+    }
+    setCart((current) => mergeCartEntries(current, items));
+    setSelectedOrder(null);
+    setPage('delivery');
+    setDeliveryView('cart');
+    setActiveStoreId(null);
+    setActiveCategoryId('custom');
+    pushToast('已重新加购', '商品已放回购物车');
+  }, [pushToast]);
 
   const toggleFavorite = React.useCallback((productId: string) => {
     setFavorites((current) => {
@@ -1193,6 +1224,7 @@ export const DeliveryApp: React.FC<AppProps> = ({ onClose, context }) => {
       paymentContactId: contact?.id,
       paymentContactName: contact?.name,
       paymentContactAvatar: contact?.avatar,
+      items: normalizeOrderItems(snapshot.items),
       delivery: options?.withDelivery === false ? undefined : createDeliveryTracking(createdAt, deliveryAddress, createdAt),
       deliveryAddress,
     };
@@ -1353,6 +1385,13 @@ export const DeliveryApp: React.FC<AppProps> = ({ onClose, context }) => {
         amount: snapshot.amount,
         orderIds: [order.id],
         orderPreview: snapshot.orderPreview,
+        deliveryOrderItems: normalizeOrderItems(snapshot.items),
+        deliveryAddress: {
+          title: deliveryAddress.title,
+          recipient: deliveryAddress.recipient,
+          phone: deliveryAddress.phone,
+        },
+        assistantReplyPending: true,
         orderRequestStatus: 'pending',
       });
       pushToast('代付已发送', `已发送给 ${contact.name}`);
@@ -3047,10 +3086,19 @@ export const DeliveryApp: React.FC<AppProps> = ({ onClose, context }) => {
               ? '地址管理'
               : '我的';
 
-  const selectedOrderDeliverySnapshot = React.useMemo(
-    () => (selectedOrder ? createDeliveryTracking(selectedOrder.createdAt, selectedOrder.deliveryAddress ?? deliveryAddress, clockTick) : null),
-    [clockTick, deliveryAddress, selectedOrder],
+  const selectedOrderIsFailedDelegate = Boolean(
+    selectedOrder &&
+      selectedOrder.type === '发起代付' &&
+      (selectedOrder.paymentStatus === 'rejected' || selectedOrder.status === '已取消'),
   );
+  const selectedOrderDeliverySnapshot = React.useMemo(
+    () => {
+      if (!selectedOrder || selectedOrderIsFailedDelegate) return null;
+      return createDeliveryTracking(selectedOrder.createdAt, selectedOrder.deliveryAddress ?? deliveryAddress, clockTick);
+    },
+    [clockTick, deliveryAddress, selectedOrder, selectedOrderIsFailedDelegate],
+  );
+  const selectedOrderDeliveryAddress = selectedOrder?.deliveryAddress ?? deliveryAddress;
   const getLiveOrderSnapshot = React.useCallback(
     (order: DeliveryOrderRecord) =>
       createDeliveryTracking(order.createdAt, order.deliveryAddress ?? deliveryAddress, clockTick),
@@ -3841,6 +3889,12 @@ export const DeliveryApp: React.FC<AppProps> = ({ onClose, context }) => {
                 <span>店铺</span>
                 <strong>{selectedOrder.merchantName}</strong>
               </div>
+              {selectedOrder.type === '发起代付' ? (
+                <div className={styles.orderDetailRow}>
+                  <span>代付人</span>
+                  <strong>{selectedOrder.paymentContactName || selectedOrder.paymentContactId || '未记录'}</strong>
+                </div>
+              ) : null}
               <div className={styles.orderDetailRow}>
                 <span>金额</span>
                 <strong>{formatMoney(selectedOrder.amount)}</strong>
@@ -3853,6 +3907,18 @@ export const DeliveryApp: React.FC<AppProps> = ({ onClose, context }) => {
                 <span>时间</span>
                 <strong>{new Date(selectedOrder.createdAt).toLocaleString('zh-CN', { hour12: false })}</strong>
               </div>
+              {!selectedOrderIsFailedDelegate ? (
+                <>
+                  <div className={styles.orderDetailRow}>
+                    <span>配送地址</span>
+                    <strong>{selectedOrderDeliveryAddress.title}</strong>
+                  </div>
+                  <div className={styles.orderDetailRow}>
+                    <span>收件信息</span>
+                    <strong>{selectedOrderDeliveryAddress.recipient}  {selectedOrderDeliveryAddress.phone}</strong>
+                  </div>
+                </>
+              ) : null}
             </div>
 
             {selectedOrderDeliverySnapshot ? (
@@ -3885,6 +3951,15 @@ export const DeliveryApp: React.FC<AppProps> = ({ onClose, context }) => {
             ) : null}
 
             <div className={styles.sheetActions}>
+              {selectedOrderIsFailedDelegate && selectedOrder.items?.length ? (
+                <button
+                  className={styles.sheetAction}
+                  type="button"
+                  onClick={() => handleRestockFailedOrder(selectedOrder)}
+                >
+                  重新加购
+                </button>
+              ) : null}
               <button className={styles.sheetActionGhost} type="button" onClick={() => setSelectedOrder(null)}>
                 关闭
               </button>

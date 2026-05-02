@@ -1,5 +1,6 @@
 import type { AppMemoryRecord } from '../../../core/appMemory';
 import type { AppContext } from '../../../core/sdk/types';
+import type { DeliveryOrderItem } from '../delivery/types';
 
 export interface WeChatCharacter {
   id: string;
@@ -37,6 +38,12 @@ export interface WeChatMessage {
   orderRequestStatus?: 'pending' | 'accepted' | 'rejected';
   orderIds?: string[];
   orderPreview?: WeChatOrderPreview;
+  deliveryOrderItems?: DeliveryOrderItem[];
+  deliveryAddress?: {
+    title: string;
+    recipient: string;
+    phone: string;
+  };
   giftDelivery?: WeChatGiftDeliveryCard;
   recipeCard?: WeChatRecipeCard;
   shoppingInvite?: {
