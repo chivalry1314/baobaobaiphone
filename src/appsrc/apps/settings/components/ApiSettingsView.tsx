@@ -16,6 +16,8 @@ const CHAT_PROVIDER_BASE_URL_MAP = {
   siliconflow: 'https://api.siliconflow.cn/v1',
 } as const;
 
+const API_SETTINGS_FOCUS_TOP_PADDING = 56;
+
 interface ApiSettingsViewProps {
   settings: GlobalSettings;
   updateSettings: (settings: Partial<GlobalSettings>) => void;
@@ -92,7 +94,10 @@ export const ApiSettingsView: React.FC<ApiSettingsViewProps> = ({
       : '请输入对话模型，或等待加载...';
   const visionSupportState = detectVisionSupportByModel(chatModelValue);
   const keyboardInset = useKeyboardViewportInset(true);
-  useKeyboardViewportStabilizer(true, contentScrollRef);
+  useKeyboardViewportStabilizer(true, contentScrollRef, {
+    topPadding: API_SETTINGS_FOCUS_TOP_PADDING,
+    bottomPadding: 28,
+  });
   const handleFieldFocusCapture = React.useCallback((event: React.FocusEvent<HTMLElement>) => {
     const target = event.target;
     if (!(target instanceof HTMLElement)) return;
@@ -101,7 +106,7 @@ export const ApiSettingsView: React.FC<ApiSettingsViewProps> = ({
     const alignField = () =>
       scrollFieldIntoViewInContainer(scrollContainer, target, {
         preferTopAlign: true,
-        topPadding: 10,
+        topPadding: API_SETTINGS_FOCUS_TOP_PADDING,
         bottomPadding: 28,
       });
     alignField();
@@ -412,6 +417,7 @@ export const ApiSettingsView: React.FC<ApiSettingsViewProps> = ({
         className="flex-1 min-h-0 overflow-y-auto touch-pan-y p-4 pb-40 space-y-6"
         style={{
           paddingBottom: `calc(env(safe-area-inset-bottom, 0px) + ${160 + keyboardInset}px)`,
+          scrollPaddingTop: API_SETTINGS_FOCUS_TOP_PADDING,
         }}
       >
         <section className="space-y-2">

@@ -11,6 +11,8 @@ import type { AddContactPayload, Contact, WeChatRelation } from '../types';
 import type { AddContactView } from '../uiTypes';
 import type { WorldInfoEntry } from '../../../../core/sdk/types';
 
+const FIELD_FOCUS_TOP_PADDING = 56;
+
 interface AddContactPageProps {
   worldBook: WorldInfoEntry[];
   onBack: () => void;
@@ -45,7 +47,10 @@ export const AddContactPage: React.FC<AddContactPageProps> = ({
   const formScrollRef = useRef<HTMLDivElement | null>(null);
   const worldBookListRef = useRef<HTMLDivElement | null>(null);
   const pageStyle = useMobileViewportPageStyle(false);
-  useKeyboardViewportStabilizer(view === 'form', formScrollRef);
+  useKeyboardViewportStabilizer(view === 'form', formScrollRef, {
+    topPadding: FIELD_FOCUS_TOP_PADDING,
+    bottomPadding: 28,
+  });
 
   const isFormValid = name.trim().length > 0;
 
@@ -161,7 +166,7 @@ export const AddContactPage: React.FC<AddContactPageProps> = ({
     const alignField = () =>
       scrollFieldIntoViewInContainer(scrollContainer, target, {
         preferTopAlign: true,
-        topPadding: 10,
+        topPadding: FIELD_FOCUS_TOP_PADDING,
         bottomPadding: 28,
       });
     alignField();
@@ -205,6 +210,7 @@ export const AddContactPage: React.FC<AddContactPageProps> = ({
           className="flex-1 min-h-0 overflow-y-auto overscroll-y-contain touch-pan-y px-5 pt-4 space-y-3"
           style={{
             paddingBottom: `calc(env(safe-area-inset-bottom, 0px) + ${keyboardInset + 192}px)`,
+            scrollPaddingTop: FIELD_FOCUS_TOP_PADDING,
           }}
         >
           <div className="flex flex-col items-center mb-1">

@@ -132,6 +132,7 @@ type DecorationBackgroundPreset = {
 };
 
 const formatMoney = (value: number) => `￥ ${value.toFixed(1)}`;
+const FIELD_FOCUS_TOP_PADDING = 56;
 
 const resolveMovieCheckoutDateDefault = (labels: string[]) => {
   const configured = (labels[9] || '').trim();
@@ -384,7 +385,10 @@ export const SellerApp: React.FC<SellerAppProps> = ({ onClose }) => {
   const storeDecorationPreviewScrollRef = React.useRef<HTMLDivElement | null>(null);
   const storeViewContentRef = React.useRef<HTMLDivElement | null>(null);
   const keyboardInset = useKeyboardViewportInset(page === 'product-publish');
-  useKeyboardViewportStabilizer(page === 'product-publish', publishContentScrollRef);
+  useKeyboardViewportStabilizer(page === 'product-publish', publishContentScrollRef, {
+    topPadding: FIELD_FOCUS_TOP_PADDING,
+    bottomPadding: 28,
+  });
   const handlePublishFieldFocusCapture = React.useCallback((event: React.FocusEvent<HTMLElement>) => {
     const target = event.target;
     if (!(target instanceof HTMLElement)) return;
@@ -393,7 +397,7 @@ export const SellerApp: React.FC<SellerAppProps> = ({ onClose }) => {
     const alignField = () =>
       scrollFieldIntoViewInContainer(scrollContainer, target, {
         preferTopAlign: true,
-        topPadding: 10,
+        topPadding: FIELD_FOCUS_TOP_PADDING,
         bottomPadding: 28,
       });
     alignField();
@@ -1254,6 +1258,7 @@ export const SellerApp: React.FC<SellerAppProps> = ({ onClose }) => {
             className={styles.publishContent}
             style={{
               paddingBottom: `calc(env(safe-area-inset-bottom, 0px) + ${176 + keyboardInset}px)`,
+              scrollPaddingTop: FIELD_FOCUS_TOP_PADDING,
             }}
           >
           <section className={styles.publishCard}>

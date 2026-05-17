@@ -258,12 +258,18 @@ export const scrollFieldIntoViewInContainer = (
 
 export const useKeyboardViewportStabilizer = (
   enabled = true,
-  scrollContainerRef?: RefObject<HTMLElement | null>
+  scrollContainerRef?: RefObject<HTMLElement | null>,
+  options?: {
+    topPadding?: number;
+    bottomPadding?: number;
+  }
 ): void => {
   const shouldEnable = useMemo(
     () => enabled && isKeyboardViewportStabilizerDevice(),
     [enabled]
   );
+  const topPadding = options?.topPadding ?? 12;
+  const bottomPadding = options?.bottomPadding ?? 24;
 
   useEffect(() => {
     if (!shouldEnable || typeof window === 'undefined' || typeof document === 'undefined') {
@@ -289,8 +295,8 @@ export const useKeyboardViewportStabilizer = (
         if (!scrollContainer || !(activeElement instanceof HTMLElement)) return;
         scrollFieldIntoViewInContainer(scrollContainer, activeElement, {
           preferTopAlign: true,
-          topPadding: 12,
-          bottomPadding: 24,
+          topPadding,
+          bottomPadding,
         });
       });
     };
@@ -358,5 +364,5 @@ export const useKeyboardViewportStabilizer = (
       window.visualViewport?.removeEventListener('resize', handleViewportShift);
       window.visualViewport?.removeEventListener('scroll', handleViewportShift);
     };
-  }, [scrollContainerRef, shouldEnable]);
+  }, [bottomPadding, scrollContainerRef, shouldEnable, topPadding]);
 };

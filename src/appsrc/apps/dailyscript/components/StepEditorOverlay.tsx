@@ -29,6 +29,8 @@ interface StepEditorOverlayProps {
 
 type ActionAppType = 'dailywords' | 'wechat' | 'lovespace' | 'dreammusic';
 
+const FIELD_FOCUS_TOP_PADDING = 56;
+
 const ACTION_APP_LABELS: Record<ActionAppType, string> = {
   dailywords: '每日语',
   wechat: '微信',
@@ -126,7 +128,10 @@ export const StepEditorOverlay: React.FC<StepEditorOverlayProps> = ({
   const pageStyle = useMobileViewportPageStyle(false);
   const contentScrollRef = React.useRef<HTMLElement | null>(null);
   const keyboardInset = useKeyboardViewportInset(true);
-  useKeyboardViewportStabilizer(true, contentScrollRef);
+  useKeyboardViewportStabilizer(true, contentScrollRef, {
+    topPadding: FIELD_FOCUS_TOP_PADDING,
+    bottomPadding: 28,
+  });
   const handleFieldFocusCapture = React.useCallback((event: React.FocusEvent<HTMLElement>) => {
     const target = event.target;
     if (!(target instanceof HTMLElement)) return;
@@ -135,7 +140,7 @@ export const StepEditorOverlay: React.FC<StepEditorOverlayProps> = ({
     const alignField = () =>
       scrollFieldIntoViewInContainer(scrollContainer, target, {
         preferTopAlign: true,
-        topPadding: 10,
+        topPadding: FIELD_FOCUS_TOP_PADDING,
         bottomPadding: 28,
       });
     alignField();
@@ -306,6 +311,7 @@ export const StepEditorOverlay: React.FC<StepEditorOverlayProps> = ({
         className="flex-1 min-h-0 overflow-y-auto touch-pan-y px-4 py-4 pb-40 space-y-3"
         style={{
           paddingBottom: `calc(env(safe-area-inset-bottom, 0px) + ${160 + keyboardInset}px)`,
+          scrollPaddingTop: FIELD_FOCUS_TOP_PADDING,
         }}
       >
         <section className="rounded-3xl border border-indigo-100 bg-white p-4 space-y-3">

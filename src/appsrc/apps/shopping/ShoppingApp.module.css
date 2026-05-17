@@ -2580,9 +2580,11 @@
   position: relative;
   z-index: 1;
   flex: 1;
-  padding: calc(52px + env(safe-area-inset-top, 0px)) 36px 218px;
+  min-height: 0;
+  padding: calc(54px + env(safe-area-inset-top, 0px)) 36px calc(68px + env(safe-area-inset-bottom, 0px));
   display: flex;
   flex-direction: column;
+  justify-content: center;
 }
 
 .shoppingEntryBadge {
@@ -2651,8 +2653,8 @@
   position: relative;
   inset: auto;
   width: 100%;
-  min-height: 138px;
-  margin-top: 24px;
+  min-height: 124px;
+  margin-top: clamp(18px, 5.2svh, 36px);
   display: flex;
   align-items: center;
   justify-content: center;
@@ -2666,7 +2668,7 @@
 
 .shoppingEntryArtworkCard {
   position: relative;
-  width: min(164px, 40vw);
+  width: min(156px, 40vw);
   aspect-ratio: 1;
   display: grid;
   place-items: center;
@@ -2722,15 +2724,15 @@
   position: relative;
   z-index: 2;
   width: 100%;
-  margin-top: 14px;
+  margin-top: 30px;
   display: grid;
   grid-template-columns: repeat(3, minmax(0, 1fr));
   gap: 12px;
 }
 
 .shoppingEntryFeatureCard {
-  min-height: 82px;
-  padding: 10px 6px 8px;
+  min-height: 78px;
+  padding: 9px 6px 8px;
   border-radius: 16px;
   border: 1px solid rgba(226, 214, 214, 0.92);
   background: #fff;
@@ -2745,8 +2747,8 @@
 }
 
 .shoppingEntryFeatureIcon {
-  width: 34px;
-  height: 34px;
+  width: 32px;
+  height: 32px;
   border-radius: 999px;
   display: grid;
   place-items: center;
@@ -2883,14 +2885,15 @@
   position: relative;
   z-index: 2;
   width: 100%;
-  height: 162px;
+  height: auto;
+  min-height: 136px;
 }
 
 .shoppingEntryActions {
-  margin-top: 38px;
+  margin-top: clamp(22px, 5svh, 34px);
   display: grid;
   grid-template-columns: 1fr;
-  gap: 12px;
+  gap: 10px;
   padding-top: 0;
 }
 
@@ -2966,7 +2969,7 @@
 .shoppingEntryPrimaryBtn,
 .shoppingEntrySecondaryBtn {
   border: none;
-  height: 56px;
+  height: 52px;
   border-radius: 15px;
   font-size: 15px;
   font-weight: 500;
@@ -3313,7 +3316,7 @@
   }
 
   .shoppingEntryHero {
-    padding: calc(52px + env(safe-area-inset-top, 0px)) 36px 218px;
+    padding: calc(48px + env(safe-area-inset-top, 0px)) 32px calc(64px + env(safe-area-inset-bottom, 0px));
   }
 
   .shoppingEntryCopy h2 {
@@ -3322,6 +3325,46 @@
 
   .shoppingEntryScene {
     inset: auto;
+    min-height: 118px;
+    margin-top: clamp(16px, 4.5svh, 30px);
+  }
+
+  .shoppingEntryArtworkCard {
+    width: min(148px, 39vw);
+    border-radius: 28px;
+  }
+
+  .shoppingEntryArtworkBadge {
+    width: 42px;
+    height: 42px;
+  }
+
+  .shoppingEntryBagSvg {
+    width: 78px;
+    height: 78px;
+  }
+
+  .shoppingEntryChoiceArea {
+    min-height: 128px;
+  }
+
+  .shoppingEntryActions {
+    margin-top: clamp(18px, 4.2svh, 28px);
+  }
+
+  .shoppingEntryFeatureGrid {
+    gap: 10px;
+    margin-top: 28px;
+  }
+
+  .shoppingEntryFeatureCard {
+    min-height: 76px;
+    border-radius: 14px;
+  }
+
+  .shoppingEntryPrimaryBtn,
+  .shoppingEntrySecondaryBtn {
+    height: 50px;
   }
 
   .movieGrid {

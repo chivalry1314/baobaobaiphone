@@ -16,6 +16,8 @@ import type { DailyWordsAppProps, DailyWordsEntry } from './types';
 
 type EditorMode = 'create' | 'edit' | null;
 
+const FIELD_FOCUS_TOP_PADDING = 56;
+
 interface TimelineGroup {
   dateKey: string;
   items: DailyWordsEntry[];
@@ -169,7 +171,10 @@ export const DailyWordsApp: React.FC<DailyWordsAppProps> = ({ onClose, context }
   const editorPageStyle = useMobileViewportPageStyle(false);
   const shouldHideEditorFooter = useKeyboardTextEntryActive(isEditorOpen);
   const editorScrollRef = React.useRef<HTMLElement | null>(null);
-  useKeyboardViewportStabilizer(isEditorOpen, editorScrollRef);
+  useKeyboardViewportStabilizer(isEditorOpen, editorScrollRef, {
+    topPadding: FIELD_FOCUS_TOP_PADDING,
+    bottomPadding: 28,
+  });
 
   const handleOpenCreateEditor = () => {
     if (isReadOnlyMode) return;
@@ -395,7 +400,11 @@ export const DailyWordsApp: React.FC<DailyWordsAppProps> = ({ onClose, context }
             </div>
           </header>
 
-          <main ref={editorScrollRef} className="min-h-0 flex-1 overflow-y-auto px-4 py-4 space-y-3">
+          <main
+            ref={editorScrollRef}
+            className="min-h-0 flex-1 overflow-y-auto px-4 py-4 space-y-3"
+            style={{ scrollPaddingTop: FIELD_FOCUS_TOP_PADDING }}
+          >
             <section className="rounded-3xl bg-white/92 border border-rose-100 p-4 shadow-sm space-y-3">
               <input
                 type="text"

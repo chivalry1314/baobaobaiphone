@@ -53,6 +53,7 @@ import { AiCreateView, CalendarView, DaySettingsView, RoleListView } from './vie
 type DailyScriptView = 'roles' | 'calendar' | 'settings' | 'ai-create';
 
 const WEEKDAY_LABELS = ['日', '一', '二', '三', '四', '五', '六'];
+const FIELD_FOCUS_TOP_PADDING = 56;
 
 const countDraftSteps = (plans: DailyScriptAIDraftPlan[]): number =>
   plans.reduce((sum, plan) => sum + plan.steps.length, 0);
@@ -123,7 +124,10 @@ export const DailyScriptApp: React.FC<DailyScriptAppProps> = ({ onClose }) => {
   const shouldFreezeViewport = view === 'settings' || editorState !== null;
   const viewportPageStyle = useMobileViewportPageStyle(!shouldFreezeViewport);
   const keyboardInset = useKeyboardViewportInset(view === 'settings');
-  useKeyboardViewportStabilizer(view === 'settings', settingsScrollRef);
+  useKeyboardViewportStabilizer(view === 'settings', settingsScrollRef, {
+    topPadding: FIELD_FOCUS_TOP_PADDING,
+    bottomPadding: 28,
+  });
   const handleSettingsFieldFocusCapture = React.useCallback((event: React.FocusEvent<HTMLElement>) => {
     const target = event.target;
     if (!(target instanceof HTMLElement)) return;
@@ -132,7 +136,7 @@ export const DailyScriptApp: React.FC<DailyScriptAppProps> = ({ onClose }) => {
     const alignField = () =>
       scrollFieldIntoViewInContainer(scrollContainer, target, {
         preferTopAlign: true,
-        topPadding: 10,
+        topPadding: FIELD_FOCUS_TOP_PADDING,
         bottomPadding: 28,
       });
     alignField();
@@ -770,6 +774,7 @@ export const DailyScriptApp: React.FC<DailyScriptAppProps> = ({ onClose }) => {
               className="flex-1 min-h-0 overflow-y-auto touch-pan-y px-4 pt-3 pb-40 space-y-3"
               style={{
                 paddingBottom: `calc(env(safe-area-inset-bottom, 0px) + ${160 + keyboardInset}px)`,
+                scrollPaddingTop: FIELD_FOCUS_TOP_PADDING,
               }}
             >
             <DaySettingsView
