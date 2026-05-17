@@ -2581,10 +2581,10 @@
   z-index: 1;
   flex: 1;
   min-height: 0;
-  padding: calc(46px + env(safe-area-inset-top, 0px)) 36px calc(76px + env(safe-area-inset-bottom, 0px));
+  padding: calc(30px + env(safe-area-inset-top, 0px)) 36px calc(56px + env(safe-area-inset-bottom, 0px));
   display: flex;
   flex-direction: column;
-  justify-content: center;
+  justify-content: space-evenly;
 }
 
 .shoppingEntryBadge {
@@ -3429,14 +3429,15 @@
 
 @supports (-webkit-touch-callout: none) {
   .shoppingEntryHero {
-    padding: calc(28px + env(safe-area-inset-top, 0px)) 36px calc(94px + env(safe-area-inset-bottom, 0px));
+    padding: env(safe-area-inset-top, 0px) 36px calc(28px + env(safe-area-inset-bottom, 0px));
+    justify-content: space-evenly;
   }
 }
 
 @supports (-webkit-touch-callout: none) {
   @media (max-width: 420px) {
     .shoppingEntryHero {
-      padding: calc(22px + env(safe-area-inset-top, 0px)) 32px calc(90px + env(safe-area-inset-bottom, 0px));
+      padding: env(safe-area-inset-top, 0px) 32px calc(24px + env(safe-area-inset-bottom, 0px));
     }
   }
 }
@@ -3444,8 +3445,8 @@
 @supports (-webkit-touch-callout: none) {
   @media (display-mode: standalone) {
     .shoppingEntryHero {
-      padding: calc(18px + env(safe-area-inset-top, 0px)) 36px calc(96px + env(safe-area-inset-bottom, 0px));
-      justify-content: flex-start;
+      padding: env(safe-area-inset-top, 0px) 36px calc(22px + env(safe-area-inset-bottom, 0px));
+      justify-content: space-evenly;
     }
 
     .shoppingEntryScene {
@@ -3474,7 +3475,7 @@
 @supports (-webkit-touch-callout: none) {
   @media (display-mode: standalone) and (max-width: 420px) {
     .shoppingEntryHero {
-      padding: calc(14px + env(safe-area-inset-top, 0px)) 32px calc(92px + env(safe-area-inset-bottom, 0px));
+      padding: env(safe-area-inset-top, 0px) 30px calc(20px + env(safe-area-inset-bottom, 0px));
     }
 
     .shoppingEntryScene {
