@@ -2581,10 +2581,10 @@
   z-index: 1;
   flex: 1;
   min-height: 0;
-  padding: calc(18px + env(safe-area-inset-top, 0px)) 36px calc(96px + env(safe-area-inset-bottom, 0px));
+  padding: calc(46px + env(safe-area-inset-top, 0px)) 36px calc(76px + env(safe-area-inset-bottom, 0px));
   display: flex;
   flex-direction: column;
-  justify-content: flex-start;
+  justify-content: center;
 }
 
 .shoppingEntryBadge {
@@ -2653,8 +2653,8 @@
   position: relative;
   inset: auto;
   width: 100%;
-  min-height: 118px;
-  margin-top: 14px;
+  min-height: 124px;
+  margin-top: clamp(12px, 3.6svh, 26px);
   display: flex;
   align-items: center;
   justify-content: center;
@@ -2668,7 +2668,7 @@
 
 .shoppingEntryArtworkCard {
   position: relative;
-  width: min(150px, 39vw);
+  width: min(156px, 40vw);
   aspect-ratio: 1;
   display: grid;
   place-items: center;
@@ -2724,7 +2724,7 @@
   position: relative;
   z-index: 2;
   width: 100%;
-  margin-top: 24px;
+  margin-top: 30px;
   display: grid;
   grid-template-columns: repeat(3, minmax(0, 1fr));
   gap: 12px;
@@ -2886,11 +2886,11 @@
   z-index: 2;
   width: 100%;
   height: auto;
-  min-height: 126px;
+  min-height: 136px;
 }
 
 .shoppingEntryActions {
-  margin-top: 24px;
+  margin-top: clamp(22px, 5svh, 34px);
   display: grid;
   grid-template-columns: 1fr;
   gap: 10px;
@@ -3429,35 +3429,14 @@
 
 @supports (-webkit-touch-callout: none) {
   .shoppingEntryHero {
-    padding: calc(18px + env(safe-area-inset-top, 0px)) 36px calc(96px + env(safe-area-inset-bottom, 0px));
+    padding: calc(28px + env(safe-area-inset-top, 0px)) 36px calc(94px + env(safe-area-inset-bottom, 0px));
   }
 }
 
 @supports (-webkit-touch-callout: none) {
   @media (max-width: 420px) {
     .shoppingEntryHero {
-      padding: calc(14px + env(safe-area-inset-top, 0px)) 32px calc(92px + env(safe-area-inset-bottom, 0px));
-    }
-
-    .shoppingEntryScene {
-      min-height: 112px;
-      margin-top: 12px;
-    }
-
-    .shoppingEntryArtworkCard {
-      width: min(142px, 38vw);
-    }
-
-    .shoppingEntryChoiceArea {
-      min-height: 122px;
-    }
-
-    .shoppingEntryActions {
-      margin-top: 22px;
-    }
-
-    .shoppingEntryFeatureGrid {
-      margin-top: 24px;
+      padding: calc(22px + env(safe-area-inset-top, 0px)) 32px calc(90px + env(safe-area-inset-bottom, 0px));
     }
   }
 }
