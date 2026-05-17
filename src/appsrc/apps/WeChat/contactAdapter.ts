@@ -182,6 +182,8 @@ export const useWeChatFriendCharactersFromContacts = (): WeChatCharacter[] => {
       const sessionCharacterId = session.characterId?.trim();
       if (!sessionCharacterId) return;
       if (characterById.has(sessionCharacterId)) return;
+      const sessionContact = contacts.find((item) => item.id === sessionCharacterId);
+      if (sessionContact && sessionContact.wechatRelation !== 'friend') return;
       characterById.set(
         sessionCharacterId,
         createFallbackCharacter(

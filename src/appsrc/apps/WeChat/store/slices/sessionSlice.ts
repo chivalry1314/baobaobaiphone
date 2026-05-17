@@ -10,6 +10,15 @@ import { wechatMemoryController } from '../../memory';
 import type { WeChatMessage, WeChatSession } from '../../types';
 import type { WeChatMessageMemoryOptions } from './types';
 
+const DELETED_MEMORY_SOURCE_LIMIT = 240;
+const DELETED_MEMORY_HINT_LIMIT = 80;
+
+const normalizeDeletedMemoryHint = (content: string): string => {
+  const normalized = content.replace(/\s+/g, ' ').trim();
+  if (normalized.length <= 80) return normalized;
+  return normalized.slice(0, 80);
+};
+
 interface MirrorPlan {
   mirrorRoleId: string;
   mirrorCharacterId: string;
@@ -362,9 +371,29 @@ export const createWeChatSessionSlice = ({
 
     set((state) => {
       const { state: syncedState, roleId, roleState } = ensureRoleContextState(state);
+      const targetSession = roleState.wechatSessions.find(
+        (session) => session.id === normalizedSessionId
+      );
+      const deletedMessages = (targetSession?.messages || []).filter((message) =>
+        normalizedMessageIds.includes(message.id)
+      );
+      const deletedMemoryHints = deletedMessages
+        .map((message) => normalizeMessageContentForMemory(message))
+        .map(normalizeDeletedMemoryHint)
+        .filter((content) => content.length >= 4);
+      const deletedSourceIds = [
+        ...normalizedMessageIds,
+        ...roleState.wechatDeletedMemorySourceIds,
+      ].filter(Boolean);
+      const deletedContentHints = [
+        ...deletedMemoryHints,
+        ...roleState.wechatDeletedMemoryContentHints,
+      ].filter(Boolean);
 
       return applyRoleState(syncedState, roleId, {
         ...roleState,
+        wechatDeletedMemorySourceIds: [...new Set(deletedSourceIds)].slice(0, DELETED_MEMORY_SOURCE_LIMIT),
+        wechatDeletedMemoryContentHints: [...new Set(deletedContentHints)].slice(0, DELETED_MEMORY_HINT_LIMIT),
         wechatSessions: roleState.wechatSessions.map((session) =>
           session.id === normalizedSessionId
             ? {

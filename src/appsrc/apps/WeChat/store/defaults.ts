@@ -54,4 +54,6 @@ export const createDefaultRoleScopedState = (): WeChatRoleScopedState => ({
   wechatAiChatSettings: cloneDefaultAiChatSettings(),
   wechatAiMomentsSettings: cloneDefaultAiMomentsSettings(),
   wechatContactExtensions: {},
+  wechatDeletedMemorySourceIds: [],
+  wechatDeletedMemoryContentHints: [],
 });

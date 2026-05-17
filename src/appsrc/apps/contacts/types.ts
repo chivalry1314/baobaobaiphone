@@ -3,7 +3,7 @@ import type { AppContext } from '../../../core/sdk/types';
 export type ContactsTab = 'contacts' | 'records';
 
 export type CallDirection = 'incoming' | 'outgoing' | 'missed';
-export type WeChatRelation = 'incomingRequest' | 'waitingForRequest' | 'friend';
+export type WeChatRelation = 'incomingRequest' | 'waitingForRequest' | 'friend' | 'deleted';
 
 export interface Contact {
   id: string;

@@ -1903,9 +1903,7 @@ export const DeliveryApp: React.FC<AppProps> = ({ onClose, context }) => {
                         </div>
                       </div>
                       <p className={styles.deliveryProgressCaption}>
-                        {snapshot.stage === '送达'
-                          ? '骑手已送达目的地'
-                          : '骑手已取餐，正在快马加鞭赶往目的地'}
+                        骑手已取餐，正在快马加鞭赶往目的地
                       </p>
                     </>
                   )}

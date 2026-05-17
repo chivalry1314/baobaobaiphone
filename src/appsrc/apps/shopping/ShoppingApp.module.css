@@ -2551,18 +2551,13 @@
   flex-direction: column;
   justify-content: space-between;
   background:
-    radial-gradient(circle at 18% 18%, rgba(255, 246, 251, 0.76) 0%, rgba(255, 246, 251, 0) 28%),
-    radial-gradient(circle at 86% 18%, rgba(240, 248, 255, 0.72) 0%, rgba(240, 248, 255, 0) 30%),
-    linear-gradient(90deg, #ffd7e7 0%, #f7e5ee 36%, #d8ebff 100%);
+    radial-gradient(circle at 50% 30%, rgba(255, 221, 216, 0.78) 0%, rgba(255, 221, 216, 0) 42%),
+    linear-gradient(180deg, #fff5f0 0%, #fff7f2 58%, #f9fbfa 100%);
 }
 
 .shoppingEntryGlowA,
 .shoppingEntryGlowB {
-  position: absolute;
-  border-radius: 999px;
-  filter: blur(10px);
-  opacity: 0.8;
-  pointer-events: none;
+  display: none;
 }
 
 .shoppingEntryGlowA {
@@ -2585,7 +2580,7 @@
   position: relative;
   z-index: 1;
   flex: 1;
-  padding: 64px 28px 24px;
+  padding: calc(52px + env(safe-area-inset-top, 0px)) 36px 218px;
   display: flex;
   flex-direction: column;
 }
@@ -2594,45 +2589,70 @@
   position: relative;
   z-index: 2;
   align-self: flex-start;
-  padding: 10px 18px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 6px;
+  min-height: 34px;
+  padding: 0 18px;
   border-radius: 999px;
-  border: 2px solid rgba(219, 39, 119, 0.24);
-  background: linear-gradient(180deg, rgba(255, 250, 244, 0.88), rgba(255, 244, 250, 0.92));
-  color: #d95785;
-  font-size: 12px;
-  font-weight: 900;
-  letter-spacing: 0.3px;
-  box-shadow:
-    inset 0 0 0 3px rgba(255, 255, 255, 0.72),
-    0 12px 28px rgba(215, 123, 158, 0.18);
+  border: 1px solid rgba(206, 143, 145, 0.24);
+  background: #fff;
+  color: #9b8a8a;
+  font-size: 13px;
+  font-weight: 700;
+  box-shadow: 0 8px 18px rgba(206, 143, 145, 0.12);
+}
+
+.shoppingEntryBadgeIcon {
+  width: 18px;
+  height: 18px;
+  fill: none;
+  stroke: currentColor;
+  stroke-width: 3.4;
+  stroke-linecap: round;
+  stroke-linejoin: round;
 }
 
 .shoppingEntryCopy {
   position: relative;
   z-index: 2;
-  margin-top: 10px;
+  margin-top: 12px;
 }
 
 .shoppingEntryCopy h2 {
   margin: 0;
-  max-width: 9.4em;
-  color: #5d1d48;
-  font-size: 27px;
-  line-height: 1.06;
-  font-weight: 500;
-  letter-spacing: 0.2px;
+  max-width: 10.8em;
+  color: #06142e;
+  font-size: 25px;
+  line-height: 1.16;
+  font-weight: 800;
+  letter-spacing: 0;
+}
+
+.shoppingEntryCopy .shoppingEntryArtTitle {
+  width: max-content;
+  font-family: "STXingkai", "华文行楷", "KaiTi", "楷体", "Microsoft YaHei", sans-serif;
+  font-weight: 700;
+  color: #b84bde;
+  text-shadow:
+    0 1px 0 #fff,
+    0 8px 18px rgba(184, 75, 222, 0.18);
 }
 
 .shoppingEntryCopy p {
-  margin: 10px 0 0;
-  color: rgba(76, 29, 61, 0.82);
-  font-size: 14px;
+  margin: 14px 0 0;
+  color: #374151;
+  font-size: 15px;
   line-height: 1.5;
 }
 
 .shoppingEntryScene {
-  position: absolute;
-  inset: 0;
+  position: relative;
+  inset: auto;
+  width: 100%;
+  min-height: 138px;
+  margin-top: 24px;
   display: flex;
   align-items: center;
   justify-content: center;
@@ -2641,28 +2661,111 @@
 }
 
 .shoppingEntryScene::after {
+  content: none;
+}
+
+.shoppingEntryArtworkCard {
+  position: relative;
+  width: min(164px, 40vw);
+  aspect-ratio: 1;
+  display: grid;
+  place-items: center;
+  border-radius: 30px;
+  background: linear-gradient(145deg, #ffe0e0 0%, #ffece4 52%, #fff7f3 100%);
+  border: none;
+  box-shadow:
+    0 24px 44px rgba(206, 143, 145, 0.18),
+    inset 0 1px 0 rgba(255, 255, 255, 0.68);
+}
+
+.shoppingEntryArtworkBadge {
+  position: absolute;
+  top: -14px;
+  right: -14px;
+  width: 46px;
+  height: 46px;
+  border-radius: 999px;
+  display: grid;
+  place-items: center;
+  background: linear-gradient(135deg, #f4b6bd 0%, #e9869a 100%);
+  box-shadow: 0 12px 24px rgba(206, 143, 145, 0.28);
+}
+
+.shoppingEntryArtworkBadge::before,
+.shoppingEntryArtworkBadge::after,
+.shoppingEntryArtworkBadge span {
   content: '';
-  position: absolute;
-  inset: 0;
-  background:
-    linear-gradient(180deg, rgba(255, 244, 247, 0.16) 0%, rgba(255, 244, 247, 0) 22%, rgba(255, 255, 255, 0) 58%, rgba(255, 255, 255, 0.12) 100%),
-    radial-gradient(circle at 15% 18%, rgba(255, 219, 232, 0.22) 0%, rgba(255, 219, 232, 0) 26%),
-    radial-gradient(circle at 86% 18%, rgba(212, 233, 255, 0.22) 0%, rgba(212, 233, 255, 0) 24%);
+  display: none;
 }
 
-.shoppingEntryArtworkImage {
-  position: absolute;
-  inset: 0;
+.shoppingEntrySparkleIcon {
+  width: 30px;
+  height: 30px;
+  fill: none;
+  stroke: #fff;
+  stroke-width: 3.2;
+  stroke-linecap: round;
+  stroke-linejoin: round;
+}
+
+.shoppingEntryBagSvg {
+  width: 86px;
+  height: 86px;
+  fill: none;
+  stroke: #d47b8d;
+  stroke-width: 6;
+  stroke-linecap: round;
+  stroke-linejoin: round;
+}
+
+.shoppingEntryFeatureGrid {
+  position: relative;
+  z-index: 2;
   width: 100%;
-  height: 100%;
-  object-fit: contain;
-  object-position: center center;
-  transform: none;
-  filter: saturate(1.03) brightness(1.01);
+  margin-top: 14px;
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 12px;
 }
 
-.shoppingEntryArtworkImageStandalone {
-  object-fit: cover;
+.shoppingEntryFeatureCard {
+  min-height: 82px;
+  padding: 10px 6px 8px;
+  border-radius: 16px;
+  border: 1px solid rgba(226, 214, 214, 0.92);
+  background: #fff;
+  box-shadow:
+    0 8px 20px rgba(206, 143, 145, 0.08),
+    inset 0 1px 0 rgba(255, 255, 255, 0.9);
+  display: grid;
+  justify-items: center;
+  align-content: center;
+  gap: 6px;
+  text-align: center;
+}
+
+.shoppingEntryFeatureIcon {
+  width: 34px;
+  height: 34px;
+  border-radius: 999px;
+  display: grid;
+  place-items: center;
+  color: #bd747d;
+  background: #f7f5f4;
+}
+
+.shoppingEntryFeatureCard strong {
+  color: #0f172a;
+  font-size: 11px;
+  line-height: 1.2;
+  font-weight: 500;
+}
+
+.shoppingEntryFeatureCard p {
+  margin: 0;
+  color: #64748b;
+  font-size: 9px;
+  line-height: 1.35;
 }
 
 .shoppingEntryArmFront,
@@ -2715,34 +2818,27 @@
 .shoppingEntrySheet {
   position: absolute;
   z-index: 1;
-  left: 10px;
-  right: 10px;
-  top: 70svh;
+  left: 38px;
+  right: 38px;
+  top: auto;
+  bottom: calc(54px + env(safe-area-inset-bottom, 0px));
   margin: 0;
-  padding: 14px 16px calc(14px + env(safe-area-inset-bottom, 0px));
-  border-radius: 28px 28px 22px 22px;
-  background: rgba(255, 255, 255, 0.04);
-  border: 1px solid rgba(255, 255, 255, 0.2);
-  box-shadow: 0 -4px 16px rgba(15, 23, 42, 0.03), 0 12px 22px rgba(244, 114, 182, 0.06);
-  backdrop-filter: blur(4px);
-  max-height: calc(100svh - 70svh - 12px);
+  padding: 0;
+  border-radius: 0;
+  background: transparent;
+  border: none;
+  box-shadow: none;
+  backdrop-filter: none;
+  max-height: calc(100svh - 340px);
   overflow-y: auto;
 }
 
 .shoppingEntrySheetHandle {
-  width: 48px;
-  height: 5px;
-  border-radius: 999px;
-  background: rgba(203, 213, 225, 0.92);
-  margin: 0 auto 12px;
+  display: none;
 }
 
 .shoppingEntrySheetTitle {
-  margin: 0;
-  color: #334155;
-  font-size: 13px;
-  font-weight: 800;
-  text-align: center;
+  display: none;
 }
 
 .shoppingEntrySheetHeader {
@@ -2754,6 +2850,7 @@
 }
 
 .shoppingEntrySheetTitleContact {
+  display: block;
   transform: none;
 }
 
@@ -2782,15 +2879,30 @@
   height: 32px;
 }
 
+.shoppingEntryChoiceArea {
+  position: relative;
+  z-index: 2;
+  width: 100%;
+  height: 162px;
+}
+
 .shoppingEntryActions {
-  margin-top: 14px;
+  margin-top: 38px;
   display: grid;
-  grid-template-columns: 1fr 1fr;
-  gap: 10px;
+  grid-template-columns: 1fr;
+  gap: 12px;
+  padding-top: 0;
+}
+
+.shoppingEntryContactPanel {
+  position: relative;
+  z-index: 2;
+  width: 100%;
+  margin-top: 26px;
 }
 
 .shoppingEntryContactList {
-  margin-top: 4px;
+  margin-top: 8px;
   display: flex;
   gap: 8px;
   overflow-x: auto;
@@ -2854,27 +2966,25 @@
 .shoppingEntryPrimaryBtn,
 .shoppingEntrySecondaryBtn {
   border: none;
-  height: 52px;
-  border-radius: 20px;
+  height: 56px;
+  border-radius: 15px;
   font-size: 15px;
-  font-weight: 900;
+  font-weight: 500;
   cursor: pointer;
 }
 
 .shoppingEntryPrimaryBtn {
   color: #fff;
-  background: linear-gradient(135deg, #ff5658 0%, #ff8b2a 100%);
-  box-shadow:
-    inset 0 0 0 1px rgba(255, 255, 255, 0.24),
-    0 12px 26px rgba(255, 112, 73, 0.28);
+  background: linear-gradient(135deg, #ffe2df 0%, #f4c1c6 100%);
+  box-shadow: 0 14px 28px rgba(206, 143, 145, 0.2);
 }
 
 .shoppingEntrySecondaryBtn {
-  color: #fff;
-  background: linear-gradient(135deg, #8d56ff 0%, #f56ab4 100%);
+  color: #1f2937;
+  background: #fff;
   box-shadow:
-    inset 0 0 0 1px rgba(255, 255, 255, 0.18),
-    0 12px 26px rgba(173, 89, 255, 0.26);
+    inset 0 0 0 1px rgba(226, 214, 214, 0.96),
+    0 8px 18px rgba(206, 143, 145, 0.1);
 }
 
 .shoppingEntrySwipeZone {
@@ -2883,18 +2993,19 @@
   bottom: 0;
   transform: translateX(-50%);
   z-index: 3;
-  width: 148px;
-  height: calc(92px + env(safe-area-inset-bottom, 0px));
+  width: 180px;
+  height: calc(66px + env(safe-area-inset-bottom, 0px));
   display: flex;
   align-items: flex-end;
   justify-content: center;
+  background: transparent;
 }
 
 .shoppingEntrySwipeHint {
   position: relative;
-  margin-bottom: calc(10px + env(safe-area-inset-bottom, 0px));
-  width: 32px;
-  height: 32px;
+  margin-bottom: calc(8px + env(safe-area-inset-bottom, 0px));
+  width: 120px;
+  height: 34px;
   border: none;
   background: transparent;
   box-shadow: none;
@@ -2904,13 +3015,28 @@
   animation: shoppingEntrySwipeHintPulse 1.8s ease-in-out infinite;
 }
 
+.shoppingEntrySwipeHint::after {
+  content: '上滑退出';
+  position: absolute;
+  top: 18px;
+  left: 50%;
+  transform: translateX(-50%);
+  color: #8a8fa3;
+  font-size: 12px;
+  white-space: nowrap;
+  background: transparent;
+}
+
 .shoppingEntrySwipeArrow {
   position: absolute;
-  width: 18px;
-  height: 18px;
-  border-top: 3px solid rgba(219, 39, 119, 0.94);
-  border-left: 3px solid rgba(219, 39, 119, 0.94);
-  transform: rotate(45deg) translate(1px, 1px);
+  top: 0;
+  left: 50%;
+  width: 60px;
+  height: 4px;
+  border: none;
+  border-radius: 999px;
+  background: #cbd5e1;
+  transform: translateX(-50%);
 }
 
 .shoppingCompanionFloating {
@@ -3160,13 +3286,13 @@
 
 @keyframes shoppingEntrySwipeHintPulse {
   0%, 100% {
-    transform: translateX(-50%) translateY(0);
-    box-shadow: 0 12px 30px rgba(244, 114, 182, 0.18);
+    transform: translateY(0);
+    box-shadow: none;
     opacity: 0.78;
   }
   50% {
-    transform: translateX(-50%) translateY(-8px);
-    box-shadow: 0 18px 34px rgba(249, 115, 22, 0.22);
+    transform: translateY(-6px);
+    box-shadow: none;
     opacity: 1;
   }
 }
@@ -3177,8 +3303,9 @@
   }
 
   .shoppingEntrySheet {
-    top: 68svh;
-    max-height: calc(100svh - 68svh - 12px);
+    top: auto;
+    bottom: calc(54px + env(safe-area-inset-bottom, 0px));
+    max-height: calc(100svh - 340px);
   }
 
   .shoppingEntrySwipeZone {
@@ -3186,19 +3313,15 @@
   }
 
   .shoppingEntryHero {
-    padding: 56px 18px 18px;
+    padding: calc(52px + env(safe-area-inset-top, 0px)) 36px 218px;
   }
 
   .shoppingEntryCopy h2 {
-    font-size: 23px;
+    font-size: 25px;
   }
 
   .shoppingEntryScene {
-    inset: 0;
-  }
-
-  .shoppingEntryArtworkImage {
-    object-position: center center;
+    inset: auto;
   }
 
   .movieGrid {

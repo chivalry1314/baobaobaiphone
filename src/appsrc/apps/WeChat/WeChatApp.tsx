@@ -423,6 +423,11 @@ export const WeChatApp: React.FC<WeChatAppProps> = ({ onClose, context }) => {
               setMomentsAuthorId(id);
               setCurrentView('moments');
             }}
+            onDeleted={() => {
+              setSelectedCharacterId(null);
+              setCurrentView('main');
+              setActiveTab('contacts');
+            }}
           />
         )}
 

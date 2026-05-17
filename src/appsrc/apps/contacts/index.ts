@@ -12,6 +12,7 @@ import {
   registerRoleDisplayNameResolver,
   registerRoleDisplayNameSubscriber,
 } from '../../shared/business/contacts/roleDisplayNameBridge';
+import { registerPersonaContactImporter } from '../../shared/business/personagenerator/importBridge';
 import { registerCommerceContactsSnapshotResolver } from '../../shared/business/commerce/messageBridge';
 import {
   emitCommerceRoleChanged,
@@ -28,6 +29,13 @@ import { useContactsRoleRuntimeStore } from './runtimeRole';
 import { useContactsStore } from './store';
 
 registerCommerceContactsSnapshotResolver(getContactsSnapshot);
+registerPersonaContactImporter((payload) => {
+  const contact = useContactsStore.getState().addContact(payload);
+  return {
+    id: contact.id,
+    name: contact.name,
+  };
+});
 registerCommerceRoleIdResolver(getActiveRoleId);
 registerContactsSnapshotResolver(getContactsSnapshot);
 registerContactsSnapshotSubscriber((listener) =>

@@ -10,6 +10,7 @@ import { normalizeUiStyleRecord, parseWeChatUiRenderConfig } from '../uiRenderCo
 import { isVoiceProviderConfigured, synthesizeVoice } from '../voice';
 import { compressImageFile } from './moments/momentsUtils';
 import { isLikelyVisionChatModel } from '../../../../core/modelCapabilities';
+import { PUSH_OPEN_APP_MESSAGE_TYPE } from '../../../../core/push/webPush';
 import { wechatMemoryController } from '../memory';
 import { queryPersonalMemoryByApp } from '../../../../core/appMemoryCenter';
 import { getAppById } from '../../../../core/registry';
@@ -112,6 +113,71 @@ const normalizeMemoryReferenceLimit = (value: number | undefined): number => {
 const normalizePersonalProfileMemoryLimit = (value: number): number => {
   if (!Number.isFinite(value) || value <= 0) return 0;
   return Math.max(0, Math.min(24, Math.round(value)));
+};
+
+const WECHAT_MEMORY_STOP_WORDS = new Set([
+  '什么',
+  '时候',
+  '怎么',
+  '可以',
+  '不会',
+  '没有',
+  '这个',
+  '那个',
+  '今天',
+  '明天',
+  '一下',
+  '哈哈',
+  '呵呵',
+  'ok',
+]);
+
+const extractWeChatMemoryKeywords = (content: string): string[] => {
+  const normalized = content.toLowerCase();
+  const chunks: string[] = normalized.match(/[\u4e00-\u9fa5]{2,}|[a-z0-9]{2,}/g) ?? [];
+  const keywords = new Set<string>();
+
+  chunks.forEach((chunk) => {
+    if (WECHAT_MEMORY_STOP_WORDS.has(chunk)) return;
+    keywords.add(chunk);
+    if (/^[\u4e00-\u9fa5]+$/.test(chunk) && chunk.length > 2) {
+      for (let index = 0; index < chunk.length - 1; index += 1) {
+        const keyword = chunk.slice(index, index + 2);
+        if (!WECHAT_MEMORY_STOP_WORDS.has(keyword)) keywords.add(keyword);
+      }
+    }
+  });
+
+  return [...keywords];
+};
+
+const isWeChatMemoryRelevantToTurn = (content: string, turnKeywords: string[]): boolean => {
+  if (turnKeywords.length === 0) return false;
+  const normalizedContent = content.toLowerCase();
+  return turnKeywords.some((keyword) => normalizedContent.includes(keyword));
+};
+
+const isWeChatContentRecentlyUsed = (content: string, recentAssistantContents: string[]): boolean => {
+  const normalizedContent = content.replace(/\s+/g, '').toLowerCase();
+  if (normalizedContent.length < 4) return false;
+  return recentAssistantContents.some((recentContent) => {
+    const normalizedRecent = recentContent.replace(/\s+/g, '').toLowerCase();
+    if (!normalizedRecent) return false;
+    return (
+      normalizedRecent.includes(normalizedContent) ||
+      normalizedContent.includes(normalizedRecent)
+    );
+  });
+};
+
+const selectRelevantWorldBookLines = (content: string, turnKeywords: string[]): string[] => {
+  if (turnKeywords.length === 0) return [];
+  return content
+    .split(/\n+/)
+    .map((line) => line.trim())
+    .filter((line) => line.length >= 6)
+    .filter((line) => isWeChatMemoryRelevantToTurn(line, turnKeywords))
+    .slice(0, 4);
 };
 
 const formatOrderPreviewForMemory = (message: Pick<WeChatMessage, 'orderPreview'>): string => {
@@ -323,6 +389,7 @@ export const WeChatChatView: React.FC<WeChatChatViewProps> = ({
   const voiceCallSpeakerEnabledRef = useRef(false);
   const lastRestoreVoiceCallSignalRef = useRef<number | null>(restoreVoiceCallSignal ?? null);
   const handledAutoReplyMessageIdsRef = useRef<Set<string>>(new Set());
+  const autoReplyTimerRef = useRef<number | null>(null);
 
   const scrollRef = useRef<HTMLDivElement>(null);
   const bottomAnchorRef = useRef<HTMLDivElement>(null);
@@ -825,6 +892,7 @@ export const WeChatChatView: React.FC<WeChatChatViewProps> = ({
         content: '[图片]',
         imageDataUrl,
         imageMimeType: file.type || 'image/jpeg',
+        assistantReplyPending: true,
       });
       scrollToBottom();
 
@@ -836,7 +904,6 @@ export const WeChatChatView: React.FC<WeChatChatViewProps> = ({
         setToastMessage('当前模型可能不支持图片解析，请在设置中检测后再尝试');
         setTimeout(() => setToastMessage(null), 1800);
       }
-      await requestAssistantReply(sessionId);
     } catch {
       setToastMessage('图片处理失败，请重试');
       setTimeout(() => setToastMessage(null), 1800);
@@ -1024,6 +1091,7 @@ export const WeChatChatView: React.FC<WeChatChatViewProps> = ({
               voiceDurationSeconds: durationSeconds,
               voiceTranscriptText: transcript || undefined,
               voiceTranscriptVisible: false,
+              assistantReplyPending: true,
             });
             setShowVoiceRecorderModal(false);
             scrollToBottom();
@@ -1036,7 +1104,6 @@ export const WeChatChatView: React.FC<WeChatChatViewProps> = ({
               alert('请先配置 API Key');
               return;
             }
-            await requestAssistantReply(sessionId);
           } catch {
             setShowVoiceRecorderModal(false);
             setToastMessage('语音保存失败');
@@ -1475,14 +1542,36 @@ export const WeChatChatView: React.FC<WeChatChatViewProps> = ({
     const memoryReferenceLimit = normalizeMemoryReferenceLimit(
       syncedStateSnapshot.wechatAiChatSettings?.memoryReferenceCount
     );
+    const effectiveMemoryReferenceLimit = Math.min(2, Math.ceil(memoryReferenceLimit / 4));
     const includePersonalProfileMemory =
       syncedStateSnapshot.wechatAiChatSettings?.includePersonalProfileMemory !== false;
     const personalProfileMemoryLimit = includePersonalProfileMemory
-      ? normalizePersonalProfileMemoryLimit(Math.min(24, Math.max(0, memoryReferenceLimit)))
+      ? normalizePersonalProfileMemoryLimit(Math.min(4, Math.max(0, effectiveMemoryReferenceLimit)))
       : 0;
+    const deletedMemorySourceIdSet = new Set(
+      (syncedStateSnapshot.wechatDeletedMemorySourceIds || []).map((item) => item.trim()).filter(Boolean)
+    );
+    const deletedMemoryContentHints = (syncedStateSnapshot.wechatDeletedMemoryContentHints || [])
+      .map((item) => item.trim())
+      .filter((item) => item.length >= 4);
     const sessionContextMessages =
       sessionContextLimit > 0 ? chatHistory.slice(-sessionContextLimit) : [];
+    const latestUserTurnForMemory: WeChatMessage[] = [];
+    for (let index = sessionContextMessages.length - 1; index >= 0; index -= 1) {
+      const item = sessionContextMessages[index];
+      if (item.role !== 'user') break;
+      latestUserTurnForMemory.unshift(item);
+    }
+    const latestUserTurnKeywords = extractWeChatMemoryKeywords(
+      latestUserTurnForMemory
+        .map((message) => normalizeMessageContentForMemoryComparison(message))
+        .join('\n')
+    );
     const recentSourceIdSet = new Set(sessionContextMessages.map((item) => item.id));
+    const recentAssistantContents = sessionContextMessages
+      .filter((item) => item.role === 'character')
+      .slice(-3)
+      .map((item) => normalizeMessageContentForMemoryComparison(item));
     const recentContentSet = new Set(
       sessionContextMessages
         .map((item) => normalizeMessageContentForMemoryComparison(item))
@@ -1490,33 +1579,60 @@ export const WeChatChatView: React.FC<WeChatChatViewProps> = ({
         .filter(Boolean)
     );
     const apiMessages: ChatCompletionMessage[] = [{ role: 'system', content: basePrompt }];
+    const worldBookContent = character?.worldBookId
+      ? worldBook.find((entry) => entry.id === character.worldBookId)?.content?.trim()
+      : '';
+    const relevantWorldBookLines = worldBookContent
+      ? selectRelevantWorldBookLines(worldBookContent, latestUserTurnKeywords)
+          .filter((line) => !isWeChatContentRecentlyUsed(line, recentAssistantContents))
+      : [];
+
+    if (relevantWorldBookLines.length > 0) {
+      apiMessages.push({
+        role: 'system',
+        content: `以下是低优先级世界书片段，只能在和当前最后一轮消息直接相关时辅助理解设定；不要主动扩写片段里的旧事件：\n${relevantWorldBookLines.map((line) => `- ${line}`).join('\n')}`,
+      });
+    }
 
     const memoryLines = (() => {
-      if (memoryReferenceLimit <= 0) return [];
+      if (effectiveMemoryReferenceLimit <= 0) return [];
 
       // Pull a larger candidate window, then dedupe against current session context.
       const candidateRecords = wechatMemoryController.selectByContact(characterId, {
-        limit: Math.max(memoryReferenceLimit * 4, memoryReferenceLimit + sessionContextMessages.length),
+        limit: Math.max(effectiveMemoryReferenceLimit * 4, effectiveMemoryReferenceLimit + sessionContextMessages.length),
       });
 
       const dedupedRecords = candidateRecords.filter((record) => {
+        if (record.role !== 'user') return false;
         if (record.sourceId && recentSourceIdSet.has(record.sourceId)) return false;
         const normalizedContent = record.content.trim();
         if (!normalizedContent) return false;
+        if (!isWeChatMemoryRelevantToTurn(normalizedContent, latestUserTurnKeywords)) return false;
+        if (isWeChatContentRecentlyUsed(normalizedContent, recentAssistantContents)) return false;
         return !recentContentSet.has(normalizedContent);
       });
+      const isWeakenedRecord = (record: (typeof dedupedRecords)[number]): boolean => {
+        if (record.sourceId && deletedMemorySourceIdSet.has(record.sourceId)) return true;
+        const normalizedContent = record.content.trim();
+        if (normalizedContent.length < 4) return false;
+        return deletedMemoryContentHints.some(
+          (hint) => normalizedContent.includes(hint) || hint.includes(normalizedContent)
+        );
+      };
+      const normalRecords = dedupedRecords.filter((record) => !isWeakenedRecord(record));
+      const weakenedRecords = dedupedRecords.filter(isWeakenedRecord);
 
-      return dedupedRecords
-        .slice(0, memoryReferenceLimit)
+      return [...normalRecords, ...weakenedRecords]
+        .slice(0, effectiveMemoryReferenceLimit)
         .slice()
         .reverse()
-        .map((record) => `- ${record.role === 'user' ? '我' : '你'}：${record.content}`);
+        .map((record) => `${isWeakenedRecord(record) ? '- （弱参考）我：' : '- 我：'}${record.content}`);
     })();
 
     if (memoryLines.length > 0) {
       apiMessages.push({
         role: 'system',
-        content: `以下是历史交互记忆，请结合参考，不要逐字复述：\n${memoryLines.join('\n')}`,
+        content: `以下是极少量低优先级长期记忆，只能在和当前最后一轮消息强相关时辅助判断偏好；不要复述，不要主动拉回旧事件，不要为了使用记忆而改变当前话题：\n${memoryLines.join('\n')}`,
       });
     }
 
@@ -1557,6 +1673,14 @@ export const WeChatChatView: React.FC<WeChatChatViewProps> = ({
       apiMessages.push({
         role: 'system',
         content: `以下是用户在其他应用中沉淀的个人信息，请仅在相关时自然参考，不要生硬复述：\n${personalProfileLines.join('\n')}`,
+      });
+    }
+
+    if (sessionContextMessages.length > 0) {
+      apiMessages.push({
+        role: 'system',
+        content:
+          '下面是当前微信会话，请按时间顺序理解对话推进。上面的世界书、长期记忆和个人信息只用于背景、口吻、偏好参考，不要替代当前话题，也不要主动续写旧事件。',
       });
     }
 
@@ -1623,24 +1747,83 @@ export const WeChatChatView: React.FC<WeChatChatViewProps> = ({
       apiMessages.push({ role, content });
     });
 
+    const latestUserTurn: WeChatMessage[] = [];
+    for (let index = sessionContextMessages.length - 1; index >= 0; index -= 1) {
+      const item = sessionContextMessages[index];
+      if (item.role !== 'user') break;
+      latestUserTurn.unshift(item);
+    }
+    if (latestUserTurn.length > 0) {
+      const latestUserContent = latestUserTurn
+        .map((message, index) => `${index + 1}. ${normalizeMessageContentForMemoryComparison(message)}`)
+        .join('\n');
+      apiMessages.push({
+        role: 'system',
+        content: [
+          '请基于以上上下文自然承接最后一轮用户连续消息，而不是只看最后一句，也不要重新开启前面已经说过的话题。',
+          '核对事实归属：用户消息只能证明用户说过/做过的事；角色消息只能证明你说过/做过的事。不要把你自己的邀约、请求或玩笑说成是用户提出的。',
+          '最近角色已回复过的内容就在上方会话里；不要复用其中的梗、关键词或整句。用户如果在确认、拒绝、结束或收尾，就顺着收住，不要继续上一话题。',
+          `最后一轮用户连续消息：\n${latestUserContent}`,
+        ].filter(Boolean).join('\n'),
+      });
+    }
+
     return apiMessages;
+  };
+
+  const buildCharacterSystemPrompt = (
+    mode: 'chat' | 'voice' = 'chat',
+    extraInstruction = ''
+  ): string => {
+    if (!character) return extraInstruction;
+    const personality = character.personality?.trim();
+
+    return [
+      `你正在微信里扮演「${character.name}」和我聊天。`,
+      `人物简介：${character.description || '暂无'}`,
+      personality ? `性格与说话方式：${personality}` : '',
+      `开场语气参考：${character.greeting || '自然打招呼'}`,
+      '',
+      '回复原则：',
+      '- 活人感优先：像真实微信好友临场反应，不像资料抽取器、任务助手、客服或设定朗读。',
+      '- 先接情绪和语境，再决定要不要给信息；可以轻松、犹豫、吐槽、敷衍半句、顺着玩笑走。',
+      '- 先回应我最近一句话的真实意图和情绪，再按人物口吻推进。',
+      '- 如果我连续发了两条或多条消息，把它们当成同一轮输入一起理解；抓住最后这一轮的主问题回复，不要拆成每条各回一次。',
+      '- 一次回复只围绕一个主要意思展开；不要把旧记忆、旧事件和当前问题都塞进同一条里。',
+      '- 少说一点，只回一句；除非我明确追问细节，不要连续解释、补充建议或展开联想。',
+      '- 当我表达“好、嗯、不用了、算了、今天到这、先这样”等确认、拒绝或收尾意思时，只自然接住当下情绪，不要继续上一轮的邀约、建议或解释。',
+      '- 句子要像真人自然说话，前后要有明确关系；不要把零散记忆、物品、地点、情绪硬拼成一句不通顺的话。',
+      '- 如果不确定怎么接，宁可短回一句自然的话，不要为了显得有细节而强行补充。',
+      '- 严格区分说话人和事实归属：我发过的内容才是用户说过/做过的事；你自己上一条说过的话，只代表你的提议、玩笑或情绪，不能反过来说成是我说的。',
+      '- 世界书和记忆中心的优先级低于当前聊天；除非我主动提到，不要把里面的旧事件拿出来继续聊。',
+      '- 当前最后一轮没有出现的人物、地点、事件，不要突然引入；需要细节时可以顺着当前话题轻轻补一句。',
+      '- 像微信真人聊天：自然、有来有回，可以短，可以停顿，可以追问，不要像客服、旁白、总结器或设定说明。',
+      '- 优先复现人物的句长、语气词、表情/标点、玩笑方式、解释习惯、拒绝边界和情绪反应。',
+      '- 不要连续两轮使用同一句开场或同一个问题；最近已经表达过的意思，只接新的信息，或换一个更自然的角度回应。',
+      '- 不要复述世界书，不要解释你在扮演谁，不要输出“作为xxx”。',
+      '- 不要每次都很完整地解决问题；关系里可以犹豫、吐槽、敷衍一下、转移话题或只接半句，但要贴合人物。',
+      '- 没有证据的重大身份、亲密关系、疾病、家庭、财务不要编造。',
+      mode === 'voice'
+        ? '- 语音通话要更短、更即时，像边听边回。'
+        : '- 文字微信优先只输出 1 句，短一点、像真人顺手回；直接输出聊天内容，不带姓名前缀。',
+      extraInstruction,
+    ].filter(Boolean).join('\n');
   };
 
   const requestAssistantReply = async (sessionId: string) => {
     if (!character) return;
 
+    const requestStartedAt = Date.now();
     beginAssistantReply();
     try {
-      let systemPrompt = `你扮演${character.name}与我微信聊天。设定：${character.description}。开场白：${character.greeting}。`;
-      if (character.worldBookId) {
-        systemPrompt += `背景：${worldBook.find(w => w.id === character.worldBookId)?.content}\n`;
-      }
-      systemPrompt += `\n要求：微信聊天语气，简短、口语化。直接输出内容，不带前缀。`;
-      systemPrompt += `\n如果聊天上下文里出现待支付的代付订单，请结合最近聊天内容、你和对方的熟悉程度、对话语气、对方是否经常找你帮忙、金额大小和当前语境，判断是否愿意代付。`;
-      systemPrompt += `\n如果愿意代付，就在回复最前面输出 [ORDER_REQUEST:accepted]`;
-      systemPrompt += `\n如果不愿意代付，就在回复最前面输出 [ORDER_REQUEST:rejected]`;
-      systemPrompt += `\n尽量给出明确决定，不要只因为“信息不足”就回避；只有真的需要继续追问时才不要输出标签。`;
-      systemPrompt += `\n标签后面继续正常聊天回复，不要解释标签本身。`;
+      const systemPrompt = buildCharacterSystemPrompt('chat', [
+        '代付订单规则：',
+        '- 如果聊天上下文里出现待支付的代付订单，请结合最近聊天内容、熟悉程度、对话语气、对方是否经常找你帮忙、金额大小和当前语境，判断是否愿意代付。',
+        '- 如果愿意代付，就在回复最前面输出 [ORDER_REQUEST:accepted]。',
+        '- 如果不愿意代付，就在回复最前面输出 [ORDER_REQUEST:rejected]。',
+        '- 尽量给出明确决定，不要只因为“信息不足”就回避；只有真的需要继续追问时才不要输出标签。',
+        '- 标签后面继续正常聊天回复，不要解释标签本身。',
+      ].join('\n'));
 
       const response = await fetch(`${settings.baseUrl}/chat/completions`, {
         method: 'POST',
@@ -1649,11 +1832,24 @@ export const WeChatChatView: React.FC<WeChatChatViewProps> = ({
           model: settings.model || 'gpt-3.5-turbo',
           messages: buildApiMessages(systemPrompt, sessionId),
           temperature: settings.temperature || 0.7,
+          max_tokens: 80,
+          frequency_penalty: 0.6,
+          presence_penalty: 0.2,
         })
       });
       if (!response.ok) throw new Error('API 失败');
       const replyContentRaw = (await response.json()).choices[0].message.content;
       if (replyContentRaw) {
+        const hasNewPendingUserMessage = (
+          useWeChatStore.getState().wechatSessions.find((item) => item.id === sessionId)?.messages || []
+        ).some(
+          (message) =>
+            message.role === 'user' &&
+            message.assistantReplyPending &&
+            message.timestamp > requestStartedAt
+        );
+        if (hasNewPendingUserMessage) return;
+
         const { action, content } = parseAssistantOrderDecision(replyContentRaw);
         const replyContent =
           content ||
@@ -1697,21 +1893,50 @@ export const WeChatChatView: React.FC<WeChatChatViewProps> = ({
   React.useEffect(() => {
     if (readOnly) return;
     if (!session) return;
-    const pendingMessage = [...messages]
-      .reverse()
-      .find(
+    if (pendingAssistantReplyCountRef.current > 0) return;
+    const pendingMessages = messages.filter(
+      (message) =>
+        message.role === 'user' &&
+        message.assistantReplyPending &&
+        !handledAutoReplyMessageIdsRef.current.has(message.id)
+    );
+    if (pendingMessages.length === 0) return;
+
+    const sessionId = session.id;
+    if (autoReplyTimerRef.current !== null) {
+      window.clearTimeout(autoReplyTimerRef.current);
+    }
+
+    autoReplyTimerRef.current = window.setTimeout(() => {
+      autoReplyTimerRef.current = null;
+      if (pendingAssistantReplyCountRef.current > 0) return;
+
+      const latestSession = useWeChatStore
+        .getState()
+        .wechatSessions.find((item) => item.id === sessionId);
+      const latestPendingMessages = (latestSession?.messages || []).filter(
         (message) =>
           message.role === 'user' &&
           message.assistantReplyPending &&
           !handledAutoReplyMessageIdsRef.current.has(message.id)
       );
-    if (!pendingMessage) return;
+      if (latestPendingMessages.length === 0) return;
 
-    handledAutoReplyMessageIdsRef.current.add(pendingMessage.id);
-    updateWeChatMessage(session.id, pendingMessage.id, {
-      assistantReplyPending: false,
-    });
-    void requestAssistantReply(session.id);
+      latestPendingMessages.forEach((message) => {
+        handledAutoReplyMessageIdsRef.current.add(message.id);
+        updateWeChatMessage(sessionId, message.id, {
+          assistantReplyPending: false,
+        });
+      });
+      void requestAssistantReply(sessionId);
+    }, 1600);
+
+    return () => {
+      if (autoReplyTimerRef.current !== null) {
+        window.clearTimeout(autoReplyTimerRef.current);
+        autoReplyTimerRef.current = null;
+      }
+    };
   }, [messages, readOnly, requestAssistantReply, session, updateWeChatMessage]);
 
   const requestAssistantReplyForVoiceCall = async (userText: string) => {
@@ -1732,11 +1957,7 @@ export const WeChatChatView: React.FC<WeChatChatViewProps> = ({
     voiceCallConversationRef.current = nextConversation;
 
     try {
-      let systemPrompt = `你扮演${character.name}与我进行微信语音通话。设定：${character.description}。开场白：${character.greeting}。`;
-      if (character.worldBookId) {
-        systemPrompt += `背景：${worldBook.find(w => w.id === character.worldBookId)?.content}\n`;
-      }
-      systemPrompt += `\n要求：用口语化、短句回应，像实时语音聊天。`;
+      const systemPrompt = buildCharacterSystemPrompt('voice');
 
       const response = await fetch(`${settings.baseUrl}/chat/completions`, {
         method: 'POST',
@@ -1908,9 +2129,10 @@ export const WeChatChatView: React.FC<WeChatChatViewProps> = ({
 
     beginAssistantReply();
     try {
-      let systemPrompt = `你扮演${character.name}与我微信聊天。设定：${character.description}。开场白：${character.greeting}。\n`;
-      if (character.worldBookId) systemPrompt += `背景：${worldBook.find(w => w.id === character.worldBookId)?.content}\n`;
-      systemPrompt += `[系统紧急提示：用户刚刚向你发起了一笔转账，金额：¥${amount}。如果你选择接收这笔钱，请必须在回复中包含“【接收转账】”这四个字；如果不接收或想忽略，请正常回复其他内容即可。]`;
+      const systemPrompt = buildCharacterSystemPrompt(
+        'chat',
+        `[系统紧急提示：用户刚刚向你发起了一笔转账，金额：¥${amount}。如果你选择接收这笔钱，请必须在回复中包含“【接收转账】”这四个字；如果不接收或想忽略，请正常回复其他内容即可。]`
+      );
 
       const response = await fetch(`${settings.baseUrl}/chat/completions`, {
         method: 'POST', headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${settings.apiKey}` },
@@ -1964,10 +2186,12 @@ export const WeChatChatView: React.FC<WeChatChatViewProps> = ({
           voiceDurationSeconds: pendingVoiceDraft!.durationSeconds,
           voiceTranscriptText: contentToSend || pendingVoiceDraft!.transcript,
           voiceTranscriptVisible: false,
+          assistantReplyPending: true,
         }
       : {
           role: 'user',
           content: contentToSend,
+          assistantReplyPending: true,
         };
     if (quotingMessage) messageData.quoteText = `${quotingMessage.senderName}: ${quotingMessage.content}`;
 
@@ -1981,7 +2205,6 @@ export const WeChatChatView: React.FC<WeChatChatViewProps> = ({
     if (textareaRef.current) textareaRef.current.style.height = 'auto';
     scrollToBottom();
     focusComposer();
-    await requestAssistantReply(sessionId);
   };
 
   const applyOrderRequestAction = useCallback(

@@ -63,6 +63,12 @@ const normalizeRoleScopedState = (
       input.wechatContactExtensions && typeof input.wechatContactExtensions === 'object'
         ? (input.wechatContactExtensions as Record<string, WeChatContactExtension>)
         : fallback.wechatContactExtensions,
+    wechatDeletedMemorySourceIds: Array.isArray(input.wechatDeletedMemorySourceIds)
+      ? input.wechatDeletedMemorySourceIds.filter((item): item is string => typeof item === 'string')
+      : fallback.wechatDeletedMemorySourceIds,
+    wechatDeletedMemoryContentHints: Array.isArray(input.wechatDeletedMemoryContentHints)
+      ? input.wechatDeletedMemoryContentHints.filter((item): item is string => typeof item === 'string')
+      : fallback.wechatDeletedMemoryContentHints,
   };
 };
 

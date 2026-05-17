@@ -13,6 +13,7 @@ export const createWeChatProfileSlice = ({
   WeChatState,
   | 'updateWeChatUserProfile'
   | 'setWeChatContactPatSuffix'
+  | 'deleteWeChatContact'
   | 'topUpWeChatBalance'
   | 'withdrawWeChatBalance'
 > => ({
@@ -65,6 +66,32 @@ export const createWeChatProfileSlice = ({
 
       return applyRoleState(syncedState, roleId, {
         ...roleState,
+        wechatContactExtensions: nextExtensions,
+      });
+    });
+  },
+
+  deleteWeChatContact: (contactId) => {
+    const normalizedContactId = contactId.trim();
+    if (!normalizedContactId) return;
+
+    set((state) => {
+      const { state: syncedState, roleId, roleState } = ensureRoleContextState(state);
+      const nextExtensions = { ...roleState.wechatContactExtensions };
+      delete nextExtensions[normalizedContactId];
+      const nextSessions = roleState.wechatSessions.filter(
+        (session) => session.characterId !== normalizedContactId
+      );
+      const nextCurrentSessionId =
+        roleState.wechatCurrentSessionId &&
+        nextSessions.some((session) => session.id === roleState.wechatCurrentSessionId)
+          ? roleState.wechatCurrentSessionId
+          : null;
+
+      return applyRoleState(syncedState, roleId, {
+        ...roleState,
+        wechatSessions: nextSessions,
+        wechatCurrentSessionId: nextCurrentSessionId,
         wechatContactExtensions: nextExtensions,
       });
     });

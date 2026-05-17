@@ -33,3 +33,7 @@ export const useSetContactAsWeChatFriend = () => {
 export const useUpdateContact = () => {
   return useContactsStore((state) => state.updateContact);
 };
+
+export const useDeleteContact = () => {
+  return useContactsStore((state) => state.deleteContact);
+};

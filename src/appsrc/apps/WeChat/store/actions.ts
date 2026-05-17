@@ -23,6 +23,7 @@ type WeChatActions = Pick<
   | 'updateWeChatAiChatSettings'
   | 'updateWeChatAiMomentsSettings'
   | 'setWeChatContactPatSuffix'
+  | 'deleteWeChatContact'
   | 'deleteWeChatMessages'
   | 'topUpWeChatBalance'
   | 'withdrawWeChatBalance'

@@ -21,6 +21,8 @@ export interface WeChatRoleScopedState {
   wechatAiChatSettings: WeChatAiChatSettings;
   wechatAiMomentsSettings: WeChatAiMomentsSettings;
   wechatContactExtensions: Record<string, WeChatContactExtension>;
+  wechatDeletedMemorySourceIds: string[];
+  wechatDeletedMemoryContentHints: string[];
 }
 
 export interface WeChatState extends WeChatRoleScopedState {
@@ -48,6 +50,7 @@ export interface WeChatState extends WeChatRoleScopedState {
   updateWeChatAiChatSettings: (settings: Partial<WeChatAiChatSettings>) => void;
   updateWeChatAiMomentsSettings: (settings: Partial<WeChatAiMomentsSettings>) => void;
   setWeChatContactPatSuffix: (contactId: string, patSuffix: string) => void;
+  deleteWeChatContact: (contactId: string) => void;
   deleteWeChatMessages: (sessionId: string, messageIds: string[]) => void;
   topUpWeChatBalance: (amount: number, meta?: WeChatBillMutationMeta) => void;
   withdrawWeChatBalance: (amount: number, meta?: WeChatBillMutationMeta) => void;

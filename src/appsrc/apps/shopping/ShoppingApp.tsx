@@ -1,6 +1,7 @@
 import React from 'react';
 import { AnimatePresence, motion } from 'motion/react';
 import { useGlobalSettingsStore } from '@baobaobaiOS/sdk';
+import { Gift, Tags, TrendingUp } from 'lucide-react';
 import type {
   Address,
   CommerceStore,
@@ -19,7 +20,6 @@ import type { WeChatGiftDeliveryCard, WeChatMessage, WeChatOrderPreview } from '
 import { PUSH_OPEN_APP_MESSAGE_TYPE } from '../../../core/push/webPush';
 import type { GlobalSettings } from '../../../core/sdk/types';
 import styles from './ShoppingApp.module.css';
-import homeIntroImage from './home.png';
 import { toMovie, toMovieStoreProducts } from './movies';
 import { addDays, formatDate, formatMoney, getOrderStatus, groupCartLines } from './utils';
 import {
@@ -104,15 +104,6 @@ const resolveProductStoreId = (item: ProductItem, kind: GoodsKind) => {
 
 const filterProductsByStore = (items: ProductItem[], kind: GoodsKind, storeId: string) => {
   return items.filter((item) => resolveProductStoreId(item, kind) === storeId);
-};
-
-const isStandaloneShoppingDisplayMode = (): boolean => {
-  if (typeof window === 'undefined' || typeof navigator === 'undefined') return false;
-  const standaloneNavigator = navigator as Navigator & { standalone?: boolean };
-  return (
-    window.matchMedia('(display-mode: standalone)').matches ||
-    standaloneNavigator.standalone === true
-  );
 };
 
 const mergeCartToLines = (items: ProductItem[]): ShoppingCartLine[] => {
@@ -515,7 +506,6 @@ export const ShoppingApp: React.FC<ShoppingAppProps> = ({ onClose, context }) =>
     () => Boolean(context?.params && Object.keys(context.params).length > 0),
     [context?.params]
   );
-  const isStandaloneShoppingIntro = React.useMemo(() => isStandaloneShoppingDisplayMode(), []);
   const shouldShowShoppingEntryIntroOnLaunch = React.useMemo(
     () =>
       !hasExplicitLaunchParams &&
@@ -2745,114 +2735,124 @@ export const ShoppingApp: React.FC<ShoppingAppProps> = ({ onClose, context }) =>
             <div className={styles.shoppingEntryGlowA} />
             <div className={styles.shoppingEntryGlowB} />
             <div className={styles.shoppingEntryHero}>
-              <div className={styles.shoppingEntryBadge}>一起出发去购物</div>
+              <div className={styles.shoppingEntryBadge}>
+                <svg className={styles.shoppingEntryBadgeIcon} viewBox="0 0 48 48" aria-hidden="true">
+                  <path d="M21 8l3.2 9.8L34 21l-9.8 3.2L21 34l-3.2-9.8L8 21l9.8-3.2L21 8Z" />
+                  <path d="M35 9l1.4 4.2L41 15l-4.6 1.8L35 21l-1.4-4.2L29 15l4.6-1.8L35 9Z" />
+                </svg>
+                一起出发去购物
+              </div>
               <div className={styles.shoppingEntryCopy}>
-                <h2>推着购物车冲进快乐采购日</h2>
-                <p>
-                  {shoppingEntryStage === 'contact'
-                    ? '选一个微信联系人，先把一起逛街邀请发出去。'
-                    : shoppingEntryMode === 'together'
-                      ? '和 TA 一起逛，甜度直接拉满。'
-                      : '先选个模式，或者上滑退出 App。'}
-                </p>
               </div>
 
               <div className={styles.shoppingEntryScene} aria-hidden="true">
-                <img
-                  src={homeIntroImage}
-                  alt=""
-                  className={`${styles.shoppingEntryArtworkImage} ${isStandaloneShoppingIntro ? styles.shoppingEntryArtworkImageStandalone : ''}`}
-                />
+                <div className={styles.shoppingEntryArtworkCard}>
+                  <span className={styles.shoppingEntryArtworkBadge}>
+                    <svg className={styles.shoppingEntrySparkleIcon} viewBox="0 0 48 48" aria-hidden="true">
+                      <path d="M21 8l3.2 9.8L34 21l-9.8 3.2L21 34l-3.2-9.8L8 21l9.8-3.2L21 8Z" />
+                      <path d="M35 9l1.4 4.2L41 15l-4.6 1.8L35 21l-1.4-4.2L29 15l4.6-1.8L35 9Z" />
+                    </svg>
+                  </span>
+                  <svg className={styles.shoppingEntryBagSvg} viewBox="0 0 96 96" aria-hidden="true">
+                    <path d="M30 28H66L76 40V78C76 82.4 72.4 86 68 86H28C23.6 86 20 82.4 20 78V40L30 28Z" />
+                    <path d="M30 28L20 40H76L66 28" />
+                    <path d="M36 50V52C36 60 41.4 66 48 66C54.6 66 60 60 60 52V50" />
+                  </svg>
+                </div>
+              </div>
+
+              <div className={styles.shoppingEntryChoiceArea}>
+                {shoppingEntryStage === 'mode' && (
+                  <div className={styles.shoppingEntryActions}>
+                    <button
+                      type="button"
+                      className={styles.shoppingEntryPrimaryBtn}
+                      onClick={() => handleShoppingEntryChoice('solo')}
+                    >
+                      疯狂购物
+                    </button>
+                    <button
+                      type="button"
+                      className={styles.shoppingEntrySecondaryBtn}
+                      onClick={() => handleShoppingEntryChoice('together')}
+                    >
+                      同TA购物
+                    </button>
+                  </div>
+                )}
+
+                {shoppingEntryStage === 'contact' && (
+                  <div className={styles.shoppingEntryContactPanel}>
+                    <div className={styles.shoppingEntrySheetHeader}>
+                      <button
+                        type="button"
+                        className={styles.shoppingEntryBackIconBtn}
+                        aria-label="返回"
+                        onClick={() => {
+                          setShoppingEntryMode('solo');
+                          setShoppingEntryStage('mode');
+                        }}
+                      >
+                        <span className={styles.shoppingEntryBackArrow} aria-hidden="true" />
+                      </button>
+                      <p className={`${styles.shoppingEntrySheetTitle} ${styles.shoppingEntrySheetTitleContact}`}>
+                        同TA一起逛，甜度直接拉满。
+                      </p>
+                      <span className={styles.shoppingEntrySheetHeaderSpacer} aria-hidden="true" />
+                    </div>
+                    {payeeContacts.length > 0 ? (
+                      <div className={styles.shoppingEntryContactList}>
+                        {payeeContacts.map((contact) => (
+                          <button
+                            key={contact.id}
+                            type="button"
+                            className={styles.shoppingEntryContactItem}
+                            onClick={() => {
+                              const succeeded = sendShoppingTogetherInvite(contact);
+                              if (!succeeded) window.alert('购物邀请发送失败，请稍后再试');
+                            }}
+                          >
+                            <span className={styles.shoppingEntryContactAvatar}>
+                              {contact.avatar ? (
+                                <img
+                                  src={contact.avatar}
+                                  alt={contact.name}
+                                  className={styles.shoppingEntryContactAvatarImage}
+                                />
+                              ) : (
+                                <span>{getContactInitials(contact.name)}</span>
+                              )}
+                            </span>
+                            <span className={styles.shoppingEntryContactName}>{contact.name}</span>
+                          </button>
+                        ))}
+                      </div>
+                    ) : (
+                      <div className={styles.paymentSheetEmpty}>微信联系人里还没有可邀请的人。</div>
+                    )}
+                  </div>
+                )}
+              </div>
+
+              <div className={styles.shoppingEntryFeatureGrid}>
+                <div className={styles.shoppingEntryFeatureCard}>
+                  <span className={styles.shoppingEntryFeatureIcon}><Tags size={24} /></span>
+                  <strong>优惠多多</strong>
+                  <p>每日上新优惠券</p>
+                </div>
+                <div className={styles.shoppingEntryFeatureCard}>
+                  <span className={styles.shoppingEntryFeatureIcon}><TrendingUp size={24} /></span>
+                  <strong>品质保证</strong>
+                  <p>精选优质商品</p>
+                </div>
+                <div className={styles.shoppingEntryFeatureCard}>
+                  <span className={styles.shoppingEntryFeatureIcon}><Gift size={24} /></span>
+                  <strong>新人礼包</strong>
+                  <p>注册即送好礼</p>
+                </div>
               </div>
             </div>
 
-            <motion.div
-              className={styles.shoppingEntrySheet}
-              initial={false}
-              animate={
-                shoppingEntryIntroLeaving
-                  ? { y: -120, opacity: 0 }
-                  : { y: 0, opacity: 1 }
-              }
-              transition={{
-                duration: shoppingEntryIntroLeaving ? 0.34 : 0.28,
-                ease: [0.22, 1, 0.36, 1],
-              }}
-            >
-              <div className={styles.shoppingEntrySheetHandle} />
-              {shoppingEntryStage === 'contact' ? (
-                <div className={styles.shoppingEntrySheetHeader}>
-                  <button
-                    type="button"
-                    className={styles.shoppingEntryBackIconBtn}
-                    aria-label="返回"
-                    onClick={() => {
-                      setShoppingEntryMode('solo');
-                      setShoppingEntryStage('mode');
-                    }}
-                  >
-                    <span className={styles.shoppingEntryBackArrow} aria-hidden="true" />
-                  </button>
-                  <p className={`${styles.shoppingEntrySheetTitle} ${styles.shoppingEntrySheetTitleContact}`}>
-                    选择一起购物的人
-                  </p>
-                  <span className={styles.shoppingEntrySheetHeaderSpacer} aria-hidden="true" />
-                </div>
-              ) : (
-                <p className={styles.shoppingEntrySheetTitle}>这次想怎么逛</p>
-              )}
-              {shoppingEntryStage === 'contact' ? (
-                <>
-                  {payeeContacts.length > 0 ? (
-                    <div className={styles.shoppingEntryContactList}>
-                      {payeeContacts.map((contact) => (
-                        <button
-                          key={contact.id}
-                          type="button"
-                          className={styles.shoppingEntryContactItem}
-                          onClick={() => {
-                            const succeeded = sendShoppingTogetherInvite(contact);
-                            if (!succeeded) window.alert('购物邀请发送失败，请稍后再试');
-                          }}
-                        >
-                          <span className={styles.shoppingEntryContactAvatar}>
-                            {contact.avatar ? (
-                              <img
-                                src={contact.avatar}
-                                alt={contact.name}
-                                className={styles.shoppingEntryContactAvatarImage}
-                              />
-                            ) : (
-                              <span>{getContactInitials(contact.name)}</span>
-                            )}
-                          </span>
-                          <span className={styles.shoppingEntryContactName}>{contact.name}</span>
-                        </button>
-                      ))}
-                    </div>
-                  ) : (
-                    <div className={styles.paymentSheetEmpty}>微信联系人里还没有可邀请的人。</div>
-                  )}
-                </>
-              ) : (
-                <div className={styles.shoppingEntryActions}>
-                  <button
-                    type="button"
-                    className={styles.shoppingEntryPrimaryBtn}
-                    onClick={() => handleShoppingEntryChoice('solo')}
-                  >
-                    疯狂购物
-                  </button>
-                  <button
-                    type="button"
-                    className={styles.shoppingEntrySecondaryBtn}
-                    onClick={() => handleShoppingEntryChoice('together')}
-                  >
-                    同TA购物
-                  </button>
-                </div>
-              )}
-            </motion.div>
             {shoppingEntryStage === 'mode' ? (
               <div
                 className={styles.shoppingEntrySwipeZone}
