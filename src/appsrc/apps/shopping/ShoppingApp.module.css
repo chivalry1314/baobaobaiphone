@@ -3441,6 +3441,22 @@
   }
 }
 
+@supports (-webkit-touch-callout: none) {
+  @media (display-mode: standalone) {
+    .shoppingEntryHero {
+      padding: calc(0px + env(safe-area-inset-top, 0px)) 36px calc(122px + env(safe-area-inset-bottom, 0px));
+    }
+  }
+}
+
+@supports (-webkit-touch-callout: none) {
+  @media (display-mode: standalone) and (max-width: 420px) {
+    .shoppingEntryHero {
+      padding: calc(0px + env(safe-area-inset-top, 0px)) 32px calc(118px + env(safe-area-inset-bottom, 0px));
+    }
+  }
+}
+
 /* CSS Modules export helpers */
 .selected {}
 .addressBlock {}
