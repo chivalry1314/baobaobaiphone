@@ -3444,7 +3444,29 @@
 @supports (-webkit-touch-callout: none) {
   @media (display-mode: standalone) {
     .shoppingEntryHero {
-      padding: calc(0px + env(safe-area-inset-top, 0px)) 36px calc(122px + env(safe-area-inset-bottom, 0px));
+      padding: calc(18px + env(safe-area-inset-top, 0px)) 36px calc(96px + env(safe-area-inset-bottom, 0px));
+      justify-content: flex-start;
+    }
+
+    .shoppingEntryScene {
+      min-height: 118px;
+      margin-top: 14px;
+    }
+
+    .shoppingEntryArtworkCard {
+      width: min(150px, 39vw);
+    }
+
+    .shoppingEntryChoiceArea {
+      min-height: 126px;
+    }
+
+    .shoppingEntryActions {
+      margin-top: 24px;
+    }
+
+    .shoppingEntryFeatureGrid {
+      margin-top: 24px;
     }
   }
 }
@@ -3452,7 +3474,28 @@
 @supports (-webkit-touch-callout: none) {
   @media (display-mode: standalone) and (max-width: 420px) {
     .shoppingEntryHero {
-      padding: calc(0px + env(safe-area-inset-top, 0px)) 32px calc(118px + env(safe-area-inset-bottom, 0px));
+      padding: calc(14px + env(safe-area-inset-top, 0px)) 32px calc(92px + env(safe-area-inset-bottom, 0px));
+    }
+
+    .shoppingEntryScene {
+      min-height: 112px;
+      margin-top: 12px;
+    }
+
+    .shoppingEntryArtworkCard {
+      width: min(142px, 38vw);
+    }
+
+    .shoppingEntryChoiceArea {
+      min-height: 122px;
+    }
+
+    .shoppingEntryActions {
+      margin-top: 22px;
+    }
+
+    .shoppingEntryFeatureGrid {
+      margin-top: 24px;
     }
   }
 }
