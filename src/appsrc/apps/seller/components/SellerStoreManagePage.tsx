@@ -5,6 +5,8 @@ import {
   CheckCircle2,
   ChevronLeft,
   CircleHelp,
+  Eye,
+  EyeOff,
   FileText,
   GripVertical,
   Home,
@@ -15,6 +17,7 @@ import {
   Settings,
   Smile,
   UserRound,
+  X,
 } from 'lucide-react';
 import type { CommerceStore, Order, ProductItem } from '../../../shared/business/commerce/domain/types';
 import { resolveOrderStoreId } from '../../../shared/business/commerce/domain/utils';
@@ -211,6 +214,7 @@ export const SellerStoreManagePage: React.FC<SellerStoreManagePageProps> = ({
   const [draggingStoreId, setDraggingStoreId] = React.useState<string | null>(null);
   const [dropTarget, setDropTarget] = React.useState<{ id: string; position: DropPosition } | null>(null);
   const [pendingDeleteStoreId, setPendingDeleteStoreId] = React.useState<string | null>(null);
+  const [deleteArmedStoreId, setDeleteArmedStoreId] = React.useState<string | null>(null);
   const [storeSearchKeyword, setStoreSearchKeyword] = React.useState('');
   const [storePage, setStorePage] = React.useState(1);
   const [verifyToastCode, setVerifyToastCode] = React.useState<string | null>(null);
@@ -232,6 +236,8 @@ export const SellerStoreManagePage: React.FC<SellerStoreManagePageProps> = ({
   const [isAutoReplying, setIsAutoReplying] = React.useState(false);
   const [previewTemplateKind, setPreviewTemplateKind] = React.useState<'dessert' | 'movie' | null>(null);
   const pointerIdRef = React.useRef<number | null>(null);
+  const storeCardLongPressTimerRef = React.useRef<number | null>(null);
+  const suppressStoreCardClickRef = React.useRef(false);
   const rechargeOpenedAtRef = React.useRef(0);
   const verifyToastTimeoutRef = React.useRef<number | null>(null);
   const verifyCountdownIntervalRef = React.useRef<number | null>(null);
@@ -298,7 +304,7 @@ export const SellerStoreManagePage: React.FC<SellerStoreManagePageProps> = ({
     return list.filter((item) => item.name.toLowerCase().includes(keyword));
   }, [list, storeSearchKeyword]);
 
-  const STORE_PAGE_SIZE = 7;
+  const STORE_PAGE_SIZE = 6;
   const totalStorePages = Math.max(1, Math.ceil(filteredList.length / STORE_PAGE_SIZE));
   const pagedStoreList = React.useMemo(() => {
     const start = (storePage - 1) * STORE_PAGE_SIZE;
@@ -478,8 +484,48 @@ export const SellerStoreManagePage: React.FC<SellerStoreManagePageProps> = ({
     () => () => {
       if (verifyToastTimeoutRef.current != null) window.clearTimeout(verifyToastTimeoutRef.current);
       if (verifyCountdownIntervalRef.current != null) window.clearInterval(verifyCountdownIntervalRef.current);
+      if (storeCardLongPressTimerRef.current != null) window.clearTimeout(storeCardLongPressTimerRef.current);
     },
     []
+  );
+
+  const clearStoreCardLongPress = React.useCallback(() => {
+    if (storeCardLongPressTimerRef.current != null) {
+      window.clearTimeout(storeCardLongPressTimerRef.current);
+      storeCardLongPressTimerRef.current = null;
+    }
+  }, []);
+
+  const handleStoreCardPointerDown = React.useCallback(
+    (event: React.PointerEvent<HTMLElement>, storeId: string) => {
+      if (event.button !== 0) return;
+      const target = event.target as HTMLElement;
+      if (target.closest('button')) return;
+      clearStoreCardLongPress();
+      suppressStoreCardClickRef.current = false;
+      storeCardLongPressTimerRef.current = window.setTimeout(() => {
+        setDeleteArmedStoreId(storeId);
+        suppressStoreCardClickRef.current = true;
+        storeCardLongPressTimerRef.current = null;
+      }, 560);
+    },
+    [clearStoreCardLongPress]
+  );
+
+  const handleStoreCardClick = React.useCallback(
+    (storeId: string) => {
+      clearStoreCardLongPress();
+      if (suppressStoreCardClickRef.current) {
+        suppressStoreCardClickRef.current = false;
+        return;
+      }
+      if (deleteArmedStoreId && deleteArmedStoreId !== storeId) {
+        setDeleteArmedStoreId(null);
+        return;
+      }
+      onEnterDashboard(storeId);
+    },
+    [clearStoreCardLongPress, deleteArmedStoreId, onEnterDashboard]
   );
 
   React.useEffect(() => {
@@ -1194,102 +1240,114 @@ export const SellerStoreManagePage: React.FC<SellerStoreManagePageProps> = ({
       </header>
 
       <main className={styles.storeManageContent}>
-        <section className={styles.storeManageCard}>
-          <h2>
-            资产情况 <CircleHelp size={14} />
-          </h2>
-          <div className={styles.storeManageFinanceGrid}>
-            <article className={styles.storeManageFinanceMain}>
-              <p>
-                <span aria-hidden="true">💵</span>我的资产
-              </p>
-              <strong>{formatMoney(assetBalance)}</strong>
-              <button
-                type="button"
-                className={styles.storeRechargeButton}
-                onClick={openRechargeDialog}
-              >
-                充值
-              </button>
-            </article>
-            <article className={styles.storeManageFinanceSub}>
-              <p>
-                <FileText size={14} strokeWidth={2} />
-                财务情况
-              </p>
-              <span>总收入: {formatReportMoney(reportRevenue)}</span>
-              <button type="button" onClick={() => setIsFinanceReportVisible(true)}>
-                查看财务报告
-              </button>
-            </article>
-          </div>
+        <section className={styles.storeManageFinanceGrid} aria-label="资产情况">
+          <article className={styles.storeManageFinanceMain}>
+            <p>
+              <CircleHelp size={15} />
+              我的资产
+            </p>
+            <strong>{formatMoney(assetBalance)}</strong>
+            <button type="button" className={styles.storeRechargeButton} onClick={openRechargeDialog}>
+              充值
+            </button>
+          </article>
+          <article className={styles.storeManageFinanceSub}>
+            <p>
+              <FileText size={15} strokeWidth={2} />
+              财务报告
+            </p>
+            <strong>{formatReportMoney(reportRevenue)}</strong>
+            <span>总收入</span>
+            <button type="button" onClick={() => setIsFinanceReportVisible(true)}>
+              查看
+            </button>
+          </article>
         </section>
 
         <section className={`${styles.storeManageCard} ${styles.storeManageListCard}`}>
-          <h2>
-            店铺列表 <CircleHelp size={14} />
-          </h2>
-          <div className={styles.storeManageTableHead}>
-            <span>店铺名称</span>
-            <span className={styles.storeManageTableRevenueHead}>营业额</span>
-            <span className={styles.storeManageTableActionHead}>操作</span>
+          <div className={styles.storeManageSectionHead}>
+            <h2>我的店铺</h2>
+            <div className={styles.storeManageSearchRow}>
+              <Search size={16} />
+              <input
+                value={storeSearchKeyword}
+                onChange={(event) => setStoreSearchKeyword(event.target.value)}
+                placeholder="搜索店铺名称"
+              />
+            </div>
           </div>
-          <div className={styles.storeManageSearchRow}>
-            <input
-              value={storeSearchKeyword}
-              onChange={(event) => setStoreSearchKeyword(event.target.value)}
-              placeholder="搜索店铺名称"
-            />
-            <span>共 {filteredList.length} 条</span>
+          <div className={styles.storeManageSectionMeta}>
+            <span>共 {filteredList.length} 家（长按卡片可删除）</span>
           </div>
-          <div className={styles.storeManageList}>
-            {pagedStoreList.map((item, index) => {
+          <div className={styles.storeManageGrid}>
+            {pagedStoreList.map((item) => {
+              const store = stores.find((storeItem) => storeItem.id === item.id);
               const dropBefore = dropTarget?.id === item.id && dropTarget.position === 'before';
               const dropAfter = dropTarget?.id === item.id && dropTarget.position === 'after';
+              const typeLabel = store?.typeName || store?.categoryLabel || store?.kind || '店铺';
+              const avatarText = item.name.slice(0, 2).toUpperCase();
               return (
-                <div
+                <article
                   key={item.id}
                   data-store-row-id={item.id}
                   className={[
-                    styles.storeManageRow,
-                    styles.storeManageRowDraggable,
+                    styles.storeManageStoreCard,
+                    item.visible ? styles.storeManageStoreCardVisible : styles.storeManageStoreCardHidden,
                     draggingStoreId === item.id ? styles.storeManageRowDragging : '',
                     dropBefore ? styles.storeManageRowDropBefore : '',
                     dropAfter ? styles.storeManageRowDropAfter : '',
                   ]
                     .filter(Boolean)
                     .join(' ')}
+                  role="button"
+                  tabIndex={0}
+                  onClick={() => handleStoreCardClick(item.id)}
+                  onKeyDown={(event) => {
+                    if (event.key === 'Enter' || event.key === ' ') {
+                      event.preventDefault();
+                      onEnterDashboard(item.id);
+                    }
+                  }}
+                  onPointerDown={(event) => handleStoreCardPointerDown(event, item.id)}
+                  onPointerUp={clearStoreCardLongPress}
+                  onPointerCancel={clearStoreCardLongPress}
+                  onPointerLeave={clearStoreCardLongPress}
                 >
-                  <div className={styles.storeManageNameCell}>
+                  {deleteArmedStoreId === item.id ? (
                     <button
                       type="button"
-                      className={styles.storeDragHandle}
-                      aria-label="拖动排序"
-                      onPointerDown={(event) => {
-                        if (event.button !== 0) return;
-                        pointerIdRef.current = event.pointerId;
-                        setDraggingStoreId(item.id);
-                        setDropTarget(null);
+                      className={styles.storeManageDeleteBadge}
+                      aria-label={`删除${item.name}`}
+                      onPointerDown={(event) => event.stopPropagation()}
+                      onClick={(event) => {
+                        event.stopPropagation();
+                        setPendingDeleteStoreId(item.id);
                       }}
                     >
-                      <GripVertical size={14} />
+                      <X size={16} strokeWidth={3} />
                     </button>
-                    <span>{pagedStartIndex + index + 1}</span>
-                    <strong>{item.name}</strong>
-                  </div>
-                  <strong className={styles.storeManageRevenue}>{formatMoney(item.revenue)}</strong>
-                  <div className={styles.storeManageActions}>
-                    <button type="button" onClick={() => onEnterDashboard(item.id)}>
-                      进入
-                    </button>
+                  ) : null}
+                  <div className={styles.storeManageCardTop}>
+                    <div className={styles.storeManageCardAvatar}>
+                      {store?.logo ? <img src={store.logo} alt={item.name} /> : <span>{avatarText}</span>}
+                    </div>
                     <button
                       type="button"
-                      onClick={async () => {
+                      className={`${styles.storeManageVisibilityButton} ${
+                        item.visible ? styles.storeManageVisibilityButtonOn : ''
+                      }`}
+                      title={item.visible ? '隐藏店铺' : '显示店铺'}
+                      aria-label={item.visible ? '隐藏店铺' : '显示店铺'}
+                      onPointerDown={(event) => event.stopPropagation()}
+                      onClick={async (event) => {
+                        event.stopPropagation();
                         setUpdatingStoreId(item.id);
                         try {
                           const saved = await saveCommerceStores(
-                            stores.map((store) =>
-                              store.id === item.id ? { ...store, visible: !store.visible, updatedAt: Date.now() } : store
+                            stores.map((storeItem) =>
+                              storeItem.id === item.id
+                                ? { ...storeItem, visible: !storeItem.visible, updatedAt: Date.now() }
+                                : storeItem
                             ),
                             { orders }
                           );
@@ -1300,31 +1358,41 @@ export const SellerStoreManagePage: React.FC<SellerStoreManagePageProps> = ({
                       }}
                       disabled={updatingStoreId === item.id}
                     >
-                      {updatingStoreId === item.id ? '处理中...' : item.visible ? '隐藏' : '显示'}
-                    </button>
-                    <button type="button" onClick={() => setPendingDeleteStoreId(item.id)} disabled={updatingStoreId === item.id}>
-                      删除
+                      {item.visible ? <Eye size={16} /> : <EyeOff size={16} />}
                     </button>
                   </div>
-                </div>
+                  <div className={styles.storeManageCardBody}>
+                    <strong>{item.name}</strong>
+                    <span>{typeLabel}</span>
+                  </div>
+                  <div className={styles.storeManageCardBottom}>
+                    <span>营业额</span>
+                    <strong>{formatReportMoney(item.revenue)}</strong>
+                  </div>
+                </article>
               );
             })}
+            {pagedStoreList.length === 0 ? (
+              <div className={styles.storeManageEmptyState}>没有找到匹配的店铺</div>
+            ) : null}
           </div>
-          <div className={styles.storeManagePagination}>
-            <button type="button" onClick={() => setStorePage((prev) => Math.max(1, prev - 1))} disabled={storePage <= 1}>
-              上一页
-            </button>
-            <span>
-              {storePage} / {totalStorePages}
-            </span>
-            <button
-              type="button"
-              onClick={() => setStorePage((prev) => Math.min(totalStorePages, prev + 1))}
-              disabled={storePage >= totalStorePages}
-            >
-              下一页
-            </button>
-          </div>
+          {totalStorePages > 1 ? (
+            <div className={styles.storeManagePagination}>
+              <button type="button" onClick={() => setStorePage((prev) => Math.max(1, prev - 1))} disabled={storePage <= 1}>
+                上一页
+              </button>
+              <span>
+                {storePage} / {totalStorePages}
+              </span>
+              <button
+                type="button"
+                onClick={() => setStorePage((prev) => Math.min(totalStorePages, prev + 1))}
+                disabled={storePage >= totalStorePages}
+              >
+                下一页
+              </button>
+            </div>
+          ) : null}
         </section>
       </main>
 

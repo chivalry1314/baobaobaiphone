@@ -5,6 +5,7 @@ const DEFAULT_BASE_URL = 'https://api.openai.com/v1';
 const DEFAULT_AI_PRODUCT_COUNT = 6;
 const IMAGE_MODEL_FALLBACK = 'gpt-image-1';
 const IMAGE_GENERATION_CONCURRENCY = 3;
+const IMAGE_GENERATION_TIMEOUT_MS = 12000;
 
 export interface SellerAiProductDraft {
   title: string;
@@ -36,6 +37,9 @@ const resolveImageApiKey = (settings: GlobalSettings): string =>
 
 const resolveImageBaseUrl = (settings: GlobalSettings): string =>
   trimText(settings.imageBaseUrl) || trimText(settings.baseUrl) || DEFAULT_BASE_URL;
+
+const hasExplicitImageConfig = (settings: GlobalSettings): boolean =>
+  Boolean(trimText(settings.imageApiKey));
 
 const clampNumber = (value: number, min: number, max: number): number =>
   Math.max(min, Math.min(max, value));
@@ -295,6 +299,10 @@ const requestSellerProductImage = async (
   settings: GlobalSettings,
   prompt: string
 ): Promise<string | null> => {
+  if (!hasExplicitImageConfig(settings)) {
+    return null;
+  }
+
   const apiKey = resolveImageApiKey(settings);
   if (!apiKey) {
     return null;
@@ -318,6 +326,9 @@ const requestSellerProductImage = async (
       ];
 
       for (const payload of payloads) {
+        const controller = new AbortController();
+        const timeoutId = window.setTimeout(() => controller.abort(), IMAGE_GENERATION_TIMEOUT_MS);
+
         try {
           const response = await fetch(`${baseUrl}/images/generations`, {
             method: 'POST',
@@ -326,6 +337,7 @@ const requestSellerProductImage = async (
               Authorization: `Bearer ${apiKey}`,
             },
             body: JSON.stringify(payload),
+            signal: controller.signal,
           });
 
           if (!response.ok) continue;
@@ -334,6 +346,8 @@ const requestSellerProductImage = async (
           if (resolved) return resolved;
         } catch {
           // ignore single generation failure and try next candidate
+        } finally {
+          window.clearTimeout(timeoutId);
         }
       }
     }

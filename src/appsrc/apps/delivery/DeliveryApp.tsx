@@ -658,6 +658,7 @@ export const DeliveryApp: React.FC<AppProps> = ({ onClose, context }) => {
   const ensureWeChatSession = useWeChatStore((state) => state.ensureWeChatSession);
   const addWeChatMessage = useWeChatStore((state) => state.addWeChatMessage);
   const [page, setPage] = React.useState<DeliveryAppPage>('home');
+  const [homePanel, setHomePanel] = React.useState<'quick' | 'stores'>('quick');
   const [deliveryView, setDeliveryView] = React.useState<DeliveryDeliveryView>('category');
   const [search, setSearch] = React.useState('');
   const [activeCategoryId, setActiveCategoryId] = React.useState('food');
@@ -730,6 +731,10 @@ export const DeliveryApp: React.FC<AppProps> = ({ onClose, context }) => {
       return [store.name, store.subtitle, store.notice].some((value) => value.toLowerCase().includes(query));
     });
   }, [activeCategoryId, search, stores]);
+  const recommendedStores = React.useMemo(
+    () => stores.filter((store) => store.categoryId !== 'kitchen'),
+    [stores],
+  );
   const activeStoreProducts = React.useMemo(
     () => products.filter((product) => product.storeId === activeStoreId),
     [activeStoreId, products],
@@ -1913,82 +1918,95 @@ export const DeliveryApp: React.FC<AppProps> = ({ onClose, context }) => {
           </section>
         ) : null}
 
-        <section className={styles.section}>
-        <div className={styles.sectionTitleRow}>
-          <div>
-            <h2 className={styles.sectionTitle}>快捷入口</h2>
-            <p className={styles.sectionHint}>直接进入店铺分类页。</p>
-          </div>
-        </div>
-        <div className={styles.searchBar}>
-          <Search size={18} />
-          <input
-            value={search}
-            onChange={(event) => setSearch(event.target.value)}
-            placeholder="搜索店铺或分类"
-          />
-        </div>
-        <div style={{ height: 12 }} />
-        <div className={styles.gridTiles}>
-          {DELIVERY_CATEGORIES.filter((item) => {
-            const query = search.trim().toLowerCase();
-            if (!query) return true;
-            return item.name.toLowerCase().includes(query) || item.id.includes(query);
-          }).map((item) => (
+        <div className={styles.homeSegmentWrap}>
+          <div className={styles.homeSegmentControl} role="tablist" aria-label="首页内容切换">
             <button
-              key={item.id}
               type="button"
-              className={styles.tileButton}
-              onClick={() => handleCategorySelect(item.id)}
+              role="tab"
+              aria-selected={homePanel === 'quick'}
+              className={`${styles.homeSegmentButton} ${homePanel === 'quick' ? styles.homeSegmentButtonActive : ''}`}
+              onClick={() => setHomePanel('quick')}
             >
-              <div>
-                <strong>{item.name}</strong>
-                <span>
-                  {item.id === 'kitchen'
-                    ? '今天想吃什么'
-                    : item.id === 'custom'
-                      ? '查看购物车'
-                      : '查看店铺列表'}
-                </span>
-              </div>
-              <div className={styles.tileIcon} style={{ background: item.accent }}>
-                {item.icon}
-              </div>
+              快捷入口
             </button>
-          ))}
-        </div>
-      </section>
-
-      <section className={styles.section}>
-        <div className={styles.sectionTitleRow}>
-          <div>
-            <h2 className={styles.sectionTitle}>推荐店铺</h2>
-            <p className={styles.sectionHint}>选一家店，先看店铺再看商品。</p>
+            <button
+              type="button"
+              role="tab"
+              aria-selected={homePanel === 'stores'}
+              className={`${styles.homeSegmentButton} ${homePanel === 'stores' ? styles.homeSegmentButtonActive : ''}`}
+              onClick={() => setHomePanel('stores')}
+            >
+              推荐店铺
+            </button>
           </div>
         </div>
-        <div className={styles.homeStorePreview}>
-          {stores.map((store) => (
-            <button key={store.id} type="button" className={styles.homeStoreCard} onClick={() => handleOpenStore(store.id)}>
-              <div className={styles.homeStoreIcon} style={{ background: store.accent }}>
-                {isAvatarImage(store.icon.trim()) ? (
-                  <img className={styles.homeStoreIconImage} src={store.icon.trim()} alt={store.name} />
-                ) : (
-                  <span>{store.icon}</span>
-                )}
-              </div>
-              <div className={styles.homeStoreBody}>
-                <strong>{store.name}</strong>
-                <span>{store.subtitle}</span>
-                <div className={styles.homeStoreMeta}>
-                  <span className={styles.homeStoreScore}>评分 {store.rating}</span>
-                  <span className={styles.homeStoreDistance}>{formatDistance(store.distanceKm)} {store.avgDeliveryMinutes}分钟</span>
-                </div>
-              </div>
-              <ChevronRight size={18} />
-            </button>
-          ))}
-        </div>
-      </section>
+
+        {homePanel === 'quick' ? (
+          <section className={styles.section}>
+            <div className={styles.searchBar}>
+              <Search size={18} />
+              <input
+                value={search}
+                onChange={(event) => setSearch(event.target.value)}
+                placeholder="搜索店铺或分类"
+              />
+            </div>
+            <div style={{ height: 12 }} />
+            <div className={styles.gridTiles}>
+              {DELIVERY_CATEGORIES.filter((item) => {
+                const query = search.trim().toLowerCase();
+                if (!query) return true;
+                return item.name.toLowerCase().includes(query) || item.id.includes(query);
+              }).map((item) => (
+                <button
+                  key={item.id}
+                  type="button"
+                  className={styles.tileButton}
+                  onClick={() => handleCategorySelect(item.id)}
+                >
+                  <div>
+                    <strong>{item.name}</strong>
+                    <span>
+                      {item.id === 'kitchen'
+                        ? '今天想吃什么'
+                        : item.id === 'custom'
+                          ? '查看购物车'
+                          : '查看店铺列表'}
+                    </span>
+                  </div>
+                  <div className={styles.tileIcon} style={{ background: item.accent }}>
+                    {item.icon}
+                  </div>
+                </button>
+              ))}
+            </div>
+          </section>
+        ) : (
+          <section className={styles.section}>
+            <div className={styles.homeStorePreview}>
+              {recommendedStores.map((store) => (
+                <button key={store.id} type="button" className={styles.homeStoreCard} onClick={() => handleOpenStore(store.id)}>
+                  <div className={styles.homeStoreIcon} style={{ background: store.accent }}>
+                    {isAvatarImage(store.icon.trim()) ? (
+                      <img className={styles.homeStoreIconImage} src={store.icon.trim()} alt={store.name} />
+                    ) : (
+                      <span>{store.icon}</span>
+                    )}
+                  </div>
+                  <div className={styles.homeStoreBody}>
+                    <strong>{store.name}</strong>
+                    <span>{store.subtitle}</span>
+                    <div className={styles.homeStoreMeta}>
+                      <span className={styles.homeStoreScore}>评分 {store.rating}</span>
+                      <span className={styles.homeStoreDistance}>{formatDistance(store.distanceKm)} {store.avgDeliveryMinutes}分钟</span>
+                    </div>
+                  </div>
+                  <ChevronRight size={18} />
+                </button>
+              ))}
+            </div>
+          </section>
+        )}
       </>
     );
   };

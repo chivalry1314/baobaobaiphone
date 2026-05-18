@@ -344,7 +344,7 @@
 .storeAiCountDialog h3 {
   margin: 0;
   color: #3e2b20;
-  font-size: 18px;
+  font-size: 16px;
   font-weight: 700;
 }
 
@@ -1424,7 +1424,7 @@
 }
 
 .publishImageAdd span {
-  font-size: 30px;
+  font-size: 16px;
   line-height: 1;
 }
 
@@ -1689,8 +1689,10 @@
   flex-direction: column;
   overflow: hidden;
   overscroll-behavior: none;
-  background: #f2f2f4;
-  color: #2f3339;
+  background:
+    radial-gradient(circle at 86% 6%, rgba(170, 238, 215, 0.58) 0, rgba(170, 238, 215, 0) 26%),
+    linear-gradient(180deg, #f7fffb 0%, #eefaf4 54%, #f8fbf9 100%);
+  color: #12251d;
   font-family: 'PingFang SC', 'Hiragino Sans GB', 'Microsoft YaHei', sans-serif;
   font-size: 12px;
 }
@@ -1735,9 +1737,9 @@
   align-items: center;
   grid-template-columns: 34px 1fr 34px;
   column-gap: 8px;
-  background: rgba(242, 242, 244, 0.92);
+  background: rgba(247, 255, 251, 0.86);
   backdrop-filter: blur(14px);
-  border-bottom: 1px solid rgba(209, 213, 219, 0.55);
+  border-bottom: 1px solid rgba(188, 229, 211, 0.38);
 }
 
 .storeManageHeader h1 {
@@ -1759,10 +1761,10 @@
   overscroll-behavior-y: contain;
   -webkit-overflow-scrolling: touch;
   overflow-x: hidden;
-  padding: 8px 16px 120px;
+  padding: 12px 18px 124px;
   display: flex;
   flex-direction: column;
-  gap: 12px;
+  gap: 16px;
 }
 
 .storeManageContent::-webkit-scrollbar {
@@ -1770,27 +1772,51 @@
 }
 
 .storeManageContent::-webkit-scrollbar-track {
-  background: #eef2f7;
+  background: #e2f4ec;
   border-radius: 999px;
 }
 
 .storeManageContent::-webkit-scrollbar-thumb {
-  background: #c3cedb;
+  background: #9bdac1;
   border-radius: 999px;
 }
 
 .storeManageContent::-webkit-scrollbar-thumb:hover {
-  background: #9aa7b7;
+  background: #65c6a1;
+}
+
+.storeManageHero {
+  padding: 8px 2px 0;
+}
+
+.storeManageHero p,
+.storeManageHero span {
+  margin: 0;
+  color: #75a38f;
+  font-size: 13px;
+  font-weight: 600;
+}
+
+.storeManageHero h2 {
+  margin: 6px 0 4px;
+  color: #101d18;
+  font-size: 16px;
+  line-height: 1.05;
+  font-weight: 800;
 }
 
 .storeManageCard {
-  border-radius: 16px;
-  background: #ffffff;
-  padding: 14px;
+  border-radius: 24px;
+  background: rgba(255, 255, 255, 0.78);
+  padding: 16px;
+  box-shadow: 0 18px 34px rgba(54, 140, 105, 0.08);
 }
 
 .storeManageListCard {
   display: block;
+  background: transparent;
+  box-shadow: none;
+  padding: 0;
 }
 
 .storeManageCard h2 {
@@ -1803,17 +1829,30 @@
 }
 
 .storeManageFinanceGrid {
-  margin-top: 12px;
   display: grid;
-  grid-template-columns: 1.35fr 1fr;
-  gap: 10px;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 12px;
 }
 
 .storeManageFinanceMain,
 .storeManageFinanceSub {
-  border-radius: 10px;
-  background: #f6f6f7;
-  padding: 10px;
+  min-height: 144px;
+  border-radius: 24px;
+  padding: 16px 14px;
+  position: relative;
+  overflow: hidden;
+  box-shadow: 0 18px 34px rgba(34, 136, 94, 0.14);
+}
+
+.storeManageFinanceMain {
+  background: linear-gradient(150deg, #65d6a4 0%, #30b77b 100%);
+  color: #ffffff;
+}
+
+.storeManageFinanceSub {
+  background: #ffffff;
+  color: #153127;
+  border: 1px solid rgba(184, 231, 211, 0.82);
 }
 
 .storeManageFinanceMain p,
@@ -1821,7 +1860,6 @@
 .storeManageFinanceSub span,
 .storeManageFinanceSub button {
   margin: 0;
-  font-size: 12px;
 }
 
 .storeManageFinanceMain p,
@@ -1829,21 +1867,27 @@
   display: inline-flex;
   align-items: center;
   gap: 6px;
-}
-
-.storeManageFinanceMain strong {
-  margin-top: 14px;
-  display: block;
-  font-size: 12px;
   font-weight: 700;
 }
 
+.storeManageFinanceMain strong,
+.storeManageFinanceSub strong {
+  margin-top: 14px;
+  display: block;
+  font-size: 16px !important;
+  line-height: 1.2;
+  font-weight: 800;
+  word-break: break-word;
+}
+
 .storeRechargeButton {
-  margin-top: 10px;
-  border: 1px solid rgba(255, 255, 255, 0.55);
+  position: absolute;
+  right: 14px;
+  bottom: 14px;
+  border: 1px solid rgba(255, 255, 255, 0.66);
   border-radius: 999px;
-  background: rgba(186, 194, 202, 0.2);
-  color: #15915f;
+  background: rgba(255, 255, 255, 0.22);
+  color: #ffffff;
   box-shadow:
     inset 0 1px 0 rgba(255, 255, 255, 0.6),
     0 8px 18px rgba(15, 23, 42, 0.08);
@@ -1855,18 +1899,57 @@
 }
 
 .storeManageFinanceSub span {
-  margin-top: 8px;
+  margin-top: 3px;
   display: block;
-  color: #626872;
+  color: #82a091;
+  font-size: 12px !important;
 }
 
 .storeManageFinanceSub button {
-  margin-top: 8px;
+  position: absolute;
+  right: 14px;
+  bottom: 14px;
+  height: 32px;
+  min-width: 54px;
   border: none;
-  background: transparent;
-  color: #7f858e;
+  border-radius: 999px;
+  background: #e8fff3;
+  color: #1aa46d;
+  font-weight: 700;
   cursor: pointer;
-  padding: 0;
+  padding: 0 12px;
+}
+
+.storeManageSectionHead {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  padding: 0 2px;
+}
+
+.storeManageSectionHead h2 {
+  flex-shrink: 0;
+  margin: 0;
+  color: #15231d;
+  font-size: 16px !important;
+  line-height: 1.2;
+  font-weight: 800;
+}
+
+.storeManageSectionMeta {
+  margin-top: 8px;
+  padding: 0 2px;
+  display: flex;
+  align-items: center;
+  justify-content: flex-end;
+  gap: 10px;
+}
+
+.storeManageSectionMeta span {
+  color: #78a28f;
+  font-size: 12px !important;
+  font-weight: 700;
 }
 
 .storeManageTableHead {
@@ -1894,39 +1977,185 @@
 }
 
 .storeManageSearchRow {
-  margin-top: 8px;
+  flex: 1;
   display: grid;
-  grid-template-columns: minmax(0, 1fr) auto;
+  grid-template-columns: auto minmax(0, 1fr);
   gap: 8px;
   align-items: center;
+  height: 38px;
+  border-radius: 19px;
+  background: #ffffff;
+  border: 1px solid rgba(184, 231, 211, 0.82);
+  padding: 0 12px;
+  color: #4cb58b;
+  box-shadow: 0 12px 24px rgba(34, 136, 94, 0.08);
 }
 
 .storeManageSearchRow input {
-  height: 32px;
-  border: 1px solid #dbe1ea;
-  border-radius: 8px;
-  padding: 0 10px;
-  font-size: 12px;
+  height: 100%;
+  border: none;
+  padding: 0;
+  font-size: 14px;
   color: #1f2937;
   outline: none;
+  background: transparent;
 }
 
 .storeManageSearchRow input:focus {
-  border-color: #4e8cff;
-  box-shadow: 0 0 0 2px rgba(78, 140, 255, 0.14);
+  box-shadow: none;
 }
 
-.storeManageSearchRow span {
-  color: #7b8490;
-  font-size: 12px;
+.storeManageGrid {
+  margin-top: 10px;
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 4px;
 }
 
-.storeManageList {
-  margin-top: 6px;
+.storeManageStoreCard {
+  min-height: 164px;
+  border: 1px solid rgba(217, 241, 231, 0.96);
+  border-radius: 12px;
+  background: #ffffff;
+  box-shadow: 0 16px 28px rgba(52, 124, 94, 0.09);
+  padding: 12px;
   display: flex;
   flex-direction: column;
-  height: auto;
-  overflow: visible;
+  justify-content: space-between;
+  gap: 8px;
+  cursor: pointer;
+  position: relative;
+  transition: transform 0.16s ease, box-shadow 0.16s ease, opacity 0.16s ease;
+}
+
+.storeManageStoreCard:active {
+  transform: scale(0.98);
+}
+
+.storeManageStoreCard:focus-visible {
+  outline: 3px solid rgba(68, 204, 145, 0.35);
+  outline-offset: 2px;
+}
+
+.storeManageStoreCardHidden {
+  opacity: 0.62;
+}
+
+.storeManageDeleteBadge {
+  position: absolute;
+  left: -7px;
+  top: -7px;
+  z-index: 2;
+  width: 28px;
+  height: 28px;
+  border: 2px solid #ffffff;
+  border-radius: 50%;
+  background: #ff425b;
+  color: #ffffff;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  padding: 0;
+  box-shadow: 0 8px 16px rgba(255, 66, 91, 0.32);
+  cursor: pointer;
+}
+
+.storeManageCardTop,
+.storeManageCardBottom {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+}
+
+.storeManageCardAvatar {
+  width: 48px;
+  height: 48px;
+  border-radius: 14px;
+  background: #ecfff5;
+  color: #34b77b;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  overflow: hidden;
+  font-weight: 800;
+}
+
+.storeManageCardAvatar img {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+}
+
+.storeManageVisibilityButton {
+  width: 46px;
+  height: 28px;
+  border: none;
+  border-radius: 999px;
+  background: #e2e7e4;
+  color: #ffffff;
+  display: inline-flex;
+  align-items: center;
+  justify-content: flex-start;
+  padding: 0 6px;
+  cursor: pointer;
+}
+
+.storeManageVisibilityButtonOn {
+  justify-content: flex-end;
+  background: #6adba7;
+  box-shadow: 0 8px 14px rgba(51, 191, 128, 0.28);
+}
+
+.storeManageVisibilityButton:disabled {
+  opacity: 0.58;
+  cursor: not-allowed;
+}
+
+.storeManageCardBody {
+  display: grid;
+  gap: 5px;
+}
+
+.storeManageCardBody strong {
+  color: #111b17;
+  font-size: 16px !important;
+  line-height: 1.2;
+  font-weight: 800;
+  overflow-wrap: anywhere;
+}
+
+.storeManageCardBody span {
+  color: #8ca196;
+  font-size: 12px !important;
+  font-weight: 700;
+}
+
+.storeManageCardBottom {
+  color: #8ca196;
+}
+
+.storeManageCardBottom span {
+  font-size: 12px !important;
+  font-weight: 700;
+}
+
+.storeManageCardBottom strong {
+  color: #20aa73;
+  font-size: 13px !important;
+  font-weight: 800;
+}
+
+.storeManageEmptyState {
+  grid-column: 1 / -1;
+  min-height: 116px;
+  border-radius: 24px;
+  border: 1px dashed #a9dec8;
+  background: rgba(255, 255, 255, 0.72);
+  color: #7aa18f;
+  display: grid;
+  place-items: center;
+  font-weight: 700;
 }
 
 .storeManagePagination {
@@ -1944,11 +2173,11 @@
 
 .storeManagePagination button {
   height: 30px;
-  border: 1px solid #d5dbe4;
-  border-radius: 8px;
+  border: 1px solid #bce8d5;
+  border-radius: 15px;
   padding: 0 10px;
   background: #ffffff;
-  color: #374151;
+  color: #1d9b69;
   font-size: 12px;
   cursor: pointer;
 }
@@ -2065,14 +2294,14 @@
   grid-template-columns: 1fr auto 1fr;
   align-items: center;
   column-gap: 8px;
-  background: linear-gradient(180deg, rgba(242, 242, 244, 0) 0%, #f2f2f4 42%);
+  background: linear-gradient(180deg, rgba(248, 251, 249, 0) 0%, #f8fbf9 42%);
 }
 
 .storeManageNavItem {
   height: 40px;
   border: none;
   background: transparent;
-  color: #6b7280;
+  color: #78a28f;
   font-size: 12px;
   line-height: 1;
   display: inline-flex;
@@ -2096,20 +2325,20 @@
   height: 12px;
   border-radius: 50%;
   background: #ff425b;
-  border: 2px solid #f2f2f4;
+  border: 2px solid #f8fbf9;
 }
 
 .storeManageAddButton {
   border: none;
-  width: 88px;
-  height: 52px;
-  border-radius: 16px;
-  background: linear-gradient(180deg, #ff4b68 0%, #ff274f 100%);
+  width: 74px;
+  height: 60px;
+  border-radius: 30px;
+  background: linear-gradient(180deg, #74e4ad 0%, #31bd80 100%);
   color: #ffffff;
   display: inline-flex;
   align-items: center;
   justify-content: center;
-  box-shadow: 0 8px 18px rgba(219, 27, 66, 0.3);
+  box-shadow: 0 12px 24px rgba(49, 189, 128, 0.34);
   cursor: pointer;
 }
 
@@ -2605,7 +2834,7 @@
 
 .storeTemplatePreviewProfile h4 {
   margin: 0;
-  font-size: 18px;
+  font-size: 16px;
 }
 
 .storeTemplatePreviewProfile p {
@@ -2649,7 +2878,7 @@
 }
 
 .movieDecorationHeroTitleInput {
-  font-size: 18px;
+  font-size: 16px;
   font-weight: 700;
 }
 
@@ -2669,7 +2898,7 @@
 }
 
 .movieDecorationCardTitleInput {
-  font-size: 18px;
+  font-size: 16px;
   font-weight: 700;
 }
 
@@ -2953,7 +3182,7 @@
 .storeTemplatePreviewMovieHeader h4 {
   margin: 0;
   color: #1f2937;
-  font-size: 18px;
+  font-size: 16px;
   line-height: 1.2;
 }
 
@@ -2999,7 +3228,7 @@
 }
 
 .storeTemplatePreviewMoviePoster span {
-  font-size: 24px;
+  font-size: 16px;
   opacity: 0.7;
 }
 

@@ -26,6 +26,15 @@ export interface WidgetPlaceholderProps {
   width?: number;
   /** 占据的网格高度 */
   height?: number;
+  templateId?: string;
+  subtitle?: string;
+  titleText?: string;
+  titleColor?: string;
+  titleFontSize?: number;
+  musicPlaying?: boolean;
+  musicTitle?: string;
+  musicArtist?: string;
+  onUpdateData?: (data: Record<string, unknown>) => void;
 }
 
 export const WidgetPlaceholder: React.FC<WidgetPlaceholderProps> = ({
@@ -39,6 +48,15 @@ export const WidgetPlaceholder: React.FC<WidgetPlaceholderProps> = ({
   shadow,
   width = 2,
   height = 2,
+  templateId,
+  subtitle,
+  titleText,
+  titleColor,
+  titleFontSize,
+  musicPlaying,
+  musicTitle,
+  musicArtist,
+  onUpdateData,
 }) => {
   // 根据宽高计算样式类
   const sizeClass = `col-span-${width} row-span-${height}`;
@@ -52,7 +70,7 @@ export const WidgetPlaceholder: React.FC<WidgetPlaceholderProps> = ({
     : 'none';
   const frostedOpacity = Math.min(0.6, resolvedFrosted / 40);
 
-  if (hasBackground) {
+  if (hasBackground && !templateId) {
     return (
       <div
         className="w-full h-full overflow-hidden relative"
@@ -74,6 +92,141 @@ export const WidgetPlaceholder: React.FC<WidgetPlaceholderProps> = ({
             }}
           />
         )}
+      </div>
+    );
+  }
+
+  if (status === 'normal' && templateId) {
+    if (templateId === 'glass-frame') {
+      return (
+        <div
+          className="w-full h-full overflow-hidden relative border border-white/35 bg-white/16 text-white"
+          style={{
+            gridColumn: `span ${width}`,
+            gridRow: `span ${height}`,
+            borderRadius: resolvedRadius,
+            boxShadow: shadowStyle,
+            backdropFilter: 'blur(12px) saturate(170%)',
+            WebkitBackdropFilter: 'blur(12px) saturate(170%)',
+          }}
+        >
+          <div className="absolute inset-0 bg-gradient-to-br from-white/24 via-white/6 to-white/14" />
+        </div>
+      );
+    }
+
+    const stopDesktopPointer = (event: React.SyntheticEvent) => event.stopPropagation();
+    const readPhotoFile = (file: File | undefined) => {
+      if (!file || !onUpdateData) return;
+      const reader = new FileReader();
+      reader.onload = () => {
+        if (typeof reader.result === 'string') {
+          onUpdateData({ backgroundImage: reader.result });
+        }
+      };
+      reader.readAsDataURL(file);
+    };
+
+    return (
+      <div
+        className="w-full h-full overflow-hidden relative border border-white/35 bg-white/16 text-white"
+        style={{
+          gridColumn: `span ${width}`,
+          gridRow: `span ${height}`,
+          borderRadius: resolvedRadius,
+          boxShadow: shadowStyle,
+          backdropFilter: 'blur(12px) saturate(170%)',
+          WebkitBackdropFilter: 'blur(12px) saturate(170%)',
+        }}
+      >
+        {backgroundImage ? (
+          <img src={backgroundImage} alt={name} className="absolute inset-0 h-full w-full object-cover opacity-80" />
+        ) : null}
+        <div className="absolute inset-0 bg-gradient-to-br from-white/24 via-white/6 to-white/14" />
+        <div className="relative z-10 flex h-full flex-col justify-between p-3">
+          {templateId === 'headline' ? (
+            <div className="flex h-full flex-col justify-center gap-2" onPointerDown={stopDesktopPointer}>
+              <input
+                value={titleText || name}
+                onChange={(event) => onUpdateData?.({ titleText: event.target.value })}
+                className="w-full bg-transparent text-center font-semibold outline-none placeholder:text-white/50"
+                style={{ color: titleColor || '#ffffff', fontSize: `${titleFontSize || 24}px` }}
+              />
+              <div className="flex items-center justify-center gap-2">
+                <input
+                  type="color"
+                  value={titleColor || '#ffffff'}
+                  onChange={(event) => onUpdateData?.({ titleColor: event.target.value })}
+                  className="h-5 w-7 rounded border border-white/30 bg-transparent"
+                />
+                <input
+                  type="range"
+                  min={14}
+                  max={42}
+                  value={titleFontSize || 24}
+                  onChange={(event) => onUpdateData?.({ titleFontSize: Number(event.target.value) })}
+                  className="w-20"
+                />
+              </div>
+            </div>
+          ) : templateId === 'ins-photo' ? (
+            <label className="flex h-full cursor-pointer flex-col items-center justify-center gap-2 text-center" onPointerDown={stopDesktopPointer}>
+              <input
+                type="file"
+                accept="image/*"
+                className="hidden"
+                onChange={(event) => readPhotoFile(event.target.files?.[0])}
+              />
+              <div className="rounded-full border border-white/30 bg-white/18 px-3 py-1 text-[11px] font-semibold">
+                {backgroundImage ? '更换照片' : '选择照片'}
+              </div>
+              <div className="text-[10px] text-white/70">{subtitle}</div>
+            </label>
+          ) : templateId === 'retro-music' ? (
+            <div className="flex h-full flex-col justify-between" onPointerDown={stopDesktopPointer}>
+              <div>
+                <div className="text-[13px] font-semibold">{musicTitle || name}</div>
+                <div className="mt-1 text-[10px] text-white/70">{musicArtist || subtitle}</div>
+              </div>
+              <div className="flex items-center justify-center gap-2">
+                <button type="button" className="rounded-full bg-white/18 px-2 py-1 text-[11px]">上一首</button>
+                <button
+                  type="button"
+                  className="rounded-full bg-white/28 px-3 py-1 text-[11px] font-semibold"
+                  onClick={() => onUpdateData?.({ musicPlaying: !musicPlaying })}
+                >
+                  {musicPlaying ? '暂停' : '播放'}
+                </button>
+                <button type="button" className="rounded-full bg-white/18 px-2 py-1 text-[11px]">下一首</button>
+              </div>
+            </div>
+          ) : (
+            <>
+              <div>
+                <div className="text-[13px] font-semibold leading-tight drop-shadow-[0_1px_2px_rgba(15,23,42,0.28)]">
+                  {name}
+                </div>
+                {subtitle ? (
+                  <div className="mt-1 text-[10px] leading-tight text-white/72 drop-shadow-[0_1px_2px_rgba(15,23,42,0.22)]">
+                    {subtitle}
+                  </div>
+                ) : null}
+              </div>
+              <div className="flex items-end justify-between">
+                <div className="text-[10px] font-semibold text-white/64">
+                  {width}x{height}
+                </div>
+                <div
+                  className="rounded-[10px] border border-white/18 bg-white/30 shadow-[inset_0_1px_0_rgba(255,255,255,0.28)]"
+                  style={{
+                    width: `${Math.min(72, Math.max(18, width * 18))}px`,
+                    height: `${Math.min(56, Math.max(18, height * 14))}px`,
+                  }}
+                />
+              </div>
+            </>
+          )}
+        </div>
       </div>
     );
   }

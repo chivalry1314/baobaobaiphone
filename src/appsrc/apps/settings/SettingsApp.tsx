@@ -3,6 +3,7 @@ import { motion, AnimatePresence } from 'motion/react';
 import { ChevronLeft, ChevronRight, Key, Shield, Info, Bell, Moon, Sparkles } from 'lucide-react';
 import { useSettingsStore } from './store';
 import { useGlobalDesktopStore } from '@baobaobaiOS/sdk';
+import type { AppContext } from '../../../core/sdk/types';
 import { APP_OPEN_MOTION, APP_CLOSE_MOTION } from '../../../core/appOpenMotion';
 import { useMobileViewportPageStyle } from '../../../core/mobileViewport';
 import { BeautifyView, ThemeManageView, IconManageView, FontManageView, WidgetManageView, WidgetEditorView, DesktopLayoutView, DesktopEditModeView, ApiSettingsView, PushNotificationView } from './components';
@@ -11,12 +12,30 @@ type ViewType = 'main' | 'api' | 'notifications' | 'beautify' | 'themeManage' | 
 
 interface SettingsAppProps {
   onClose: () => void;
+  context?: AppContext;
 }
 
-export const SettingsApp: React.FC<SettingsAppProps> = ({ onClose }) => {
+const isSettingsInitialView = (view: unknown): view is ViewType => (
+  view === 'main' ||
+  view === 'api' ||
+  view === 'notifications' ||
+  view === 'beautify' ||
+  view === 'themeManage' ||
+  view === 'iconManage' ||
+  view === 'fontManage' ||
+  view === 'widgetManage' ||
+  view === 'widgetEditor' ||
+  view === 'layout' ||
+  view === 'editMode'
+);
+
+export const SettingsApp: React.FC<SettingsAppProps> = ({ onClose, context }) => {
   const { settings, updateSettings } = useSettingsStore();
   const { desktopLayout, addDesktopItem, updateDesktopItem, updateDesktopLayout } = useGlobalDesktopStore();
-  const [currentView, setCurrentView] = useState<ViewType>('main');
+  const [currentView, setCurrentView] = useState<ViewType>(() => {
+    const initialView = context?.params?.initialView;
+    return isSettingsInitialView(initialView) ? initialView : 'main';
+  });
   const [widgetEditorId, setWidgetEditorId] = useState<string | undefined>(undefined);
   const [widgetEditorReturnTo, setWidgetEditorReturnTo] = useState<ViewType>('widgetManage');
   const [availableChatModels, setAvailableChatModels] = useState<string[]>([]);

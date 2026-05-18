@@ -11,6 +11,15 @@ interface AppIconProps {
   isFolder?: boolean;
   isClock?: boolean;
   onClick?: () => void;
+  isEditing?: boolean;
+  canRemove?: boolean;
+  onRemove?: () => void;
+  onPointerDown?: React.PointerEventHandler<HTMLDivElement>;
+  onPointerMove?: React.PointerEventHandler<HTMLDivElement>;
+  onPointerUp?: React.PointerEventHandler<HTMLDivElement>;
+  onPointerCancel?: React.PointerEventHandler<HTMLDivElement>;
+  jiggleDelayMs?: number;
+  jiggleDurationMs?: number;
   // 全局样式
   size?: number;
   radius?: number;
@@ -29,17 +38,47 @@ export const AppIcon: React.FC<AppIconProps> = ({
   radius = 18,
   frosted = 10,
   shadow = 8,
+  isEditing = false,
+  canRemove = false,
+  onRemove,
+  onPointerDown,
+  onPointerMove,
+  onPointerUp,
+  onPointerCancel,
+  jiggleDelayMs = 0,
+  jiggleDurationMs = 920,
 }) => {
   const IconComponent = icon ? (LucideIcons[icon] as React.ElementType) : null;
   const clockId = useId();
 
   return (
     <motion.div
-      whileHover={{ scale: 1.05 }}
-      whileTap={{ scale: 0.9 }}
-      className="flex flex-col items-center gap-1 cursor-pointer"
-      onClick={onClick}
+      whileHover={isEditing ? undefined : { scale: 1.05 }}
+      whileTap={isEditing ? undefined : { scale: 0.9 }}
+      className={`relative flex flex-col items-center gap-1 cursor-pointer touch-none ${isEditing ? 'desktop-icon-jiggle' : ''}`}
+      style={isEditing ? {
+        animationDelay: `${jiggleDelayMs}ms`,
+        animationDuration: `${jiggleDurationMs}ms`,
+      } : undefined}
+      onClick={isEditing ? undefined : onClick}
+      onPointerDown={onPointerDown}
+      onPointerMove={onPointerMove}
+      onPointerUp={onPointerUp}
+      onPointerCancel={onPointerCancel}
     >
+      {isEditing ? (
+        <button
+          type="button"
+          className="absolute -right-2 -top-2 z-20 flex h-7 w-7 items-center justify-center rounded-full border border-white/45 bg-white/18 p-0 text-black shadow-[inset_0_1px_0_rgba(255,255,255,0.42),0_6px_14px_rgba(15,23,42,0.14)] backdrop-blur-xl"
+          aria-label={canRemove ? '卸载应用' : '不可卸载'}
+          onClick={(event) => {
+            event.stopPropagation();
+            if (canRemove) onRemove?.();
+          }}
+        >
+          <span className="h-1 w-4 rounded-full bg-white shadow-[0_1px_3px_rgba(15,23,42,0.28)]" />
+        </button>
+      ) : null}
       <div
         className="flex items-center justify-center relative overflow-hidden group"
         style={{

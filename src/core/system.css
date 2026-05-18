@@ -100,6 +100,16 @@ body {
     animation: float 3s ease-in-out infinite;
   }
 
+  @keyframes desktopIconJiggle {
+    0% { transform: rotate(-0.7deg) translateY(0) scale(1); }
+    50% { transform: rotate(0.7deg) translateY(-1px) scale(1.012); }
+    100% { transform: rotate(-0.7deg) translateY(0) scale(1); }
+  }
+
+  .desktop-icon-jiggle {
+    animation: desktopIconJiggle 0.78s ease-in-out infinite;
+  }
+
   /* 安全区适配 - 系统级 */
   .safe-area-top {
     padding-top: env(safe-area-inset-top, 0);

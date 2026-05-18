@@ -188,6 +188,41 @@
   box-shadow: 0 10px 26px rgba(15, 23, 42, 0.06);
 }
 
+.homeSegmentWrap {
+  margin-top: 4px;
+  display: flex;
+  justify-content: center;
+}
+
+.homeSegmentControl {
+  width: min(100%, 292px);
+  height: 56px;
+  padding: 5px;
+  border-radius: 28px;
+  background: rgba(255, 255, 255, 0.92);
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 4px;
+  box-shadow: 0 12px 30px rgba(15, 23, 42, 0.08);
+}
+
+.homeSegmentButton {
+  border: 0;
+  border-radius: 23px;
+  background: transparent;
+  color: #111827;
+  font-size: 16px;
+  font-weight: 800;
+  cursor: pointer;
+  transition: background 0.18s ease, color 0.18s ease, box-shadow 0.18s ease;
+}
+
+.homeSegmentButtonActive {
+  background: linear-gradient(180deg, #ffbd4a 0%, #ffaf28 100%);
+  color: #ffffff;
+  box-shadow: 0 8px 16px rgba(255, 175, 40, 0.28);
+}
+
 .sectionTitleRow {
   display: flex;
   justify-content: space-between;
