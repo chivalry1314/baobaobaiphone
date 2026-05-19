@@ -63,13 +63,13 @@ export const HomeView: React.FC<HomeViewProps> = ({
     <button
       type="button"
       onClick={onOpenLyrics}
-      className="relative mx-auto mt-6 w-[80vw] max-w-[390px] aspect-square block"
+      className="relative mx-auto mt-10 w-[74vw] max-w-[360px] aspect-square block"
       aria-label="打开歌词页"
     >
-      <div className="pointer-events-none absolute -top-6 right-[4%] h-44 w-52 z-10">
+      <div className="pointer-events-none absolute -top-10 right-[-3%] h-36 w-44 z-10">
         <div className="absolute left-1 top-1 h-7 w-7 rounded-full border border-[#D6CAB8] bg-[#F5F0E7] shadow-[0_0_0_8px_rgba(0,0,0,0.22)]" />
         <div className="absolute left-[16px] top-[19px] origin-left rotate-[42deg]">
-          <div className="relative h-[6px] w-[196px] rounded-full bg-[#F5F0E7] shadow-[0_4px_8px_rgba(0,0,0,0.22)]">
+            <div className="relative h-[6px] w-[166px] rounded-full bg-[#F5F0E7] shadow-[0_4px_8px_rgba(0,0,0,0.22)]">
             <div className="absolute right-[44px] top-1/2 h-[10px] w-[10px] -translate-y-1/2 rounded-full bg-[#F5F0E7] shadow-[0_2px_5px_rgba(0,0,0,0.2)]" />
             <div className="absolute right-0 top-1/2 h-[18px] w-[28px] -translate-y-1/2 rounded-[7px] border border-black/10 bg-[#F8F3EA] shadow-[0_3px_8px_rgba(0,0,0,0.22)]" />
             <div className="absolute right-[9px] top-1/2 h-[4px] w-[10px] -translate-y-1/2 rounded-full bg-[#D5C7B3]" />

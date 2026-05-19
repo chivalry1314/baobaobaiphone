@@ -109,6 +109,7 @@ export const WidgetPlaceholder: React.FC<WidgetPlaceholderProps> = ({
     ? `0 ${Math.max(2, Math.round(resolvedShadow / 2))}px ${resolvedShadow}px -${Math.max(2, Math.round(resolvedShadow / 3))}px rgba(15, 23, 42, 0.35)`
     : 'none';
   const frostedOpacity = Math.min(0.6, resolvedFrosted / 40);
+  const isWideVinyl = templateId === 'vinyl-record' && width > height;
 
   if (hasBackground && !templateId) {
     return (
@@ -210,7 +211,10 @@ export const WidgetPlaceholder: React.FC<WidgetPlaceholderProps> = ({
           ) : templateId === 'vinyl-record' ? (
             <div className="relative flex h-full items-center justify-center overflow-hidden" onPointerDown={stopDesktopPointer}>
               <div className="absolute inset-0 bg-[repeating-linear-gradient(90deg,rgba(255,255,255,0.16)_0_9px,rgba(15,23,42,0.10)_9px_14px)]" />
-              <div className="relative aspect-square h-[82%] max-h-[82%] max-w-[82%]">
+              <div
+                className="relative aspect-square"
+                style={isWideVinyl ? { height: '82%' } : { width: '82%' }}
+              >
                 <div
                   className={`absolute inset-0 rounded-full bg-[radial-gradient(circle_at_center,rgba(180,150,104,0.72)_0_18%,rgba(20,20,20,0.96)_19%_33%,rgba(7,7,8,0.98)_34%_100%)] shadow-[0_12px_24px_rgba(0,0,0,0.30),inset_0_0_0_12px_rgba(255,255,255,0.035)] ${dreamIsPlaying ? 'animate-[spin_3.8s_linear_infinite]' : ''}`}
                 >
