@@ -504,7 +504,7 @@ export const SellerStoreManagePage: React.FC<SellerStoreManagePageProps> = ({
       clearStoreCardLongPress();
       suppressStoreCardClickRef.current = false;
       storeCardLongPressTimerRef.current = window.setTimeout(() => {
-        setDeleteArmedStoreId(storeId);
+        setDeleteArmedStoreId((prev) => (prev === storeId ? null : storeId));
         suppressStoreCardClickRef.current = true;
         storeCardLongPressTimerRef.current = null;
       }, 560);
@@ -1275,9 +1275,6 @@ export const SellerStoreManagePage: React.FC<SellerStoreManagePageProps> = ({
                 placeholder="搜索店铺名称"
               />
             </div>
-          </div>
-          <div className={styles.storeManageSectionMeta}>
-            <span>共 {filteredList.length} 家（长按卡片可删除）</span>
           </div>
           <div className={styles.storeManageGrid}>
             {pagedStoreList.map((item) => {

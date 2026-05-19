@@ -1,6 +1,6 @@
 import React, { useMemo, useState, useEffect, useRef, useCallback } from 'react';
 import { motion, AnimatePresence } from 'motion/react';
-import { Grid2x2Plus, Palette, Wallpaper } from 'lucide-react';
+import { CalendarDays, Clock3, Disc3, Grid2x2Plus, Image as ImageIcon, Palette, Type, Wallpaper } from 'lucide-react';
 import { StatusBar } from './components/StatusBar';
 import { HomeDock } from './components/HomeDock';
 import { AppIcon } from './components/AppIcon';
@@ -249,6 +249,14 @@ const desktopWidgetSizes = [
   { label: '4x4', w: 4, h: 4 },
 ];
 
+const desktopFrameWidgetTemplates = [
+  { id: 'ins-photo', name: 'ins照片', icon: ImageIcon, subtitle: '点击上传照片' },
+  { id: 'calendar-card', name: '日历', icon: CalendarDays, subtitle: '半透明日历' },
+  { id: 'vinyl-record', name: '唱片', icon: Disc3, subtitle: '复古唱片' },
+  { id: 'clock-card', name: '时钟', icon: Clock3, subtitle: '大号时间' },
+  { id: 'text-card', name: '文字', icon: Type, subtitle: '纪念日文字' },
+];
+
 const isRecord = (value: unknown): value is Record<string, unknown> =>
   typeof value === 'object' && value !== null && !Array.isArray(value);
 
@@ -332,6 +340,7 @@ export default function App() {
   const [isDesktopEditing, setIsDesktopEditing] = useState(false);
   const [isDesktopEditMenuOpen, setIsDesktopEditMenuOpen] = useState(false);
   const [isDesktopWidgetPickerOpen, setIsDesktopWidgetPickerOpen] = useState(false);
+  const [activeWidgetFrameMenuId, setActiveWidgetFrameMenuId] = useState<string | null>(null);
   const [draggingDesktopIcon, setDraggingDesktopIcon] = useState<{
     instanceId: string;
     dx: number;
@@ -380,6 +389,7 @@ export default function App() {
     startW: number;
     startH: number;
   } | null>(null);
+  const widgetClickSuppressRef = useRef(false);
   const desktopAutoPageTimerRef = useRef<number | null>(null);
   const desktopAutoPageTargetRef = useRef<number | null>(null);
   const fullscreenHintTimerRef = useRef<number | null>(null);
@@ -1061,6 +1071,60 @@ export default function App() {
     setIsDesktopEditMenuOpen(false);
   }, [addDesktopItem, cols, computedPageCount, items, rows, updateDesktopItem, updateDesktopLayout]);
 
+  const convertDesktopWidgetFrame = useCallback((instanceId: string, templateId: string) => {
+    const template = desktopFrameWidgetTemplates.find((item) => item.id === templateId);
+    if (!template) return;
+    const defaultsByTemplate: Record<string, Record<string, unknown>> = {
+      'ins-photo': {
+        subtitle: '点击上传照片',
+        backgroundImage: '',
+        cornerRadius: 22,
+        frosted: 8,
+        shadow: 12,
+      },
+      'calendar-card': {
+        subtitle: 'February',
+        backgroundImage: '',
+        cornerRadius: 22,
+        frosted: 6,
+        shadow: 12,
+      },
+      'vinyl-record': {
+        subtitle: 'SCION MANIA',
+        backgroundImage: '',
+        cornerRadius: 22,
+        frosted: 6,
+        shadow: 12,
+        musicPlaying: false,
+        musicTitle: 'SCION',
+        musicArtist: 'MANIA',
+      },
+      'clock-card': {
+        subtitle: 'Thu Mar 26',
+        cornerRadius: 18,
+        frosted: 4,
+        shadow: 8,
+      },
+      'text-card': {
+        titleText: '184 天',
+        subtitle: '我们的纪念日\n2024.07.30',
+        titleColor: '#ffffff',
+        titleFontSize: 22,
+        cornerRadius: 20,
+        frosted: 8,
+        shadow: 10,
+      },
+    };
+    updateDesktopItem(instanceId, {
+      data: {
+        name: template.name,
+        templateId,
+        ...defaultsByTemplate[templateId],
+      },
+    });
+    setActiveWidgetFrameMenuId(null);
+  }, [updateDesktopItem]);
+
   const canPlaceDesktopWidgetFrame = useCallback((target: DesktopItem, x: number, y: number, width = target.w || 1, height = target.h || 1) => {
     if (x < 0 || y < 0 || x + width > cols || y + height > rows) return false;
     return !items.some((item) => {
@@ -1140,6 +1204,60 @@ export default function App() {
     });
   }, [activePage, cols, computedPageCount, items, rows, updateDesktopItem]);
 
+  const compactDesktopAppsAfterWidgetResize = useCallback((fromPage: number) => {
+    const latestItems = useDesktopCoreStore.getState().desktopLayout.items || [];
+    const appItemsToCompact = latestItems
+      .filter((item) => item.type === 'app' && (item.page ?? 0) >= fromPage)
+      .map((item) => ({ ...item }))
+      .sort((left, right) => {
+        const leftPage = left.page ?? 0;
+        const rightPage = right.page ?? 0;
+        if (leftPage !== rightPage) return leftPage - rightPage;
+        return left.y * cols + left.x - (right.y * cols + right.x);
+      });
+    if (appItemsToCompact.length === 0) return;
+
+    const widgetBlockers = latestItems.filter((item) => item.type === 'widget');
+    const occupiedAppCells = new Set<string>();
+    const maxPage = Math.max(
+      computedPageCount - 1,
+      fromPage,
+      ...latestItems.map((item) => item.page ?? 0)
+    );
+    const isBlockedByWidget = (page: number, x: number, y: number) => (
+      widgetBlockers.some((widget) => (
+        (widget.page ?? 0) === page &&
+        x >= widget.x &&
+        x < widget.x + (widget.w || 1) &&
+        y >= widget.y &&
+        y < widget.y + (widget.h || 1)
+      ))
+    );
+    const findNextCell = () => {
+      for (let page = fromPage; page <= maxPage + 1; page += 1) {
+        for (let y = 0; y < rows; y += 1) {
+          for (let x = 0; x < cols; x += 1) {
+            const key = `${page}:${x}:${y}`;
+            if (!occupiedAppCells.has(key) && !isBlockedByWidget(page, x, y)) {
+              occupiedAppCells.add(key);
+              return { page, x, y };
+            }
+          }
+        }
+      }
+      const fallback = { page: maxPage + 1, x: 0, y: 0 };
+      occupiedAppCells.add(`${fallback.page}:0:0`);
+      return fallback;
+    };
+
+    appItemsToCompact.forEach((app) => {
+      const nextCell = findNextCell();
+      if ((app.page ?? 0) !== nextCell.page || app.x !== nextCell.x || app.y !== nextCell.y) {
+        updateDesktopItem(app.instanceId, nextCell);
+      }
+    });
+  }, [cols, computedPageCount, rows, updateDesktopItem]);
+
   const startDesktopWidgetPointer = useCallback((event: React.PointerEvent<HTMLDivElement>, item: DesktopItem) => {
     if (event.button !== 0) return;
     event.stopPropagation();
@@ -1152,8 +1270,12 @@ export default function App() {
         iconLongPressTimerRef.current = null;
         iconLongPressStartRef.current = null;
       }, 520);
+      event.currentTarget.setPointerCapture(event.pointerId);
       return;
     }
+
+    const target = event.target as HTMLElement;
+    if (target.closest('button, input, label, textarea, select')) return;
 
     const rect = event.currentTarget.getBoundingClientRect();
     widgetDragRef.current = {
@@ -1165,6 +1287,10 @@ export default function App() {
       pointerOffsetY: event.clientY - rect.top,
       moved: false,
     };
+    widgetClickSuppressRef.current = false;
+    if (item.data?.templateId !== 'glass-frame') {
+      setActiveWidgetFrameMenuId(null);
+    }
     setDraggingDesktopWidget({ instanceId: item.instanceId, dx: 0, dy: 0 });
     event.currentTarget.setPointerCapture(event.pointerId);
   }, [clearIconLongPress, isDesktopEditing]);
@@ -1183,6 +1309,7 @@ export default function App() {
     const dy = event.clientY - drag.startY;
     if (Math.hypot(dx, dy) > 6) {
       drag.moved = true;
+      widgetClickSuppressRef.current = true;
     }
     setDraggingDesktopWidget({ instanceId: drag.instanceId, dx, dy });
   }, [clearIconLongPress, isDesktopEditing]);
@@ -1190,6 +1317,9 @@ export default function App() {
   const endDesktopWidgetPointer = useCallback((event: React.PointerEvent<HTMLDivElement>) => {
     if (!isDesktopEditing) {
       clearIconLongPress();
+      if (event.currentTarget.hasPointerCapture(event.pointerId)) {
+        event.currentTarget.releasePointerCapture(event.pointerId);
+      }
       return;
     }
     const drag = widgetDragRef.current;
@@ -1219,6 +1349,7 @@ export default function App() {
   const startDesktopWidgetResize = useCallback((event: React.PointerEvent<HTMLButtonElement>, item: DesktopItem) => {
     if (!isDesktopEditing || event.button !== 0) return;
     event.stopPropagation();
+    setActiveWidgetFrameMenuId(null);
     widgetResizeRef.current = {
       pointerId: event.pointerId,
       instanceId: item.instanceId,
@@ -1231,6 +1362,7 @@ export default function App() {
   }, [isDesktopEditing]);
 
   const moveDesktopWidgetResize = useCallback((event: React.PointerEvent<HTMLButtonElement>) => {
+    event.stopPropagation();
     const resize = widgetResizeRef.current;
     if (!resize || resize.pointerId !== event.pointerId) return;
     const item = items.find((entry) => entry.instanceId === resize.instanceId);
@@ -1248,13 +1380,15 @@ export default function App() {
   }, [canPlaceDesktopWidgetFrame, cols, items, moveAppsAwayFromWidgetFrame, rows, updateDesktopItem]);
 
   const endDesktopWidgetResize = useCallback((event: React.PointerEvent<HTMLButtonElement>) => {
+    event.stopPropagation();
     const resize = widgetResizeRef.current;
     if (!resize || resize.pointerId !== event.pointerId) return;
     widgetResizeRef.current = null;
+    compactDesktopAppsAfterWidgetResize(activePage);
     if (event.currentTarget.hasPointerCapture(event.pointerId)) {
       event.currentTarget.releasePointerCapture(event.pointerId);
     }
-  }, []);
+  }, [activePage, compactDesktopAppsAfterWidgetResize]);
 
   const scheduleDesktopAutoPage = useCallback((clientX: number) => {
     const drag = iconDragRef.current;
@@ -1577,8 +1711,8 @@ export default function App() {
           className="pointer-events-none absolute inset-x-0 z-[70] flex items-start justify-between px-8"
           style={{
             top: shouldRenderCustomStatusBar
-              ? 'calc(max(env(safe-area-inset-top, 0px), 24px) + 20px)'
-              : 'calc(max(env(safe-area-inset-top, 0px), 12px) + 16px)',
+              ? 'calc(max(env(safe-area-inset-top, 0px), 24px) + 14px)'
+              : 'calc(max(env(safe-area-inset-top, 0px), 12px) + 10px)',
           }}
         >
           <div className="pointer-events-auto relative">
@@ -1703,13 +1837,25 @@ export default function App() {
           paddingBottom: 'calc(env(safe-area-inset-bottom, 20px) + 100px)'
         }}
         onTouchStart={(e) => {
-          if (isDesktopEditing) return;
+          if (
+            isDesktopEditing &&
+            (iconDragRef.current ||
+              widgetDragRef.current ||
+              widgetResizeRef.current ||
+              (e.target as HTMLElement).closest('[data-desktop-icon-id], [data-desktop-widget-id], button'))
+          ) {
+            touchStartRef.current = null;
+            return;
+          }
           const t = e.touches[0];
           if (!t) return;
           touchStartRef.current = { x: t.clientX, y: t.clientY };
         }}
         onTouchEnd={(e) => {
-          if (isDesktopEditing) return;
+          if (iconDragRef.current || widgetDragRef.current || widgetResizeRef.current) {
+            touchStartRef.current = null;
+            return;
+          }
           const start = touchStartRef.current;
           if (!start) return;
           const t = e.changedTouches[0];
@@ -1761,6 +1907,7 @@ export default function App() {
                   cells.push(
                     <div
                       key={widgetItem.instanceId}
+                      data-desktop-widget-id={widgetItem.instanceId}
                       style={{
                         gridColumn: `${gridColumnStart} / ${gridColumnEnd}`,
                         gridRow: `${gridRowStart} / ${gridRowEnd}`,
@@ -1772,11 +1919,40 @@ export default function App() {
                           : 'transform 260ms cubic-bezier(0.22, 1, 0.36, 1)',
                         zIndex: draggingOffset ? 60 : undefined,
                       }}
-                      className={`relative rounded-2xl overflow-hidden touch-none ${isDesktopEditing ? 'cursor-grab active:cursor-grabbing' : ''}`}
-                      onPointerDown={(event) => startDesktopWidgetPointer(event, widgetItem)}
-                      onPointerMove={moveDesktopWidgetPointer}
-                      onPointerUp={endDesktopWidgetPointer}
-                      onPointerCancel={endDesktopWidgetPointer}
+                      className={`relative rounded-2xl touch-none ${isDesktopEditing ? 'cursor-grab active:cursor-grabbing' : ''}`}
+                      onPointerDownCapture={(event) => {
+                        if (!isDesktopEditing) startDesktopWidgetPointer(event, widgetItem);
+                      }}
+                      onPointerDown={(event) => {
+                        if (isDesktopEditing) startDesktopWidgetPointer(event, widgetItem);
+                      }}
+                      onPointerMoveCapture={(event) => {
+                        if (!isDesktopEditing) moveDesktopWidgetPointer(event);
+                      }}
+                      onPointerMove={(event) => {
+                        if (isDesktopEditing) moveDesktopWidgetPointer(event);
+                      }}
+                      onPointerUpCapture={(event) => {
+                        if (!isDesktopEditing) endDesktopWidgetPointer(event);
+                      }}
+                      onPointerUp={(event) => {
+                        if (isDesktopEditing) endDesktopWidgetPointer(event);
+                      }}
+                      onPointerCancelCapture={(event) => {
+                        if (!isDesktopEditing) endDesktopWidgetPointer(event);
+                      }}
+                      onPointerCancel={(event) => {
+                        if (isDesktopEditing) endDesktopWidgetPointer(event);
+                      }}
+                      onClick={(event) => {
+                        if (!isDesktopEditing || widgetItem.data?.templateId !== 'glass-frame') return;
+                        event.stopPropagation();
+                        if (widgetClickSuppressRef.current) {
+                          widgetClickSuppressRef.current = false;
+                          return;
+                        }
+                        setActiveWidgetFrameMenuId((prev) => (prev === widgetItem.instanceId ? null : widgetItem.instanceId));
+                      }}
                     >
                       {isDesktopEditing ? (
                         <>
@@ -1802,40 +1978,69 @@ export default function App() {
                           />
                         </>
                       ) : null}
-                      {widgetConfig?.component ? (
-                        <Widget
-                          size={widgetItem.w && widgetItem.h ? `${widgetItem.w}x${widgetItem.h}` as any : 'medium'}
-                          title={widgetConfig.name}
+                      <div className="h-full w-full overflow-hidden rounded-2xl">
+                        {widgetConfig?.component ? (
+                          <Widget
+                            size={widgetItem.w && widgetItem.h ? `${widgetItem.w}x${widgetItem.h}` as any : 'medium'}
+                            title={widgetConfig.name}
+                          >
+                            {React.createElement(widgetConfig.component, { ...widgetItem.data })}
+                          </Widget>
+                        ) : (
+                          <WidgetPlaceholder
+                            name={widgetItem.data?.name || widgetConfig?.name || 'Widget'}
+                            backgroundImage={widgetItem.data?.backgroundImage || widgetItem.data?.placeholderIcon || ''}
+                            defaultIcon={widgetConfig?.defaultIcon || ''}
+                            status={widgetItem.componentId === 'custom-widget' ? 'normal' : 'building'}
+                            cornerRadius={widgetItem.data?.cornerRadius}
+                            frosted={widgetItem.data?.frosted}
+                            shadow={widgetItem.data?.shadow}
+                            templateId={typeof widgetItem.data?.templateId === 'string' ? widgetItem.data.templateId : undefined}
+                            subtitle={typeof widgetItem.data?.subtitle === 'string' ? widgetItem.data.subtitle : undefined}
+                            titleText={typeof widgetItem.data?.titleText === 'string' ? widgetItem.data.titleText : undefined}
+                            titleColor={typeof widgetItem.data?.titleColor === 'string' ? widgetItem.data.titleColor : undefined}
+                            titleFontSize={typeof widgetItem.data?.titleFontSize === 'number' ? widgetItem.data.titleFontSize : undefined}
+                            musicPlaying={typeof widgetItem.data?.musicPlaying === 'boolean' ? widgetItem.data.musicPlaying : undefined}
+                            musicTitle={typeof widgetItem.data?.musicTitle === 'string' ? widgetItem.data.musicTitle : undefined}
+                            musicArtist={typeof widgetItem.data?.musicArtist === 'string' ? widgetItem.data.musicArtist : undefined}
+                            isEditing={isDesktopEditing}
+                            onUpdateData={(nextData) => updateDesktopItem(widgetItem.instanceId, {
+                              data: {
+                                ...widgetItem.data,
+                                ...nextData,
+                              },
+                            })}
+                            width={w}
+                            height={h}
+                          />
+                        )}
+                      </div>
+                      {isDesktopEditing &&
+                      widgetItem.data?.templateId === 'glass-frame' &&
+                      activeWidgetFrameMenuId === widgetItem.instanceId ? (
+                        <div
+                          className="absolute left-1 top-8 z-30 w-[min(180px,calc(100vw-48px))] overflow-hidden rounded-[18px] border border-white/35 bg-white/18 p-2 text-white shadow-[inset_0_1px_0_rgba(255,255,255,0.34),0_14px_32px_rgba(15,23,42,0.18)] backdrop-blur-xl"
+                          onPointerDown={(event) => event.stopPropagation()}
+                          onClick={(event) => event.stopPropagation()}
                         >
-                          {React.createElement(widgetConfig.component, { ...widgetItem.data })}
-                        </Widget>
-                      ) : (
-                        <WidgetPlaceholder
-                          name={widgetItem.data?.name || widgetConfig?.name || 'Widget'}
-                          backgroundImage={widgetItem.data?.backgroundImage || widgetItem.data?.placeholderIcon || ''}
-                          defaultIcon={widgetConfig?.defaultIcon || ''}
-                          status={widgetItem.componentId === 'custom-widget' ? 'normal' : 'building'}
-                          cornerRadius={widgetItem.data?.cornerRadius}
-                          frosted={widgetItem.data?.frosted}
-                          shadow={widgetItem.data?.shadow}
-                          templateId={typeof widgetItem.data?.templateId === 'string' ? widgetItem.data.templateId : undefined}
-                          subtitle={typeof widgetItem.data?.subtitle === 'string' ? widgetItem.data.subtitle : undefined}
-                          titleText={typeof widgetItem.data?.titleText === 'string' ? widgetItem.data.titleText : undefined}
-                          titleColor={typeof widgetItem.data?.titleColor === 'string' ? widgetItem.data.titleColor : undefined}
-                          titleFontSize={typeof widgetItem.data?.titleFontSize === 'number' ? widgetItem.data.titleFontSize : undefined}
-                          musicPlaying={typeof widgetItem.data?.musicPlaying === 'boolean' ? widgetItem.data.musicPlaying : undefined}
-                          musicTitle={typeof widgetItem.data?.musicTitle === 'string' ? widgetItem.data.musicTitle : undefined}
-                          musicArtist={typeof widgetItem.data?.musicArtist === 'string' ? widgetItem.data.musicArtist : undefined}
-                          onUpdateData={(nextData) => updateDesktopItem(widgetItem.instanceId, {
-                            data: {
-                              ...widgetItem.data,
-                              ...nextData,
-                            },
-                          })}
-                          width={w}
-                          height={h}
-                        />
-                      )}
+                          <div className="grid grid-cols-1 gap-1.5">
+                            {desktopFrameWidgetTemplates.map((template) => {
+                              const TemplateIcon = template.icon;
+                              return (
+                                <button
+                                  key={template.id}
+                                  type="button"
+                                  className="flex items-center gap-2 rounded-[12px] border border-white/14 bg-white/10 px-2 py-1.5 text-left text-[11px] font-semibold shadow-[inset_0_1px_0_rgba(255,255,255,0.16)]"
+                                  onClick={() => convertDesktopWidgetFrame(widgetItem.instanceId, template.id)}
+                                >
+                                  <TemplateIcon size={14} strokeWidth={1.9} />
+                                  <span className="min-w-0 flex-1 truncate">{template.name}</span>
+                                </button>
+                              );
+                            })}
+                          </div>
+                        </div>
+                      ) : null}
                     </div>
                   );
                 } else if (isInsideWidget) {

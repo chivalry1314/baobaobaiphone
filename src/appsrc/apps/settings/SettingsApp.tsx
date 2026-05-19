@@ -31,7 +31,7 @@ const isSettingsInitialView = (view: unknown): view is ViewType => (
 
 export const SettingsApp: React.FC<SettingsAppProps> = ({ onClose, context }) => {
   const { settings, updateSettings } = useSettingsStore();
-  const { desktopLayout, addDesktopItem, updateDesktopItem, updateDesktopLayout } = useGlobalDesktopStore();
+  const { desktopLayout, addDesktopItem, updateDesktopItem, removeDesktopItem, updateDesktopLayout } = useGlobalDesktopStore();
   const [currentView, setCurrentView] = useState<ViewType>(() => {
     const initialView = context?.params?.initialView;
     return isSettingsInitialView(initialView) ? initialView : 'main';
@@ -237,7 +237,11 @@ export const SettingsApp: React.FC<SettingsAppProps> = ({ onClose, context }) =>
 
   const editingItem = widgetEditorId
     ? (desktopLayout.items || []).find(
-        (item) => item.instanceId === widgetEditorId && item.type === 'widget' && item.componentId === 'custom-widget'
+        (item) =>
+          item.instanceId === widgetEditorId &&
+          item.type === 'widget' &&
+          item.componentId === 'custom-widget' &&
+          item.data?.templateId !== 'glass-frame'
       )
     : undefined;
 
@@ -246,7 +250,14 @@ export const SettingsApp: React.FC<SettingsAppProps> = ({ onClose, context }) =>
         name: editingItem.data?.name || '自定义组件',
         width: editingItem.w || 2,
         height: editingItem.h || 2,
-        backgroundImage: editingItem.data?.backgroundImage || editingItem.data?.placeholderIcon || '',
+        templateId: typeof editingItem.data?.templateId === 'string' ? editingItem.data.templateId : undefined,
+        widgetCode: typeof editingItem.data?.widgetCode === 'string' ? editingItem.data.widgetCode : undefined,
+        titleText: typeof editingItem.data?.titleText === 'string' ? editingItem.data.titleText : undefined,
+        subtitle: typeof editingItem.data?.subtitle === 'string' ? editingItem.data.subtitle : undefined,
+        titleColor: typeof editingItem.data?.titleColor === 'string' ? editingItem.data.titleColor : undefined,
+        titleFontSize: typeof editingItem.data?.titleFontSize === 'number' ? editingItem.data.titleFontSize : undefined,
+        musicTitle: typeof editingItem.data?.musicTitle === 'string' ? editingItem.data.musicTitle : undefined,
+        musicArtist: typeof editingItem.data?.musicArtist === 'string' ? editingItem.data.musicArtist : undefined,
         cornerRadius: editingItem.data?.cornerRadius ?? 24,
         frosted: editingItem.data?.frosted ?? 8,
         shadow: editingItem.data?.shadow ?? 12,
@@ -289,7 +300,7 @@ export const SettingsApp: React.FC<SettingsAppProps> = ({ onClose, context }) =>
             : currentView === 'api'
             ? 'API 设置'
             : currentView === 'notifications'
-            ? 'Push Notifications'
+            ? '通知'
             : currentView === 'beautify'
             ? 'UI 美化'
             : currentView === 'themeManage'
@@ -324,6 +335,10 @@ export const SettingsApp: React.FC<SettingsAppProps> = ({ onClose, context }) =>
             <WidgetEditorView
               widgetId={widgetEditorId}
               initialConfig={initialWidgetConfig}
+              onDelete={editingItem ? () => {
+                removeDesktopItem(editingItem.instanceId);
+                setCurrentView(widgetEditorReturnTo);
+              } : undefined}
               onSave={(config) => {
                 const rows = desktopLayout.rows || 6;
                 const cols = desktopLayout.cols || 4;
@@ -368,7 +383,8 @@ export const SettingsApp: React.FC<SettingsAppProps> = ({ onClose, context }) =>
                     h,
                     data: {
                       name: config.name,
-                      backgroundImage: config.backgroundImage,
+                      templateId: config.templateId,
+                      widgetCode: config.widgetCode,
                       cornerRadius: config.cornerRadius,
                       frosted: config.frosted,
                       shadow: config.shadow,
@@ -390,7 +406,8 @@ export const SettingsApp: React.FC<SettingsAppProps> = ({ onClose, context }) =>
                     h,
                     data: {
                       name: config.name,
-                      backgroundImage: config.backgroundImage,
+                      templateId: config.templateId,
+                      widgetCode: config.widgetCode,
                       cornerRadius: config.cornerRadius,
                       frosted: config.frosted,
                       shadow: config.shadow,

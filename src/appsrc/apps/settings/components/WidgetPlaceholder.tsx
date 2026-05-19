@@ -1,5 +1,6 @@
 import React from 'react';
 import { Clock } from 'lucide-react';
+import { useDreamMusicStore } from '../../dreammusic/store';
 
 /**
  * Widget 占位组件
@@ -34,6 +35,7 @@ export interface WidgetPlaceholderProps {
   musicPlaying?: boolean;
   musicTitle?: string;
   musicArtist?: string;
+  isEditing?: boolean;
   onUpdateData?: (data: Record<string, unknown>) => void;
 }
 
@@ -56,8 +58,46 @@ export const WidgetPlaceholder: React.FC<WidgetPlaceholderProps> = ({
   musicPlaying,
   musicTitle,
   musicArtist,
+  isEditing = false,
   onUpdateData,
 }) => {
+  const [now, setNow] = React.useState(() => new Date());
+  const dreamTracks = useDreamMusicStore((state) => state.tracks);
+  const dreamCurrentTrackId = useDreamMusicStore((state) => state.currentTrackId);
+  const dreamIsPlaying = useDreamMusicStore((state) => state.isPlaying);
+  const dreamCurrentTrack = React.useMemo(
+    () => dreamTracks.find((track) => track.id === dreamCurrentTrackId) ?? null,
+    [dreamCurrentTrackId, dreamTracks]
+  );
+
+  React.useEffect(() => {
+    if (!['calendar-card', 'clock-card', 'text-card'].includes(templateId || '')) return undefined;
+    const timer = window.setInterval(() => setNow(new Date()), templateId === 'clock-card' ? 1000 : 60 * 1000);
+    return () => window.clearInterval(timer);
+  }, [templateId]);
+
+  const calendarDays = React.useMemo(() => {
+    const year = now.getFullYear();
+    const month = now.getMonth();
+    const firstDay = new Date(year, month, 1).getDay();
+    const daysInMonth = new Date(year, month + 1, 0).getDate();
+    return {
+      monthName: now.toLocaleDateString('en-US', { month: 'long' }),
+      firstDay,
+      days: Array.from({ length: daysInMonth }, (_, index) => index + 1),
+      today: now.getDate(),
+    };
+  }, [now]);
+
+  const countdownDays = React.useMemo(() => {
+    const source = `${titleText || ''}\n${subtitle || ''}`;
+    const match = source.match(/(\d{4})[./-](\d{1,2})[./-](\d{1,2})/);
+    if (!match) return null;
+    const target = new Date(Number(match[1]), Number(match[2]) - 1, Number(match[3]));
+    const today = new Date(now.getFullYear(), now.getMonth(), now.getDate());
+    return Math.floor(Math.abs(today.getTime() - target.getTime()) / 86_400_000);
+  }, [now, subtitle, titleText]);
+
   // 根据宽高计算样式类
   const sizeClass = `col-span-${width} row-span-${height}`;
 
@@ -144,7 +184,118 @@ export const WidgetPlaceholder: React.FC<WidgetPlaceholderProps> = ({
         ) : null}
         <div className="absolute inset-0 bg-gradient-to-br from-white/24 via-white/6 to-white/14" />
         <div className="relative z-10 flex h-full flex-col justify-between p-3">
-          {templateId === 'headline' ? (
+          {templateId === 'calendar-card' ? (
+            <div className="relative h-full p-3 font-serif italic text-white drop-shadow-[0_1px_2px_rgba(15,23,42,0.35)]">
+              <div className="absolute inset-0 bg-[linear-gradient(110deg,rgba(139,106,76,0.28),rgba(255,255,255,0.10)_45%,rgba(92,70,50,0.24)),repeating-linear-gradient(90deg,rgba(255,255,255,0.16)_0_8px,rgba(15,23,42,0.08)_8px_13px)]" />
+              <div className="relative flex h-full flex-col">
+                <div className="text-right text-[clamp(16px,6vw,30px)] font-semibold leading-none">{calendarDays.monthName}</div>
+                <div className="mt-3 grid flex-1 grid-cols-7 gap-1 text-center text-[clamp(9px,3vw,16px)] font-semibold">
+                  {['S', 'M', 'T', 'W', 'T', 'F', 'S'].map((day, index) => (
+                    <span key={`${day}-${index}`} className="opacity-95">{day}</span>
+                  ))}
+                  {Array.from({ length: calendarDays.firstDay }, (_, index) => (
+                    <span key={`blank-${index}`} />
+                  ))}
+                  {calendarDays.days.map((day) => (
+                    <span
+                      key={day}
+                      className={day === calendarDays.today ? 'rounded bg-white/78 px-1 text-stone-500 shadow-sm' : 'opacity-90'}
+                    >
+                      {day}
+                    </span>
+                  ))}
+                </div>
+              </div>
+            </div>
+          ) : templateId === 'vinyl-record' ? (
+            <div className="relative flex h-full items-center justify-center overflow-hidden" onPointerDown={stopDesktopPointer}>
+              <div className="absolute inset-0 bg-[repeating-linear-gradient(90deg,rgba(255,255,255,0.16)_0_9px,rgba(15,23,42,0.10)_9px_14px)]" />
+              <div
+                className={`relative aspect-square h-[82%] max-h-[210px] rounded-full bg-[radial-gradient(circle_at_center,rgba(180,150,104,0.72)_0_18%,rgba(20,20,20,0.96)_19%_33%,rgba(7,7,8,0.98)_34%_100%)] shadow-[0_12px_24px_rgba(0,0,0,0.30),inset_0_0_0_12px_rgba(255,255,255,0.035)] ${dreamIsPlaying ? 'animate-[spin_3.8s_linear_infinite]' : ''}`}
+              >
+                <div className="absolute inset-[32%] overflow-hidden rounded-full border border-white/12 bg-stone-500/70">
+                  {dreamCurrentTrack?.coverUrl || backgroundImage ? (
+                    <img src={dreamCurrentTrack?.coverUrl || backgroundImage} alt={dreamCurrentTrack?.title || name} className="h-full w-full object-cover" />
+                  ) : null}
+                </div>
+              </div>
+              <div className={`absolute left-[58%] top-[8%] h-[58%] w-1 origin-top rounded-full bg-white/75 shadow-[0_2px_8px_rgba(15,23,42,0.24)] transition-transform ${dreamIsPlaying ? 'rotate-[22deg]' : 'rotate-[8deg]'}`} />
+              <div className="absolute left-[70%] top-[4%] h-9 w-9 rounded-full border border-white/40 bg-black/70" />
+              {dreamCurrentTrack || musicTitle || musicArtist ? (
+                <div className="absolute inset-x-2 bottom-2 rounded-full bg-black/24 px-2 py-1 text-center text-[10px] leading-tight text-white/90 backdrop-blur">
+                  <div className="truncate">{dreamCurrentTrack?.title || musicTitle}</div>
+                  <div className="truncate text-white/65">{dreamCurrentTrack?.artist || musicArtist}</div>
+                </div>
+              ) : null}
+            </div>
+          ) : templateId === 'clock-card' ? (
+            <div className="flex h-full flex-col items-center justify-center bg-gradient-to-b from-zinc-400/80 to-zinc-300/55 text-white">
+              <div className="text-[clamp(12px,5vw,22px)] font-semibold leading-none">
+                {now.toLocaleDateString('en-US', { weekday: 'short', month: 'short', day: 'numeric' })}
+              </div>
+              <div className="mt-1 text-[clamp(38px,20vw,96px)] font-black leading-none tracking-normal drop-shadow-[0_2px_2px_rgba(15,23,42,0.14)]">
+                {now.toLocaleTimeString('zh-CN', { hour: '2-digit', minute: '2-digit', hour12: false })}
+              </div>
+            </div>
+          ) : templateId === 'custom-code' ? (
+            <div className="flex h-full flex-col items-center justify-center gap-1 p-4 text-center">
+              <div
+                className="w-full whitespace-pre-wrap font-semibold leading-tight"
+                style={{ color: titleColor || '#ffffff', fontSize: `${titleFontSize || 22}px` }}
+              >
+                {titleText || name || 'Custom'}
+              </div>
+              <div className="whitespace-pre-wrap text-[12px] leading-5 text-white/75">
+                {subtitle || '编辑组件代码'}
+              </div>
+            </div>
+          ) : templateId === 'text-card' ? (
+            <div className="flex h-full flex-col items-center justify-center gap-2 p-3 text-center" onPointerDown={stopDesktopPointer}>
+              {isEditing ? (
+                <>
+                  <input
+                    value={titleText || '184 天'}
+                    onChange={(event) => onUpdateData?.({ titleText: event.target.value })}
+                    className="w-full bg-transparent text-center font-serif italic outline-none placeholder:text-white/50"
+                    style={{ color: titleColor || '#ffffff', fontSize: `${titleFontSize || 22}px` }}
+                  />
+                  <textarea
+                    value={subtitle || '我们的纪念日\n2024.07.30'}
+                    onChange={(event) => onUpdateData?.({ subtitle: event.target.value })}
+                    className="min-h-10 w-full resize-none bg-transparent text-center text-[12px] leading-5 text-white/85 outline-none"
+                  />
+                  <div className="flex items-center justify-center gap-2">
+                    <input
+                      type="color"
+                      value={titleColor || '#ffffff'}
+                      onChange={(event) => onUpdateData?.({ titleColor: event.target.value })}
+                      className="h-5 w-7 rounded border border-white/30 bg-transparent"
+                    />
+                    <input
+                      type="range"
+                      min={14}
+                      max={42}
+                      value={titleFontSize || 22}
+                      onChange={(event) => onUpdateData?.({ titleFontSize: Number(event.target.value) })}
+                      className="w-20"
+                    />
+                  </div>
+                </>
+              ) : (
+                <>
+                  <div
+                    className="w-full whitespace-pre-wrap font-serif italic leading-tight"
+                    style={{ color: titleColor || '#ffffff', fontSize: `${titleFontSize || 22}px` }}
+                  >
+                    {countdownDays === null ? titleText || '184 天' : `${countdownDays} 天`}
+                  </div>
+                  <div className="whitespace-pre-wrap text-[12px] leading-5 text-white/85">
+                    {subtitle || '我们的纪念日\n2024.07.30'}
+                  </div>
+                </>
+              )}
+            </div>
+          ) : templateId === 'headline' ? (
             <div className="flex h-full flex-col justify-center gap-2" onPointerDown={stopDesktopPointer}>
               <input
                 value={titleText || name}
@@ -170,19 +321,32 @@ export const WidgetPlaceholder: React.FC<WidgetPlaceholderProps> = ({
               </div>
             </div>
           ) : templateId === 'ins-photo' ? (
-            <label className="flex h-full cursor-pointer flex-col items-center justify-center gap-2 text-center" onPointerDown={stopDesktopPointer}>
-              <input
-                type="file"
-                accept="image/*"
-                className="hidden"
-                onChange={(event) => readPhotoFile(event.target.files?.[0])}
-              />
-              <div className="rounded-full border border-white/30 bg-white/18 px-3 py-1 text-[11px] font-semibold">
-                {backgroundImage ? '更换照片' : '选择照片'}
+            <label
+              className={`relative flex h-full flex-col items-center justify-center gap-2 overflow-hidden text-center ${onUpdateData ? 'cursor-pointer' : 'cursor-default'}`}
+              onPointerDown={stopDesktopPointer}
+              onClick={(event) => {
+                if (!onUpdateData) event.preventDefault();
+              }}
+            >
+              {onUpdateData ? (
+                <input
+                  type="file"
+                  accept="image/*"
+                  className="hidden"
+                  onChange={(event) => readPhotoFile(event.target.files?.[0])}
+                />
+              ) : null}
+              {backgroundImage ? (
+                <img src={backgroundImage} alt={name} className="absolute inset-0 h-full w-full object-cover" />
+              ) : (
+                <div className="absolute inset-0 bg-white/18" />
+              )}
+              <div className="absolute inset-2 rounded-[inherit] border border-white/35" />
+              <div className="relative rounded-full border border-white/35 bg-white/22 px-3 py-1 text-[11px] font-semibold shadow-[0_6px_16px_rgba(15,23,42,0.14)] backdrop-blur">
+                {backgroundImage ? '更换照片' : '上传照片'}
               </div>
-              <div className="text-[10px] text-white/70">{subtitle}</div>
             </label>
-          ) : templateId === 'retro-music' ? (
+          ) : templateId === 'retro-music' || templateId === 'vinyl-record' ? (
             <div className="flex h-full flex-col justify-between" onPointerDown={stopDesktopPointer}>
               <div>
                 <div className="text-[13px] font-semibold">{musicTitle || name}</div>

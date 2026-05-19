@@ -26,22 +26,22 @@ const toErrorMessage = (error: unknown): string => {
   if (error instanceof Error) {
     return error.message;
   }
-  return 'Unknown error';
+  return '未知错误';
 };
 
 const trimTrailingSlash = (value: string): string => value.replace(/\/+$/, '');
 
 const formatPermissionLabel = (permission: PushPermissionState): string => {
   if (permission === 'granted') {
-    return 'granted';
+    return '已允许';
   }
   if (permission === 'denied') {
-    return 'denied';
+    return '已拒绝';
   }
   if (permission === 'default') {
-    return 'default';
+    return '未设置';
   }
-  return 'unsupported';
+  return '不支持';
 };
 
 const shortenEndpoint = (endpoint: string): string => {
@@ -116,10 +116,10 @@ export const PushNotificationView: React.FC<PushNotificationViewProps> = ({
     setBusyAction('permission');
     try {
       const permission = await requestPushPermission();
-      setStatusMessage(`Permission: ${formatPermissionLabel(permission)}`);
+      setStatusMessage(`通知权限：${formatPermissionLabel(permission)}`);
       await refreshClientStatus();
     } catch (error) {
-      setStatusMessage(`Request permission failed: ${toErrorMessage(error)}`);
+      setStatusMessage(`请求通知权限失败：${toErrorMessage(error)}`);
     } finally {
       setBusyAction(null);
     }
@@ -142,9 +142,9 @@ export const PushNotificationView: React.FC<PushNotificationViewProps> = ({
         permission: result.permission,
         endpoint: result.endpoint,
       });
-      setStatusMessage('Push subscription synced successfully.');
+      setStatusMessage('推送订阅已同步。');
     } catch (error) {
-      setStatusMessage(`Enable failed: ${toErrorMessage(error)}`);
+      setStatusMessage(`启用推送失败：${toErrorMessage(error)}`);
     } finally {
       setBusyAction(null);
     }
@@ -160,9 +160,9 @@ export const PushNotificationView: React.FC<PushNotificationViewProps> = ({
         pushLastSyncedAt: new Date().toISOString(),
       });
       await refreshClientStatus();
-      setStatusMessage('Push subscription removed.');
+      setStatusMessage('推送订阅已移除。');
     } catch (error) {
-      setStatusMessage(`Disable failed: ${toErrorMessage(error)}`);
+      setStatusMessage(`关闭推送失败：${toErrorMessage(error)}`);
     } finally {
       setBusyAction(null);
     }
@@ -172,9 +172,9 @@ export const PushNotificationView: React.FC<PushNotificationViewProps> = ({
     setBusyAction('test');
     try {
       const response = await sendWebPushTest(settings);
-      setStatusMessage(`Test event queued: ${response.eventId}`);
+      setStatusMessage(`测试推送已加入队列：${response.eventId}`);
     } catch (error) {
-      setStatusMessage(`Test push failed: ${toErrorMessage(error)}`);
+      setStatusMessage(`发送测试推送失败：${toErrorMessage(error)}`);
     } finally {
       setBusyAction(null);
     }
@@ -188,28 +188,28 @@ export const PushNotificationView: React.FC<PushNotificationViewProps> = ({
   return (
     <div className="flex-1 overflow-y-auto p-4 space-y-6 pb-20">
       <section className="space-y-2">
-        <h2 className="px-4 text-[13px] text-gray-500 uppercase tracking-wider">Push 状态</h2>
+        <h2 className="px-4 text-[13px] text-gray-500 tracking-wider">推送状态</h2>
         <div className="bg-white rounded-xl border border-gray-200 overflow-hidden">
           <div className="flex items-center justify-between px-4 py-3 border-b border-gray-100">
-            <span className="text-[15px]">Web Push Support</span>
+            <span className="text-[15px]">网页推送支持</span>
             <span
               className={`text-[13px] font-medium ${
                 status.supported ? 'text-emerald-600' : 'text-red-500'
               }`}
             >
-              {status.supported ? 'Supported' : 'Unsupported'}
+              {status.supported ? '支持' : '不支持'}
             </span>
           </div>
           <div className="flex items-center justify-between px-4 py-3 border-b border-gray-100">
-            <span className="text-[15px]">Permission</span>
+            <span className="text-[15px]">通知权限</span>
             <span className="text-[13px] text-gray-600">
               {formatPermissionLabel(status.permission)}
             </span>
           </div>
           <div className="px-4 py-3">
-            <p className="text-[15px] mb-1">Subscription Endpoint</p>
+            <p className="text-[15px] mb-1">订阅地址</p>
             <p className="text-[12px] text-gray-500 break-all">
-              {status.endpoint ? shortenEndpoint(status.endpoint) : 'Not subscribed'}
+              {status.endpoint ? shortenEndpoint(status.endpoint) : '未订阅'}
             </p>
           </div>
         </div>
@@ -221,10 +221,10 @@ export const PushNotificationView: React.FC<PushNotificationViewProps> = ({
       </section>
 
       <section className="space-y-2">
-        <h2 className="px-4 text-[13px] text-gray-500 uppercase tracking-wider">Push 配置</h2>
+        <h2 className="px-4 text-[13px] text-gray-500 tracking-wider">推送配置</h2>
         <div className="bg-white rounded-xl border border-gray-200 overflow-hidden">
           <div className="px-4 py-3 border-b border-gray-100">
-            <p className="text-[15px] mb-1">Push Server URL</p>
+            <p className="text-[15px] mb-1">推送服务地址</p>
             <input
               type="text"
               value={serverBaseUrl}
@@ -237,7 +237,7 @@ export const PushNotificationView: React.FC<PushNotificationViewProps> = ({
             />
           </div>
           <div className="px-4 py-3 border-b border-gray-100">
-            <p className="text-[15px] mb-1">Push User ID</p>
+            <p className="text-[15px] mb-1">推送用户 ID</p>
             <input
               type="text"
               value={settings.pushUserId}
@@ -247,7 +247,7 @@ export const PushNotificationView: React.FC<PushNotificationViewProps> = ({
             />
           </div>
           <div className="px-4 py-3">
-            <p className="text-[15px] mb-1">Push Device ID</p>
+            <p className="text-[15px] mb-1">推送设备 ID</p>
             <input
               type="text"
               value={settings.pushDeviceId}
@@ -268,39 +268,39 @@ export const PushNotificationView: React.FC<PushNotificationViewProps> = ({
               disabled={!status.supported || busyAction !== null}
               className="rounded-md bg-indigo-500 px-3 py-1.5 text-[12px] text-white disabled:cursor-not-allowed disabled:bg-gray-300"
             >
-              {busyAction === 'permission' ? 'Requesting...' : 'Request Permission'}
+              {busyAction === 'permission' ? '请求中...' : '请求权限'}
             </button>
             <button
               onClick={handleEnablePush}
               disabled={!status.supported || busyAction !== null}
               className="rounded-md bg-emerald-500 px-3 py-1.5 text-[12px] text-white disabled:cursor-not-allowed disabled:bg-gray-300"
             >
-              {busyAction === 'subscribe' ? 'Subscribing...' : 'Enable Push'}
+              {busyAction === 'subscribe' ? '订阅中...' : '启用推送'}
             </button>
             <button
               onClick={handleDisablePush}
               disabled={!status.supported || busyAction !== null}
               className="rounded-md bg-gray-600 px-3 py-1.5 text-[12px] text-white disabled:cursor-not-allowed disabled:bg-gray-300"
             >
-              {busyAction === 'unsubscribe' ? 'Disabling...' : 'Disable Push'}
+              {busyAction === 'unsubscribe' ? '关闭中...' : '关闭推送'}
             </button>
             <button
               onClick={handleSendTest}
               disabled={!status.supported || busyAction !== null}
               className="rounded-md bg-blue-500 px-3 py-1.5 text-[12px] text-white disabled:cursor-not-allowed disabled:bg-gray-300"
             >
-              {busyAction === 'test' ? 'Sending...' : 'Send Test Push'}
+              {busyAction === 'test' ? '发送中...' : '发送测试推送'}
             </button>
           </div>
           <div className="px-4 py-3 text-[12px] text-gray-500">
-            <p className="mb-1">Auto Sync: {settings.pushEnabled ? 'On' : 'Off'}</p>
+            <p className="mb-1">自动同步：{settings.pushEnabled ? '开启' : '关闭'}</p>
             <button
               onClick={() => updateSettings({ pushEnabled: !settings.pushEnabled })}
               className={`rounded-md px-3 py-1.5 text-white ${
                 settings.pushEnabled ? 'bg-emerald-500' : 'bg-gray-500'
               }`}
             >
-              {settings.pushEnabled ? 'Turn Off Auto Sync' : 'Turn On Auto Sync'}
+              {settings.pushEnabled ? '关闭自动同步' : '开启自动同步'}
             </button>
           </div>
         </div>

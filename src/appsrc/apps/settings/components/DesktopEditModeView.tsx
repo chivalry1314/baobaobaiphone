@@ -5,7 +5,6 @@ import type { DesktopItem } from '@baobaobaiOS/sdk';
 import { localApps } from '../../../../core/registry';
 import { useAppMarketInstallSnapshot } from '../../appmarket/selectors';
 import { getInstalledRuntimeMarketApps } from '../../appmarket/runtime';
-import { getAllWidgets } from '../../../../core/widgetRegistry';
 import { isSystemAppId } from '../../../../core/systemApps';
 import { Plus, LayoutGrid, Sparkles, ChevronLeft, ChevronRight, AlertTriangle, Trash2, Check } from 'lucide-react';
 
@@ -27,6 +26,72 @@ interface EditableAppItem {
   color?: string;
   runtimeIcon?: string;
 }
+
+interface ManagedWidgetTemplate {
+  id: string;
+  name: string;
+  defaultWidth: number;
+  defaultHeight: number;
+  data: Record<string, unknown>;
+}
+
+const managedWidgetTemplates: ManagedWidgetTemplate[] = [
+  {
+    id: 'ins-photo',
+    name: 'ins照片',
+    defaultWidth: 2,
+    defaultHeight: 2,
+    data: { name: 'ins照片', templateId: 'ins-photo', subtitle: '点击上传照片', cornerRadius: 22, frosted: 8, shadow: 12 },
+  },
+  {
+    id: 'calendar-card',
+    name: '日历',
+    defaultWidth: 2,
+    defaultHeight: 2,
+    data: { name: '日历', templateId: 'calendar-card', subtitle: 'February', cornerRadius: 22, frosted: 6, shadow: 12 },
+  },
+  {
+    id: 'vinyl-record',
+    name: '唱片',
+    defaultWidth: 2,
+    defaultHeight: 2,
+    data: {
+      name: '唱片',
+      templateId: 'vinyl-record',
+      subtitle: 'SCION MANIA',
+      cornerRadius: 22,
+      frosted: 6,
+      shadow: 12,
+      musicPlaying: false,
+      musicTitle: 'SCION',
+      musicArtist: 'MANIA',
+    },
+  },
+  {
+    id: 'clock-card',
+    name: '时钟',
+    defaultWidth: 4,
+    defaultHeight: 1,
+    data: { name: '时钟', templateId: 'clock-card', subtitle: 'Thu Mar 26', cornerRadius: 18, frosted: 4, shadow: 8 },
+  },
+  {
+    id: 'text-card',
+    name: '文字',
+    defaultWidth: 2,
+    defaultHeight: 2,
+    data: {
+      name: '文字',
+      templateId: 'text-card',
+      titleText: '184 天',
+      subtitle: '我们的纪念日\n2024.07.30',
+      titleColor: '#ffffff',
+      titleFontSize: 22,
+      cornerRadius: 20,
+      frosted: 8,
+      shadow: 10,
+    },
+  },
+];
 
 // ==================== 动画配置 ====================
 
@@ -133,8 +198,7 @@ export const DesktopEditModeView: React.FC<DesktopEditModeViewProps> = ({ rows, 
 
   const selectableApps = apps.filter((app) => !isSystemAppId(app.id));
 
-  // 获取所有已注册组件
-  const availableWidgets = getAllWidgets();
+  const availableWidgets = managedWidgetTemplates;
 
   const appsById = useMemo(() => {
     const map = new Map<string, EditableAppItem>();
@@ -143,10 +207,13 @@ export const DesktopEditModeView: React.FC<DesktopEditModeViewProps> = ({ rows, 
   }, [apps]);
 
   const widgetsById = useMemo(() => {
-    const map = new Map<string, (typeof availableWidgets)[number]>();
-    availableWidgets.forEach(w => map.set(w.id, w));
+    const map = new Map<string, ManagedWidgetTemplate>();
+    availableWidgets.forEach(w => {
+      map.set(w.id, w);
+      map.set('custom-widget', w);
+    });
     return map;
-  }, [availableWidgets]);
+  }, []);
 
   // 桌面项目列表（兼容旧数据）
   const items = desktopLayout.items || [];
@@ -414,13 +481,14 @@ export const DesktopEditModeView: React.FC<DesktopEditModeViewProps> = ({ rows, 
     }
 
     addDesktopItem({
-      componentId: widgetId,
+      componentId: 'custom-widget',
       type: 'widget',
       page: activePage,
       x: position.x,
       y: position.y,
       w: widgetConfig.defaultWidth,
       h: widgetConfig.defaultHeight,
+      data: widgetConfig.data,
     });
 
     setShowWidgetPicker(false);
@@ -815,14 +883,7 @@ export const DesktopEditModeView: React.FC<DesktopEditModeViewProps> = ({ rows, 
                 {availableWidgets.map((widget, index) => (
                   <button
                     key={widget.id || `widget-${index}`}
-                    onClick={() => {
-                      if (widget.id === 'custom-widget') {
-                        setShowWidgetPicker(false);
-                        onNavigateToWidgetEditor?.(widget.id);
-                        return;
-                      }
-                      handleAddWidget(widget.id);
-                    }}
+                    onClick={() => handleAddWidget(widget.id)}
                     className="flex items-center gap-2 px-3 py-2 bg-white/70 border border-slate-200/70 rounded-xl text-xs hover:bg-white transition-colors shadow-[0_10px_24px_-24px_rgba(15,23,42,0.5)]"
                   >
                     <div className="w-7 h-7 rounded-lg bg-gradient-to-br from-slate-100 to-slate-200 border border-slate-200/80 flex items-center justify-center">

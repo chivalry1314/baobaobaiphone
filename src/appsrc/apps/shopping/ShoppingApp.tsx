@@ -2746,6 +2746,15 @@ export const ShoppingApp: React.FC<ShoppingAppProps> = ({ onClose, context }) =>
               </div>
 
               <div className={styles.shoppingEntryScene} aria-hidden="true">
+                <div className={styles.shoppingEntryTwinkles}>
+                  <span />
+                  <span />
+                  <span />
+                  <span />
+                  <span />
+                  <span />
+                  <span />
+                </div>
                 <div className={styles.shoppingEntryArtworkCard}>
                   <span className={styles.shoppingEntryArtworkBadge}>
                     <svg className={styles.shoppingEntrySparkleIcon} viewBox="0 0 48 48" aria-hidden="true">
