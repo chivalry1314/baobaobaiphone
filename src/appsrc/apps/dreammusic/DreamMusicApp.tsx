@@ -4,6 +4,7 @@ import { APP_CLOSE_MOTION, APP_OPEN_MOTION } from '../../../core/appOpenMotion';
 import type { BottomTabId } from './constants';
 import { DEFAULT_ACTIVE_ROLE_ID, useActiveRoleId } from '../contacts/activeRole';
 import { useRoleDisplayNameBridge } from '../../shared/business/contacts/roleDisplayNameBridge';
+import { getDreamMusicBackgroundAudio } from './backgroundAudio';
 import { AppDock, AppHeader } from './components';
 import { useDreamMusicCommentsStore } from './commentsStore';
 import { useDreamMusicAudio, useDreamMusicDerived, useTrackLyrics } from './hooks';
@@ -93,7 +94,9 @@ export const DreamMusicApp: React.FC<DreamMusicAppProps> = ({ onClose }) => {
   const [isNeteaseParsing, setIsNeteaseParsing] = useState(false);
   const [neteaseParseError, setNeteaseParseError] = useState<string | null>(null);
   const [openedPlaylistId, setOpenedPlaylistId] = useState<string | null>(null);
-  const audioRef = useRef<HTMLAudioElement | null>(null);
+  const backgroundAudio = useMemo(() => getDreamMusicBackgroundAudio(), []);
+  const audioRef = useRef<HTMLAudioElement | null>(backgroundAudio);
+  audioRef.current = backgroundAudio;
   const recentMemorySignatureRef = useRef<string>('');
   const recentMemoryTimestampRef = useRef<number>(0);
   const recentMemoryInitializedRef = useRef(false);
@@ -510,7 +513,6 @@ export const DreamMusicApp: React.FC<DreamMusicAppProps> = ({ onClose }) => {
       className="absolute inset-0 z-50 overflow-hidden bg-[#6B5139] flex flex-col text-[#F4EFE8]"
       style={{ fontFamily: '"Avenir Next", "DIN Alternate", "PingFang SC", "Microsoft YaHei", sans-serif' }}
     >
-      <audio ref={audioRef} preload="metadata" />
       <div className="pointer-events-none absolute inset-0 bg-[radial-gradient(circle_at_50%_-20%,rgba(255,235,190,0.2),transparent_45%),radial-gradient(circle_at_50%_120%,rgba(0,0,0,0.35),transparent_52%)]" />
 
       <div className="relative z-10 flex h-full flex-col">

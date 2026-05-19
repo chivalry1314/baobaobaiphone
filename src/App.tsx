@@ -1711,8 +1711,8 @@ export default function App() {
           className="pointer-events-none absolute inset-x-0 z-[70] flex items-start justify-between px-8"
           style={{
             top: shouldRenderCustomStatusBar
-              ? 'calc(max(env(safe-area-inset-top, 0px), 24px) + 14px)'
-              : 'calc(max(env(safe-area-inset-top, 0px), 12px) + 10px)',
+              ? 'calc(max(env(safe-area-inset-top, 0px), 24px) + 8px)'
+              : 'calc(max(env(safe-area-inset-top, 0px), 12px) + 4px)',
           }}
         >
           <div className="pointer-events-auto relative">
@@ -2019,7 +2019,7 @@ export default function App() {
                       widgetItem.data?.templateId === 'glass-frame' &&
                       activeWidgetFrameMenuId === widgetItem.instanceId ? (
                         <div
-                          className="absolute left-1 top-8 z-30 w-[min(180px,calc(100vw-48px))] overflow-hidden rounded-[18px] border border-white/35 bg-white/18 p-2 text-white shadow-[inset_0_1px_0_rgba(255,255,255,0.34),0_14px_32px_rgba(15,23,42,0.18)] backdrop-blur-xl"
+                          className="absolute left-1 top-8 z-30 w-[min(180px,calc(100vw-48px))] overflow-hidden rounded-[18px] border border-white/35 bg-white/18 p-2 text-slate-700 shadow-[inset_0_1px_0_rgba(255,255,255,0.34),0_14px_32px_rgba(15,23,42,0.18)] backdrop-blur-xl"
                           onPointerDown={(event) => event.stopPropagation()}
                           onClick={(event) => event.stopPropagation()}
                         >
@@ -2030,7 +2030,7 @@ export default function App() {
                                 <button
                                   key={template.id}
                                   type="button"
-                                  className="flex items-center gap-2 rounded-[12px] border border-white/14 bg-white/10 px-2 py-1.5 text-left text-[11px] font-semibold shadow-[inset_0_1px_0_rgba(255,255,255,0.16)]"
+                                  className="flex items-center gap-2 rounded-[12px] border border-white/14 bg-white/10 px-2 py-1.5 text-left text-[11px] font-semibold text-slate-700 shadow-[inset_0_1px_0_rgba(255,255,255,0.16)]"
                                   onClick={() => convertDesktopWidgetFrame(widgetItem.instanceId, template.id)}
                                 >
                                   <TemplateIcon size={14} strokeWidth={1.9} />
