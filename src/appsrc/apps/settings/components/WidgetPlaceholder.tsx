@@ -110,6 +110,7 @@ export const WidgetPlaceholder: React.FC<WidgetPlaceholderProps> = ({
     : 'none';
   const frostedOpacity = Math.min(0.6, resolvedFrosted / 40);
   const isWideVinyl = templateId === 'vinyl-record' && width > height;
+  const isTransparentTemplate = templateId === 'calendar-card' || templateId === 'clock-card' || templateId === 'text-card';
 
   if (hasBackground && !templateId) {
     return (
@@ -170,24 +171,27 @@ export const WidgetPlaceholder: React.FC<WidgetPlaceholderProps> = ({
 
     return (
       <div
-        className="w-full h-full overflow-hidden relative border border-white/35 bg-white/16 text-white"
+        className={`w-full h-full overflow-hidden relative text-white ${
+          isTransparentTemplate ? '' : 'border border-white/35 bg-white/16'
+        }`}
         style={{
           gridColumn: `span ${width}`,
           gridRow: `span ${height}`,
           borderRadius: resolvedRadius,
-          boxShadow: shadowStyle,
-          backdropFilter: 'blur(12px) saturate(170%)',
-          WebkitBackdropFilter: 'blur(12px) saturate(170%)',
+          boxShadow: isTransparentTemplate ? 'none' : shadowStyle,
+          backdropFilter: isTransparentTemplate ? undefined : 'blur(12px) saturate(170%)',
+          WebkitBackdropFilter: isTransparentTemplate ? undefined : 'blur(12px) saturate(170%)',
         }}
       >
         {backgroundImage ? (
           <img src={backgroundImage} alt={name} className="absolute inset-0 h-full w-full object-cover opacity-80" />
         ) : null}
-        <div className="absolute inset-0 bg-gradient-to-br from-white/24 via-white/6 to-white/14" />
+        {isTransparentTemplate ? null : (
+          <div className="absolute inset-0 bg-gradient-to-br from-white/24 via-white/6 to-white/14" />
+        )}
         <div className="relative z-10 flex h-full flex-col justify-between p-3">
           {templateId === 'calendar-card' ? (
             <div className="relative h-full p-3 font-serif italic text-white drop-shadow-[0_1px_2px_rgba(15,23,42,0.35)]">
-              <div className="absolute inset-0 bg-[linear-gradient(110deg,rgba(139,106,76,0.28),rgba(255,255,255,0.10)_45%,rgba(92,70,50,0.24)),repeating-linear-gradient(90deg,rgba(255,255,255,0.16)_0_8px,rgba(15,23,42,0.08)_8px_13px)]" />
               <div className="relative flex h-full flex-col">
                 <div className="text-right text-[clamp(16px,6vw,30px)] font-semibold leading-none">{calendarDays.monthName}</div>
                 <div className="mt-3 grid flex-1 grid-cols-7 gap-1 text-center text-[clamp(9px,3vw,16px)] font-semibold">
@@ -251,7 +255,7 @@ export const WidgetPlaceholder: React.FC<WidgetPlaceholderProps> = ({
               ) : null}
             </div>
           ) : templateId === 'clock-card' ? (
-            <div className="flex h-full flex-col items-center justify-center bg-gradient-to-b from-zinc-400/80 to-zinc-300/55 text-white">
+            <div className="flex h-full flex-col items-center justify-center text-white/82">
               <div className="text-[clamp(12px,5vw,22px)] font-semibold leading-none">
                 {now.toLocaleDateString('en-US', { weekday: 'short', month: 'short', day: 'numeric' })}
               </div>
@@ -344,13 +348,13 @@ export const WidgetPlaceholder: React.FC<WidgetPlaceholderProps> = ({
             </div>
           ) : templateId === 'ins-photo' ? (
             <label
-              className={`relative flex h-full flex-col items-center justify-center gap-2 overflow-hidden text-center ${onUpdateData ? 'cursor-pointer' : 'cursor-default'}`}
+              className={`relative flex h-full flex-col items-center justify-center gap-2 overflow-hidden text-center ${onUpdateData && isEditing ? 'cursor-pointer' : 'cursor-default'}`}
               onPointerDown={stopDesktopPointer}
               onClick={(event) => {
-                if (!onUpdateData) event.preventDefault();
+                if (!onUpdateData || !isEditing) event.preventDefault();
               }}
             >
-              {onUpdateData ? (
+              {onUpdateData && isEditing ? (
                 <input
                   type="file"
                   accept="image/*"
@@ -364,9 +368,11 @@ export const WidgetPlaceholder: React.FC<WidgetPlaceholderProps> = ({
                 <div className="absolute inset-0 bg-white/18" />
               )}
               <div className="absolute inset-2 rounded-[inherit] border border-white/35" />
-              <div className="relative rounded-full border border-white/35 bg-white/22 px-3 py-1 text-[11px] font-semibold shadow-[0_6px_16px_rgba(15,23,42,0.14)] backdrop-blur">
-                {backgroundImage ? '更换照片' : '上传照片'}
-              </div>
+              {isEditing ? (
+                <div className="relative rounded-full border border-white/35 bg-white/22 px-3 py-1 text-[11px] font-semibold shadow-[0_6px_16px_rgba(15,23,42,0.14)] backdrop-blur">
+                  {backgroundImage ? '更换照片' : '上传照片'}
+                </div>
+              ) : null}
             </label>
           ) : templateId === 'retro-music' || templateId === 'vinyl-record' ? (
             <div className="flex h-full flex-col justify-between" onPointerDown={stopDesktopPointer}>
