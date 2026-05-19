@@ -109,7 +109,6 @@ export const WidgetPlaceholder: React.FC<WidgetPlaceholderProps> = ({
     ? `0 ${Math.max(2, Math.round(resolvedShadow / 2))}px ${resolvedShadow}px -${Math.max(2, Math.round(resolvedShadow / 3))}px rgba(15, 23, 42, 0.35)`
     : 'none';
   const frostedOpacity = Math.min(0.6, resolvedFrosted / 40);
-  const isWideVinyl = templateId === 'vinyl-record' && width > height;
 
   if (hasBackground && !templateId) {
     return (
@@ -211,44 +210,34 @@ export const WidgetPlaceholder: React.FC<WidgetPlaceholderProps> = ({
           ) : templateId === 'vinyl-record' ? (
             <div className="relative flex h-full items-center justify-center overflow-hidden" onPointerDown={stopDesktopPointer}>
               <div className="absolute inset-0 bg-[repeating-linear-gradient(90deg,rgba(255,255,255,0.16)_0_9px,rgba(15,23,42,0.10)_9px_14px)]" />
-              <div
-                className={`relative aspect-square h-[82%] max-h-[82%] max-w-[82%] rounded-full bg-[radial-gradient(circle_at_center,rgba(180,150,104,0.72)_0_18%,rgba(20,20,20,0.96)_19%_33%,rgba(7,7,8,0.98)_34%_100%)] shadow-[0_12px_24px_rgba(0,0,0,0.30),inset_0_0_0_12px_rgba(255,255,255,0.035)] ${dreamIsPlaying ? 'animate-[spin_3.8s_linear_infinite]' : ''}`}
-              >
-                <div className="absolute inset-[32%] overflow-hidden rounded-full border border-white/12 bg-stone-500/70">
-                  {dreamCurrentTrack?.coverUrl || backgroundImage ? (
-                    <img src={dreamCurrentTrack?.coverUrl || backgroundImage} alt={dreamCurrentTrack?.title || name} className="h-full w-full object-cover" />
-                  ) : null}
+              <div className="relative aspect-square h-[82%] max-h-[82%] max-w-[82%]">
+                <div
+                  className={`absolute inset-0 rounded-full bg-[radial-gradient(circle_at_center,rgba(180,150,104,0.72)_0_18%,rgba(20,20,20,0.96)_19%_33%,rgba(7,7,8,0.98)_34%_100%)] shadow-[0_12px_24px_rgba(0,0,0,0.30),inset_0_0_0_12px_rgba(255,255,255,0.035)] ${dreamIsPlaying ? 'animate-[spin_3.8s_linear_infinite]' : ''}`}
+                >
+                  <div className="absolute inset-[32%] overflow-hidden rounded-full border border-white/12 bg-stone-500/70">
+                    {dreamCurrentTrack?.coverUrl || backgroundImage ? (
+                      <img src={dreamCurrentTrack?.coverUrl || backgroundImage} alt={dreamCurrentTrack?.title || name} className="h-full w-full object-cover" />
+                    ) : null}
+                  </div>
                 </div>
-              </div>
-              <svg
-                className="absolute overflow-visible drop-shadow-[0_2px_8px_rgba(15,23,42,0.26)] transition-transform"
-                style={{
-                  left: isWideVinyl ? 'calc(50% + 56px)' : '70%',
-                  top: isWideVinyl ? '7%' : '5%',
-                  width: isWideVinyl ? '44px' : '32%',
-                  height: isWideVinyl ? '92px' : '66%',
-                  transform: dreamIsPlaying ? 'translateY(1px)' : 'translateY(0)',
-                }}
-                viewBox="0 0 44 92"
-                aria-hidden="true"
-              >
-                <path
-                  d="M12 18 C9 34 5 50 -2 64 C-8 75 -14 83 -22 88"
-                  fill="none"
-                  stroke="rgba(255,255,255,0.84)"
-                  strokeWidth="4"
-                  strokeLinecap="round"
-                  strokeLinejoin="round"
-                />
-              </svg>
-              <div
-                className="absolute grid h-9 w-9 place-items-center rounded-full border border-white/40 bg-black/70 shadow-[inset_0_1px_3px_rgba(255,255,255,0.22),0_8px_16px_rgba(15,23,42,0.22)]"
-                style={{
-                  left: isWideVinyl ? 'calc(50% + 50px)' : '72%',
-                  top: isWideVinyl ? '7%' : '5%',
-                }}
-              >
-                <div className="h-[18px] w-[18px] rounded-full border border-white/45 bg-white/80 shadow-[0_0_10px_rgba(255,255,255,0.45)]" />
+                <svg
+                  className="absolute left-[84%] top-[-8%] h-[100%] w-[52%] overflow-visible drop-shadow-[0_2px_8px_rgba(15,23,42,0.26)] transition-transform"
+                  style={{ transform: dreamIsPlaying ? 'translateY(1px)' : 'translateY(0)' }}
+                  viewBox="0 0 80 100"
+                  aria-hidden="true"
+                >
+                  <path
+                    d="M20 13 C19 34 14 56 7 73 C1 83 -5 89 -12 94"
+                    fill="none"
+                    stroke="rgba(255,255,255,0.84)"
+                    strokeWidth="5"
+                    strokeLinecap="round"
+                    strokeLinejoin="round"
+                  />
+                </svg>
+                <div className="absolute left-[84%] top-[-8%] grid h-[26%] w-[26%] place-items-center rounded-full border border-white/40 bg-black/70 shadow-[inset_0_1px_3px_rgba(255,255,255,0.22),0_8px_16px_rgba(15,23,42,0.22)]">
+                  <div className="h-[50%] w-[50%] rounded-full border border-white/45 bg-white/80 shadow-[0_0_10px_rgba(255,255,255,0.45)]" />
+                </div>
               </div>
               {dreamCurrentTrack || musicTitle || musicArtist ? (
                 <div className="absolute inset-x-2 bottom-2 rounded-full bg-black/24 px-2 py-1 text-center text-[10px] leading-tight text-white/90 backdrop-blur">
