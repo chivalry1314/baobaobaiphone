@@ -4,6 +4,7 @@ export * from './WeChatContacts';
 export * from './WeChatAddFriendView';
 export * from './WeChatNewFriendsView';
 export * from './WeChatChatView';
+export * from './WeChatChatDetailsView';
 export * from './WeChatDiscover';
 export * from './WeChatMomentsView';
 export * from './WeChatProfile';

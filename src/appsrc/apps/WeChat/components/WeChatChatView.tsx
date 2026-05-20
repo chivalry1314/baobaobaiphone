@@ -291,6 +291,7 @@ const parseAssistantOrderDecision = (
 export const WeChatChatView: React.FC<WeChatChatViewProps> = ({
   characterId,
   onBack,
+  onOpenDetails,
   onReturnToShopping,
   returnToShoppingLabel,
   restoreVoiceCallSignal,
@@ -445,7 +446,9 @@ export const WeChatChatView: React.FC<WeChatChatViewProps> = ({
     );
 
     const backgroundImage =
-      customRenderConfig?.chatBackgroundImage || wechatUiSettings.chatBackgroundImage;
+      session?.chatBackgroundImage ||
+      customRenderConfig?.chatBackgroundImage ||
+      wechatUiSettings.chatBackgroundImage;
     if (backgroundImage) {
       baseStyle.backgroundImage = `linear-gradient(rgba(255,255,255,${
         1 - backgroundOpacity
@@ -462,6 +465,7 @@ export const WeChatChatView: React.FC<WeChatChatViewProps> = ({
   }, [
     customRenderConfig?.chatBackgroundImage,
     customRenderConfig?.chatBackgroundStyle,
+    session?.chatBackgroundImage,
     wechatUiSettings.chatBackgroundImage,
     wechatUiSettings.chatBackgroundOpacity,
   ]);
@@ -2629,6 +2633,7 @@ export const WeChatChatView: React.FC<WeChatChatViewProps> = ({
           onReturnToShopping={onReturnToShopping}
           returnToShoppingLabel={returnToShoppingLabel}
           onExitSelection={exitSelectionMode}
+          onDetailsClick={onOpenDetails}
         />
 
         {/* 消息列表内容 */}

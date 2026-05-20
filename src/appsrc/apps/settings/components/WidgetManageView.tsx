@@ -2,6 +2,7 @@
 import React from 'react';
 import { motion, AnimatePresence } from 'motion/react';
 import { useGlobalDesktopStore } from '@baobaobaiOS/sdk';
+import { CUSTOM_WIDGET_LIBRARY_CHANGED_EVENT, readCustomWidgetLibrary } from '../../../../core/customWidgetLibrary';
 import { WidgetPlaceholder } from './WidgetPlaceholder';
 
 // ==================== 类型定义 ====================
@@ -69,6 +70,17 @@ const systemParamSections = [
       { name: 'system.music.togglePlayback()', desc: '播放或暂停' },
     ],
   },
+  {
+    title: '音乐交互写法',
+    items: [
+      { name: 'onClick={() => system?.music?.togglePlayback?.()}', desc: '点击按钮播放或暂停梦音乐' },
+      { name: 'onClick={system?.music?.togglePlayback}', desc: '播放或暂停的简写形式' },
+      { name: 'onClick={handleToggle}', desc: '当 handleToggle 内部调用 togglePlayback 时会自动映射' },
+      { name: "triggerSystemAction('togglePlayback')", desc: '原生 JS 中触发播放或暂停' },
+      { name: 'onClick={() => system?.music?.playPrev?.()}', desc: '点击按钮切换到上一首' },
+      { name: 'onClick={() => system?.music?.playNext?.()}', desc: '点击按钮切换到下一首' },
+    ],
+  },
 ];
 
 const builtInTemplateItems: WidgetItem[] = [
@@ -134,23 +146,96 @@ const builtInTemplateItems: WidgetItem[] = [
   },
 ];
 
+const getCustomWidgetDisplayName = (data: Record<string, any> | undefined): string => {
+  const savedName = typeof data?.name === 'string' ? data.name.trim() : '';
+  return savedName || '自定义组件';
+};
+
 // ==================== 主组件 ====================
 
 export const WidgetManageView: React.FC<WidgetManageViewProps> = ({ onNavigateToEditor }) => {
-  const { desktopLayout } = useGlobalDesktopStore();
+  const { desktopLayout, updateDesktopLayout } = useGlobalDesktopStore();
   const builtInWidgetItems = builtInTemplateItems;
   const [showSystemParams, setShowSystemParams] = React.useState(false);
+  const [localCustomWidgets, setLocalCustomWidgets] = React.useState(() => readCustomWidgetLibrary());
+  React.useEffect(() => {
+    const syncLocalCustomWidgets = () => setLocalCustomWidgets(readCustomWidgetLibrary());
+    syncLocalCustomWidgets();
+    window.addEventListener(CUSTOM_WIDGET_LIBRARY_CHANGED_EVENT, syncLocalCustomWidgets);
+    window.addEventListener('storage', syncLocalCustomWidgets);
+    return () => {
+      window.removeEventListener(CUSTOM_WIDGET_LIBRARY_CHANGED_EVENT, syncLocalCustomWidgets);
+      window.removeEventListener('storage', syncLocalCustomWidgets);
+    };
+  }, []);
+  React.useEffect(() => {
+    const currentLibrary = desktopLayout.customWidgets || [];
+    const currentKeys = new Set(currentLibrary.map((widget) => `${getCustomWidgetDisplayName({ name: widget.name, widgetCode: widget.widgetCode })}::${widget.widgetCode}`));
+    const legacyWidgets = (desktopLayout.items || [])
+      .filter((item) => (
+        item.type === 'widget' &&
+        item.componentId === 'custom-widget' &&
+        item.data?.templateId === 'custom-code' &&
+        typeof item.data?.widgetCode === 'string' &&
+        item.data.widgetCode.trim().length > 0
+      ))
+      .filter((item) => !currentKeys.has(`${getCustomWidgetDisplayName(item.data)}::${item.data?.widgetCode}`))
+      .map((item) => ({
+        id: item.instanceId,
+        name: getCustomWidgetDisplayName(item.data),
+        width: item.w || 2,
+        height: item.h || 2,
+        templateId: 'custom-code',
+        widgetCode: String(item.data?.widgetCode || ''),
+        cornerRadius: typeof item.data?.cornerRadius === 'number' ? item.data.cornerRadius : 24,
+        frosted: typeof item.data?.frosted === 'number' ? item.data.frosted : 8,
+        shadow: typeof item.data?.shadow === 'number' ? item.data.shadow : 12,
+        data: item.data,
+      }));
+    if (legacyWidgets.length > 0) {
+      updateDesktopLayout({ customWidgets: [...currentLibrary, ...legacyWidgets] });
+    }
+  }, [desktopLayout.customWidgets, desktopLayout.items, updateDesktopLayout]);
 
-  const customWidgetItems: WidgetItem[] = (desktopLayout.items || [])
+  const mergedSavedCustomWidgets = [...(desktopLayout.customWidgets || []), ...localCustomWidgets].filter((widget, index, array) => (
+    array.findIndex((item) => item.id === widget.id || (item.name === widget.name && item.widgetCode === widget.widgetCode)) === index
+  ));
+  const savedCustomWidgetItems: WidgetItem[] = mergedSavedCustomWidgets
+    .map((widget) => ({
+      id: `library:${widget.id}`,
+      name: getCustomWidgetDisplayName({ name: widget.name, widgetCode: widget.widgetCode }),
+      type: 'CUSTOM',
+      size: `${widget.width || 2}x${widget.height || 2}`,
+      previewTitle: '自定义组件代码',
+      previewValue: '',
+      templateId: widget.templateId || 'custom-code',
+      data: {
+        ...(widget.data || {}),
+        name: widget.name,
+        templateId: widget.templateId || 'custom-code',
+        widgetCode: widget.widgetCode,
+        cornerRadius: widget.cornerRadius,
+        frosted: widget.frosted,
+        shadow: widget.shadow,
+      },
+      w: widget.width || 2,
+      h: widget.height || 2,
+    }));
+  const savedCustomKeys = new Set(
+    mergedSavedCustomWidgets.map((widget) => `${getCustomWidgetDisplayName({ name: widget.name, widgetCode: widget.widgetCode })}::${widget.widgetCode}`)
+  );
+  const legacyDesktopWidgetItems: WidgetItem[] = (desktopLayout.items || [])
     .filter(
       (item) =>
         item.type === 'widget' &&
         item.componentId === 'custom-widget' &&
-        item.data?.templateId === 'custom-code'
+        item.data?.templateId === 'custom-code' &&
+        typeof item.data?.widgetCode === 'string' &&
+        !savedCustomKeys.has(`${getCustomWidgetDisplayName(item.data)}::${item.data.widgetCode}`)
     )
     .map((item) => ({
       id: item.instanceId,
-      name: typeof item.data?.name === 'string' ? item.data.name : '自定义组件',
+      name: getCustomWidgetDisplayName(item.data),
       type: 'CUSTOM',
       size: `${item.w || 2}x${item.h || 2}`,
       previewTitle: '自定义组件代码',
@@ -160,6 +245,7 @@ export const WidgetManageView: React.FC<WidgetManageViewProps> = ({ onNavigateTo
       w: item.w || 2,
       h: item.h || 2,
     }));
+  const customWidgetItems = [...savedCustomWidgetItems, ...legacyDesktopWidgetItems];
 
   const renderWidgetCard = (widget: WidgetItem) => (
     <motion.div
@@ -179,6 +265,7 @@ export const WidgetManageView: React.FC<WidgetManageViewProps> = ({ onNavigateTo
             titleText={typeof widget.data.titleText === 'string' ? widget.data.titleText : undefined}
             titleColor={typeof widget.data.titleColor === 'string' ? widget.data.titleColor : undefined}
             titleFontSize={typeof widget.data.titleFontSize === 'number' ? widget.data.titleFontSize : undefined}
+            widgetCode={typeof widget.data.widgetCode === 'string' ? widget.data.widgetCode : undefined}
             musicTitle={typeof widget.data.musicTitle === 'string' ? widget.data.musicTitle : undefined}
             musicArtist={typeof widget.data.musicArtist === 'string' ? widget.data.musicArtist : undefined}
             cornerRadius={typeof widget.data.cornerRadius === 'number' ? widget.data.cornerRadius : 22}
@@ -246,7 +333,7 @@ export const WidgetManageView: React.FC<WidgetManageViewProps> = ({ onNavigateTo
             <div className="rounded-[1.75rem] border border-white/70 bg-white/80 p-5 shadow-[0_18px_40px_-30px_rgba(15,23,42,0.45)]">
               <div className="text-[11px] uppercase tracking-[0.28em] text-slate-400">SYSTEM PARAMS</div>
               <div className="mt-2 text-xl font-semibold text-slate-800">系统参数说明书</div>
-              <div className="mt-1 text-xs text-slate-500">自定义组件代码可以通过 system 读取这些参数。</div>
+              <div className="mt-1 text-xs text-slate-500">自定义组件代码可以通过 system 读取参数，也可以调用音乐动作。</div>
             </div>
             <div className="mt-4 space-y-4">
               {systemParamSections.map((section) => (
@@ -310,8 +397,8 @@ export const WidgetManageView: React.FC<WidgetManageViewProps> = ({ onNavigateTo
             <div className="mt-1 text-xs text-slate-500">查看日期、时间、音乐等可用参数</div>
           </motion.button>
           {builtInWidgetItems.map(renderWidgetCard)}
-          {renderAddWidgetCard()}
           {customWidgetItems.map(renderWidgetCard)}
+          {renderAddWidgetCard()}
         </motion.main>
           </>
         )}

@@ -147,6 +147,7 @@ export const createWeChatSessionSlice = ({
   | 'updateWeChatMessage'
   | 'setWeChatCurrentSession'
   | 'deleteWeChatMessages'
+  | 'updateWeChatSessionSettings'
 > => ({
   ensureWeChatSession: (characterId, options) => {
     const normalizedCharacterId = characterId.trim();
@@ -204,6 +205,8 @@ export const createWeChatSessionSlice = ({
         messages: seededSession?.messages || [],
         lastUpdated: seededSession?.lastUpdated || Date.now(),
         unreadCount: 0,
+        isPinned: false,
+        chatBackgroundImage: '',
       };
 
       return applyRoleState(syncedState, roleId, {
@@ -359,6 +362,31 @@ export const createWeChatSessionSlice = ({
         wechatCurrentSessionId: normalizedSessionId,
         wechatSessions: roleState.wechatSessions.map((session) =>
           session.id === normalizedSessionId ? { ...session, unreadCount: 0 } : session
+        ),
+      });
+    });
+  },
+
+  updateWeChatSessionSettings: (sessionId, settings) => {
+    const normalizedSessionId = sessionId.trim();
+    if (!normalizedSessionId) return;
+
+    set((state) => {
+      const { state: syncedState, roleId, roleState } = ensureRoleContextState(state);
+      return applyRoleState(syncedState, roleId, {
+        ...roleState,
+        wechatSessions: roleState.wechatSessions.map((session) =>
+          session.id === normalizedSessionId
+            ? {
+                ...session,
+                ...(typeof settings.isPinned === 'boolean'
+                  ? { isPinned: settings.isPinned }
+                  : {}),
+                ...(typeof settings.chatBackgroundImage === 'string'
+                  ? { chatBackgroundImage: settings.chatBackgroundImage }
+                  : {}),
+              }
+            : session
         ),
       });
     });

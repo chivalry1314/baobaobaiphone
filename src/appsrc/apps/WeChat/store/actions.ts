@@ -25,6 +25,7 @@ type WeChatActions = Pick<
   | 'setWeChatContactPatSuffix'
   | 'deleteWeChatContact'
   | 'deleteWeChatMessages'
+  | 'updateWeChatSessionSettings'
   | 'topUpWeChatBalance'
   | 'withdrawWeChatBalance'
 >;

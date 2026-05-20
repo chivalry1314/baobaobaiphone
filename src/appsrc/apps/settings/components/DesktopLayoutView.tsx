@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useEffect, useState } from 'react';
 import { motion, AnimatePresence } from 'motion/react';
 import {
   LayoutDashboard,
@@ -22,7 +22,7 @@ export interface DesktopLayoutViewProps {
 /**
  * 布局网格预设类型
  */
-type GridPresetType = '4x6' | '5x6' | 'custom';
+type GridPresetType = '6x4' | '6x5' | 'custom';
 
 // ==================== 动画配置 ====================
 
@@ -51,53 +51,70 @@ export const DesktopLayoutView: React.FC<DesktopLayoutViewProps> = ({ onEditLayo
   // --- 状态管理 ---
   // 初始化时，从 store 读取当前行列数
   const [activeGrid, setActiveGrid] = useState<GridPresetType>(() => {
-    if (desktopLayout.rows === 6 && desktopLayout.cols === 4) return '4x6';
-    if (desktopLayout.rows === 6 && desktopLayout.cols === 5) return '5x6';
+    if (desktopLayout.rows === 6 && desktopLayout.cols === 4) return '6x4';
+    if (desktopLayout.rows === 6 && desktopLayout.cols === 5) return '6x5';
     return 'custom';
   });
   const [customRows, setCustomRows] = useState<number>(desktopLayout.rows || 6);
   const [customCols, setCustomCols] = useState<number>(desktopLayout.cols || 4);
+  const [customRowsInput, setCustomRowsInput] = useState(String(desktopLayout.rows || 6));
+  const [customColsInput, setCustomColsInput] = useState(String(desktopLayout.cols || 4));
+
+  useEffect(() => {
+    setCustomRows(desktopLayout.rows || 6);
+    setCustomCols(desktopLayout.cols || 4);
+    setCustomRowsInput(String(desktopLayout.rows || 6));
+    setCustomColsInput(String(desktopLayout.cols || 4));
+  }, [desktopLayout.rows, desktopLayout.cols]);
 
   // --- 事件处理 ---
   const handleGridChange = (type: GridPresetType) => {
     setActiveGrid(type);
     let newRows = 6, newCols = 4;
-    if (type === '4x6') {
+    if (type === '6x4') {
       newRows = 6;
       newCols = 4;
       setCustomRows(6);
       setCustomCols(4);
-    } else if (type === '5x6') {
+      setCustomRowsInput('6');
+      setCustomColsInput('4');
+    } else if (type === '6x5') {
       newRows = 6;
       newCols = 5;
       setCustomRows(6);
       setCustomCols(5);
+      setCustomRowsInput('6');
+      setCustomColsInput('5');
     }
     // 更新 store 中的行列数
     updateDesktopLayout({ rows: newRows, cols: newCols });
   };
 
-  const handleCustomInputChange = (type: 'row' | 'col', value: string) => {
-    const num = parseInt(value, 10);
-    if (isNaN(num)) return;
+  const commitCustomInput = (type: 'row' | 'col') => {
+    const value = type === 'row' ? customRowsInput : customColsInput;
+    const fallback = type === 'row' ? customRows : customCols;
+    const min = type === 'row' ? 4 : 3;
+    const max = type === 'row' ? 12 : 8;
+    const parsed = Number.parseInt(value, 10);
+    const nextValue = Number.isFinite(parsed) ? Math.min(Math.max(parsed, min), max) : fallback;
 
     setActiveGrid('custom');
     if (type === 'row') {
-      const newRows = Math.min(Math.max(num, 4), 12);
-      setCustomRows(newRows);
-      updateDesktopLayout({ rows: newRows });
+      setCustomRows(nextValue);
+      setCustomRowsInput(String(nextValue));
+      updateDesktopLayout({ rows: nextValue });
     }
     if (type === 'col') {
-      const newCols = Math.min(Math.max(num, 3), 8);
-      setCustomCols(newCols);
-      updateDesktopLayout({ cols: newCols });
+      setCustomCols(nextValue);
+      setCustomColsInput(String(nextValue));
+      updateDesktopLayout({ cols: nextValue });
     }
   };
 
   // 获取当前行列数
   const getCurrentGrid = () => {
-    if (activeGrid === '4x6') return { rows: 6, cols: 4 };
-    if (activeGrid === '5x6') return { rows: 6, cols: 5 };
+    if (activeGrid === '6x4') return { rows: 6, cols: 4 };
+    if (activeGrid === '6x5') return { rows: 6, cols: 5 };
     return { rows: customRows, cols: customCols };
   };
 
@@ -121,22 +138,22 @@ export const DesktopLayoutView: React.FC<DesktopLayoutViewProps> = ({ onEditLayo
             
             <div className="bg-white rounded-[2rem] p-2 shadow-[0_4px_30px_-4px_rgba(0,0,0,0.03)] border border-slate-100 flex items-stretch">
               
-              {/* 4x6 预设 */}
+              {/* 6x4 预设 */}
               <GridSelectorOption 
-                active={activeGrid === '4x6'} 
-                label="4×6" 
-                onClick={() => handleGridChange('4x6')}
+                active={activeGrid === '6x4'} 
+                label="6×4" 
+                onClick={() => handleGridChange('6x4')}
               >
-                <GridVisualizer rows={6} cols={4} active={activeGrid === '4x6'} />
+                <GridVisualizer rows={6} cols={4} active={activeGrid === '6x4'} />
               </GridSelectorOption>
 
-              {/* 5x6 预设 */}
+              {/* 6x5 预设 */}
               <GridSelectorOption 
-                active={activeGrid === '5x6'} 
-                label="5×6" 
-                onClick={() => handleGridChange('5x6')}
+                active={activeGrid === '6x5'} 
+                label="6×5" 
+                onClick={() => handleGridChange('6x5')}
               >
-                <GridVisualizer rows={6} cols={5} active={activeGrid === '5x6'} />
+                <GridVisualizer rows={6} cols={5} active={activeGrid === '6x5'} />
               </GridSelectorOption>
 
               {/* 自定义区域 */}
@@ -150,18 +167,38 @@ export const DesktopLayoutView: React.FC<DesktopLayoutViewProps> = ({ onEditLayo
                   <div className="flex items-center justify-between gap-2">
                     <span className="text-xs font-medium text-slate-500">行</span>
                     <input 
-                      type="number" 
-                      value={customRows} 
-                      onChange={(e) => handleCustomInputChange('row', e.target.value)}
+                      type="text"
+                      inputMode="numeric"
+                      value={customRowsInput}
+                      onChange={(e) => {
+                        setActiveGrid('custom');
+                        setCustomRowsInput(e.target.value.replace(/[^\d]/g, ''));
+                      }}
+                      onBlur={() => commitCustomInput('row')}
+                      onKeyDown={(e) => {
+                        if (e.key === 'Enter') {
+                          e.currentTarget.blur();
+                        }
+                      }}
                       className="w-14 h-8 bg-slate-100 rounded-lg text-center text-sm font-semibold text-slate-700 outline-none focus:ring-2 focus:ring-sky-200 transition-shadow"
                     />
                   </div>
                   <div className="flex items-center justify-between gap-2">
                     <span className="text-xs font-medium text-slate-500">列</span>
                     <input 
-                      type="number" 
-                      value={customCols} 
-                      onChange={(e) => handleCustomInputChange('col', e.target.value)}
+                      type="text"
+                      inputMode="numeric"
+                      value={customColsInput}
+                      onChange={(e) => {
+                        setActiveGrid('custom');
+                        setCustomColsInput(e.target.value.replace(/[^\d]/g, ''));
+                      }}
+                      onBlur={() => commitCustomInput('col')}
+                      onKeyDown={(e) => {
+                        if (e.key === 'Enter') {
+                          e.currentTarget.blur();
+                        }
+                      }}
                       className="w-14 h-8 bg-slate-100 rounded-lg text-center text-sm font-semibold text-slate-700 outline-none focus:ring-2 focus:ring-sky-200 transition-shadow"
                     />
                   </div>

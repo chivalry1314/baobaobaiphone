@@ -114,6 +114,8 @@ export interface WeChatSession {
   messages: WeChatMessage[];
   lastUpdated: number;
   unreadCount: number;
+  isPinned?: boolean;
+  chatBackgroundImage?: string;
 }
 
 export interface WeChatMoment {
@@ -210,6 +212,7 @@ export type WeChatTab = 'chat' | 'contacts' | 'discover' | 'profile';
 export type WeChatView =
   | 'main'
   | 'chat'
+  | 'chatDetails'
   | 'newFriends'
   | 'addFriend'
   | 'moments'
@@ -252,6 +255,7 @@ export interface WeChatContactsProps {
 export interface WeChatChatViewProps {
   characterId: string;
   onBack: () => void;
+  onOpenDetails?: () => void;
   onReturnToShopping?: () => void;
   returnToShoppingLabel?: string;
   restoreVoiceCallSignal?: number;

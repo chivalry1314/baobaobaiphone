@@ -52,6 +52,10 @@ export interface WeChatState extends WeChatRoleScopedState {
   setWeChatContactPatSuffix: (contactId: string, patSuffix: string) => void;
   deleteWeChatContact: (contactId: string) => void;
   deleteWeChatMessages: (sessionId: string, messageIds: string[]) => void;
+  updateWeChatSessionSettings: (
+    sessionId: string,
+    settings: Pick<Partial<WeChatSession>, 'isPinned' | 'chatBackgroundImage'>
+  ) => void;
   topUpWeChatBalance: (amount: number, meta?: WeChatBillMutationMeta) => void;
   withdrawWeChatBalance: (amount: number, meta?: WeChatBillMutationMeta) => void;
 }

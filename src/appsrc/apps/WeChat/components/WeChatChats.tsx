@@ -50,7 +50,30 @@ export const WeChatChats: React.FC<WeChatChatsProps> = ({ onSelectChat }) => {
   const safeSessions = useMemo(() => toSafeSessions(roleScopedSessions), [roleScopedSessions]);
 
   const displayCharacters = useMemo(() => {
-    if (!isContactRoleId(effectiveRoleId)) return wechatCharacters;
+    const resolveSessionForCharacter = (characterId: string) => {
+      let session = safeSessions.find((item) => item.characterId === characterId);
+
+      if (!session && isContactRoleId(effectiveRoleId) && activeContactId) {
+        const sourceRoleId = parseRoleCharacterId(characterId);
+        if (sourceRoleId && inspectorVisibleRoleIds.has(sourceRoleId)) {
+          session = toSafeSessions(wechatStateByRoleId[sourceRoleId]?.wechatSessions).find(
+            (item) => item.characterId === activeContactId
+          );
+        }
+      }
+
+      return session;
+    };
+    const sortCharacters = (items: typeof wechatCharacters) =>
+      [...items].sort((left, right) => {
+        const leftSession = resolveSessionForCharacter(left.id);
+        const rightSession = resolveSessionForCharacter(right.id);
+        const pinnedDelta = Number(Boolean(rightSession?.isPinned)) - Number(Boolean(leftSession?.isPinned));
+        if (pinnedDelta !== 0) return pinnedDelta;
+        return (rightSession?.lastUpdated || 0) - (leftSession?.lastUpdated || 0);
+      });
+
+    if (!isContactRoleId(effectiveRoleId)) return sortCharacters(wechatCharacters);
 
     const characterById = new Map(wechatCharacters.map((item) => [item.id, item]));
     const result: typeof wechatCharacters = [];
@@ -72,7 +95,7 @@ export const WeChatChats: React.FC<WeChatChatsProps> = ({ onSelectChat }) => {
       result.push(character);
     }
 
-    if (result.length > 0 || !activeContactId) return result;
+    if (result.length > 0 || !activeContactId) return sortCharacters(result);
 
     // 兜底：若联系人角色分仓尚未镜像完成，直接从默认身份/我的名片分仓推导可展示项
     Object.entries(wechatStateByRoleId).forEach(([sourceRoleId, sourceRoleState]) => {
@@ -93,7 +116,7 @@ export const WeChatChats: React.FC<WeChatChatsProps> = ({ onSelectChat }) => {
       result.push(fallbackCharacter);
     });
 
-    return result;
+    return sortCharacters(result);
   }, [activeContactId, effectiveRoleId, inspectorVisibleRoleIds, safeSessions, wechatCharacters, wechatStateByRoleId]);
 
   const formatTime = (timestamp: number) => {

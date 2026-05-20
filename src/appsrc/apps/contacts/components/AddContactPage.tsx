@@ -17,18 +17,22 @@ interface AddContactPageProps {
   worldBook: WorldInfoEntry[];
   onBack: () => void;
   onSubmit: (payload: AddContactPayload) => void;
+  onDelete?: () => void;
   initialContact?: Partial<Contact>;
   title?: string;
   submitLabel?: string;
+  deleteLabel?: string;
 }
 
 export const AddContactPage: React.FC<AddContactPageProps> = ({
   worldBook,
   onBack,
   onSubmit,
+  onDelete,
   initialContact,
   title = TEXT.addContact,
   submitLabel = TEXT.save,
+  deleteLabel = '删除联系人',
 }) => {
   const [view, setView] = useState<AddContactView>('form');
   const [avatar, setAvatar] = useState(initialContact?.avatar ?? '');
@@ -323,6 +327,16 @@ export const AddContactPage: React.FC<AddContactPageProps> = ({
             placeholder={TEXT.note}
             className="w-full min-h-[72px] rounded-xl bg-slate-100 px-4 py-3 text-[16px] outline-none resize-none"
           />
+
+          {onDelete ? (
+            <button
+              type="button"
+              onClick={onDelete}
+              className="mt-4 mb-2 flex h-14 w-full items-center rounded-[22px] border border-slate-200 bg-white px-5 text-left text-[17px] font-medium text-red-500 shadow-[0_12px_28px_rgba(15,23,42,0.06)]"
+            >
+              {deleteLabel}
+            </button>
+          ) : null}
         </div>
       ) : (
         <div ref={worldBookListRef} className="flex-1 min-h-0 overflow-y-auto overscroll-y-contain py-2">

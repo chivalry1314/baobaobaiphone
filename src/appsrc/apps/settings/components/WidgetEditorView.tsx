@@ -57,47 +57,7 @@ const widgetTemplateCode: Record<string, string> = {
     </div>
   );
 }`,
-  'custom-code': `type WidgetSystem = {
-  date: {
-    now: Date;
-    year: number;
-    month: number;
-    day: number;
-    weekday: string;
-    monthName: string;
-  };
-  time: {
-    hhmm: string;
-    hhmmss: string;
-    timestamp: number;
-  };
-  music: {
-    isPlaying: boolean;
-    currentTrack: null | {
-      title: string;
-      artist: string;
-      album?: string;
-      coverUrl?: string;
-      durationMs?: number;
-    };
-    playPrev: () => void;
-    playNext: () => void;
-    togglePlayback: () => void;
-  };
-};
-
-export default function CustomWidget({ system }: { system: WidgetSystem }) {
-  return (
-    <div className="flex h-full w-full items-center justify-center rounded-[22px] border border-white/35 bg-white/16 p-4 text-center text-white backdrop-blur-xl">
-      <div>
-        <div className="text-[22px] font-semibold">{system.time.hhmm}</div>
-        <div className="mt-1 text-[12px] text-white/75">
-          {system.music.currentTrack?.title || system.date.weekday}
-        </div>
-      </div>
-    </div>
-  );
-}`,
+  'custom-code': '',
 };
 
 export interface WidgetEditorViewProps {
@@ -146,6 +106,8 @@ export const WidgetEditorView: React.FC<WidgetEditorViewProps> = ({ widgetId, in
   const [widgetName, setWidgetName] = useState<string>(templateId ? templateNameMap[templateId] || '组件' : '自定义组件');
   const [gridW, setGridW] = useState<number>(initialConfig?.width || (templateId === 'clock-card' ? 4 : 2));
   const [gridH, setGridH] = useState<number>(initialConfig?.height || (templateId === 'clock-card' ? 1 : 2));
+  const [gridWInput, setGridWInput] = useState<string>(String(initialConfig?.width || (templateId === 'clock-card' ? 4 : 2)));
+  const [gridHInput, setGridHInput] = useState<string>(String(initialConfig?.height || (templateId === 'clock-card' ? 1 : 2)));
   const [cornerRadius, setCornerRadius] = useState<number>(initialConfig?.cornerRadius ?? 22);
   const [frosted, setFrosted] = useState<number>(initialConfig?.frosted ?? 8);
   const [shadow, setShadow] = useState<number>(initialConfig?.shadow ?? 12);
@@ -158,8 +120,12 @@ export const WidgetEditorView: React.FC<WidgetEditorViewProps> = ({ widgetId, in
   useEffect(() => {
     if (!initialConfig && !templateId) return;
     setWidgetName(initialConfig?.name || (templateId ? templateNameMap[templateId] : '') || '自定义组件');
-    setGridW(initialConfig?.width || (templateId === 'clock-card' ? 4 : 2));
-    setGridH(initialConfig?.height || (templateId === 'clock-card' ? 1 : 2));
+    const nextGridW = initialConfig?.width || (templateId === 'clock-card' ? 4 : 2);
+    const nextGridH = initialConfig?.height || (templateId === 'clock-card' ? 1 : 2);
+    setGridW(nextGridW);
+    setGridH(nextGridH);
+    setGridWInput(String(nextGridW));
+    setGridHInput(String(nextGridH));
     setCornerRadius(initialConfig?.cornerRadius ?? 22);
     setFrosted(initialConfig?.frosted ?? 8);
     setShadow(initialConfig?.shadow ?? 12);
@@ -168,6 +134,18 @@ export const WidgetEditorView: React.FC<WidgetEditorViewProps> = ({ widgetId, in
 
   const previewTemplateId = templateId || initialConfig?.templateId || 'custom-code';
   const canSave = widgetName.trim().length > 0 && widgetCode.trim().length > 0;
+  const commitGridWInput = () => {
+    const parsed = Number.parseInt(gridWInput, 10);
+    const next = Number.isFinite(parsed) ? Math.min(Math.max(parsed, 1), 4) : gridW;
+    setGridW(next);
+    setGridWInput(String(next));
+  };
+  const commitGridHInput = () => {
+    const parsed = Number.parseInt(gridHInput, 10);
+    const next = Number.isFinite(parsed) ? Math.min(Math.max(parsed, 1), 6) : gridH;
+    setGridH(next);
+    setGridHInput(String(next));
+  };
 
   return (
     <motion.div
@@ -189,6 +167,7 @@ export const WidgetEditorView: React.FC<WidgetEditorViewProps> = ({ widgetId, in
               titleText={initialConfig?.titleText}
               titleColor={initialConfig?.titleColor}
               titleFontSize={initialConfig?.titleFontSize}
+              widgetCode={widgetCode}
               musicTitle={initialConfig?.musicTitle}
               musicArtist={initialConfig?.musicArtist}
               cornerRadius={cornerRadius}
@@ -215,29 +194,39 @@ export const WidgetEditorView: React.FC<WidgetEditorViewProps> = ({ widgetId, in
             <div>
               <label className="block text-xs text-slate-400 mb-1">网格宽度</label>
               <input
-                type="number"
-                min={1}
-                max={4}
-                value={gridW}
-                onChange={(e) => setGridW(Math.min(Math.max(parseInt(e.target.value || '1', 10), 1), 4))}
+                type="text"
+                inputMode="numeric"
+                value={gridWInput}
+                onChange={(e) => {
+                  const nextValue = e.target.value.replace(/[^\d]/g, '').slice(0, 2);
+                  setGridWInput(nextValue);
+                  const parsed = Number.parseInt(nextValue, 10);
+                  if (Number.isFinite(parsed)) setGridW(Math.min(Math.max(parsed, 1), 4));
+                }}
+                onBlur={commitGridWInput}
                 className="w-full h-10 px-3 rounded-xl border border-slate-200 text-sm focus:outline-none focus-visible:ring-2 focus-visible:ring-sky-500/40"
               />
             </div>
             <div>
               <label className="block text-xs text-slate-400 mb-1">网格高度</label>
               <input
-                type="number"
-                min={1}
-                max={6}
-                value={gridH}
-                onChange={(e) => setGridH(Math.min(Math.max(parseInt(e.target.value || '1', 10), 1), 6))}
+                type="text"
+                inputMode="numeric"
+                value={gridHInput}
+                onChange={(e) => {
+                  const nextValue = e.target.value.replace(/[^\d]/g, '').slice(0, 2);
+                  setGridHInput(nextValue);
+                  const parsed = Number.parseInt(nextValue, 10);
+                  if (Number.isFinite(parsed)) setGridH(Math.min(Math.max(parsed, 1), 6));
+                }}
+                onBlur={commitGridHInput}
                 className="w-full h-10 px-3 rounded-xl border border-slate-200 text-sm focus:outline-none focus-visible:ring-2 focus-visible:ring-sky-500/40"
               />
             </div>
           </div>
 
           <div>
-            <label className="block text-xs text-slate-400 mb-2">组件代码</label>
+            <label className="block text-xs text-slate-400 mb-2">组件代码 (支持原生HTML + CSS + JavaScript)</label>
             <textarea
               value={widgetCode}
               onChange={(event) => setWidgetCode(event.target.value)}

@@ -39,10 +39,24 @@ export interface DesktopItem {
   data?: DesktopItemData;
 }
 
+export interface CustomWidgetDefinition {
+  id: string;
+  name: string;
+  width: number;
+  height: number;
+  templateId: string;
+  widgetCode: string;
+  cornerRadius?: number;
+  frosted?: number;
+  shadow?: number;
+  data?: DesktopItemData;
+}
+
 export interface DesktopLayoutConfig {
   rows: number;
   cols: number;
   pageCount: number;
   items: DesktopItem[];
+  customWidgets?: CustomWidgetDefinition[];
 }
 

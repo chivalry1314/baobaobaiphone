@@ -18,6 +18,7 @@ import {
   EditMyProfileView,
   WeChatChats,
   WeChatChatView,
+  WeChatChatDetailsView,
   WeChatContacts,
   WeChatDiscover,
   WeChatMomentsView,
@@ -178,7 +179,11 @@ export const WeChatApp: React.FC<WeChatAppProps> = ({ onClose, context }) => {
       setCurrentView('main');
       return;
     }
-    if (['chat', 'newFriends', 'addFriend', 'settings', 'contactProfile', 'editMyProfile', 'services'].includes(currentView)) {
+    if (['chat', 'chatDetails', 'newFriends', 'addFriend', 'settings', 'contactProfile', 'editMyProfile', 'services'].includes(currentView)) {
+      if (currentView === 'chatDetails') {
+        setCurrentView('chat');
+        return;
+      }
       if (currentView === 'chat' && isVoiceCallActive) {
         setVoiceCallUiState(null);
       }
@@ -435,6 +440,15 @@ export const WeChatApp: React.FC<WeChatAppProps> = ({ onClose, context }) => {
           <EditCharacterView key="edit-character" characterId={selectedCharacterId} onBack={handleBack} />
         )}
 
+        {currentView === 'chatDetails' && selectedCharacterId && (
+          <WeChatChatDetailsView
+            key="chat-details"
+            characterId={selectedCharacterId}
+            onBack={handleBack}
+            onDone={() => setCurrentView('chat')}
+          />
+        )}
+
         {currentView === 'editMyProfile' && (
           <EditMyProfileView
             key="edit-my-profile"
@@ -483,6 +497,7 @@ export const WeChatApp: React.FC<WeChatAppProps> = ({ onClose, context }) => {
             key="chat-view-persistent"
             characterId={selectedCharacterId}
             onBack={handleBack}
+            onOpenDetails={() => setCurrentView('chatDetails')}
             onReturnToShopping={returnAppId ? handleReturnToShopping : undefined}
             returnToShoppingLabel={returnToShoppingLabel}
             restoreVoiceCallSignal={restoreVoiceCallSignal}

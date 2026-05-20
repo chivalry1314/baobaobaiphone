@@ -2,6 +2,14 @@ import { useEffect, useRef } from 'react';
 import type { RefObject } from 'react';
 import type { DreamTrack } from '../types';
 
+const resolveAudioSourceUrl = (source: string): string => {
+  try {
+    return new URL(source, window.location.href).href;
+  } catch {
+    return source;
+  }
+};
+
 interface UseDreamMusicAudioInput {
   audioRef: RefObject<HTMLAudioElement | null>;
   currentPlayableTrack: DreamTrack | null;
@@ -46,18 +54,29 @@ export const useDreamMusicAudio = ({
       loadedTrackIdRef.current = null;
       audio.pause();
       audio.removeAttribute('src');
+      delete audio.dataset.dreamMusicTrackId;
       audio.load();
       setDurationSec(0);
       return;
     }
 
-    if (loadedTrackIdRef.current !== currentPlayableTrack.id) {
+    const nextAudioSrc = resolveAudioSourceUrl(currentPlayableTrack.playUrl);
+    const loadedDomTrackId = audio.dataset.dreamMusicTrackId ?? null;
+    const isSameLoadedTrack =
+      loadedDomTrackId === currentPlayableTrack.id &&
+      (audio.src === nextAudioSrc || audio.currentSrc === nextAudioSrc);
+
+    if (loadedTrackIdRef.current !== currentPlayableTrack.id && !isSameLoadedTrack) {
       loadedTrackIdRef.current = currentPlayableTrack.id;
+      audio.dataset.dreamMusicTrackId = currentPlayableTrack.id;
       audio.src = currentPlayableTrack.playUrl;
       audio.currentTime = 0;
       setCurrentTimeSec(0);
       setDurationSec(currentPlayableTrack.durationMs ? Math.floor(currentPlayableTrack.durationMs / 1000) : 0);
       audio.load();
+    } else {
+      loadedTrackIdRef.current = currentPlayableTrack.id;
+      audio.dataset.dreamMusicTrackId = currentPlayableTrack.id;
     }
 
     if (isPlaying) {

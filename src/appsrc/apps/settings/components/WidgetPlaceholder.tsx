@@ -2,6 +2,404 @@ import React from 'react';
 import { Clock } from 'lucide-react';
 import { useDreamMusicStore } from '../../dreammusic/store';
 
+const escapeHtml = (value: string) =>
+  value
+    .replace(/&/g, '&amp;')
+    .replace(/</g, '&lt;')
+    .replace(/>/g, '&gt;')
+    .replace(/"/g, '&quot;')
+    .replace(/'/g, '&#039;');
+
+const resolveSystemValue = (path: string, system: Record<string, unknown>): unknown => {
+  const parts = path.replace(/\?\./g, '.').split('.').filter(Boolean);
+  let current: unknown = system;
+  for (const part of parts) {
+    if (current === null || typeof current !== 'object') return undefined;
+    current = (current as Record<string, unknown>)[part];
+  }
+  return current;
+};
+
+const extractReturnMarkup = (source: string): string => {
+  const returnMatch = source.match(/return\s*\(([\s\S]*?)\)\s*;?\s*}/);
+  if (returnMatch?.[1]) return returnMatch[1].trim();
+  const arrowMatch = source.match(/=>\s*\(([\s\S]*?)\)\s*;?$/);
+  if (arrowMatch?.[1]) return arrowMatch[1].trim();
+  return source.trim();
+};
+
+const spacingUnit = (value: string): string => {
+  const arbitrary = value.match(/^\[(.+)\]$/);
+  if (arbitrary?.[1]) return arbitrary[1].replace(/_/g, ' ');
+  if (value === 'full') return '100%';
+  if (value === 'screen') return '100vh';
+  if (value === 'px') return '1px';
+  const numeric = Number(value);
+  if (!Number.isFinite(numeric)) return value;
+  return `${numeric * 0.25}rem`;
+};
+
+const colorMap: Record<string, string> = {
+  black: '0 0 0',
+  white: '255 255 255',
+  transparent: 'transparent',
+  slate: '15 23 42',
+  gray: '107 114 128',
+  zinc: '113 113 122',
+  neutral: '115 115 115',
+  stone: '120 113 108',
+  red: '239 68 68',
+  rose: '244 63 94',
+  orange: '249 115 22',
+  amber: '245 158 11',
+  yellow: '234 179 8',
+  green: '34 197 94',
+  emerald: '16 185 129',
+  teal: '20 184 166',
+  cyan: '6 182 212',
+  sky: '14 165 233',
+  blue: '59 130 246',
+  indigo: '99 102 241',
+  violet: '139 92 246',
+  purple: '168 85 247',
+  fuchsia: '217 70 239',
+  pink: '236 72 153',
+};
+
+const resolveRuntimeColor = (token: string): string | null => {
+  const arbitrary = token.match(/^\[(.+)\](?:\/(\d+))?$/);
+  if (arbitrary) {
+    const alpha = arbitrary[2] ? Number(arbitrary[2]) / 100 : 1;
+    return alpha < 1 ? `color-mix(in srgb, ${arbitrary[1]} ${alpha * 100}%, transparent)` : arbitrary[1];
+  }
+  const [nameAndShade, alphaValue] = token.split('/');
+  const [name] = nameAndShade.split('-');
+  const base = colorMap[name];
+  if (!base) return null;
+  if (base === 'transparent') return base;
+  const alpha = alphaValue ? Math.min(Math.max(Number(alphaValue), 0), 100) / 100 : 1;
+  return `rgb(${base} / ${alpha})`;
+};
+
+const escapeCssClass = (className: string): string =>
+  className.replace(/[^a-zA-Z0-9_-]/g, (char) => `\\${char}`);
+
+const runtimeRuleForClass = (className: string, scoped = false): string | null => {
+  const rules: string[] = [];
+  const add = (property: string, value: string) => rules.push(`${property}:${value}`);
+  const arbitraryValue = (prefix: string) => {
+    const match = className.match(new RegExp(`^${prefix}-\\[(.+)\\]$`));
+    return match?.[1]?.replace(/_/g, ' ');
+  };
+  const selector = scoped
+    ? `.custom-widget-runtime .${escapeCssClass(className)}`
+    : `.${escapeCssClass(className)}`;
+
+  const staticRules: Record<string, string> = {
+    flex: 'display:flex',
+    'inline-flex': 'display:inline-flex',
+    grid: 'display:grid',
+    block: 'display:block',
+    'inline-block': 'display:inline-block',
+    hidden: 'display:none',
+    relative: 'position:relative',
+    absolute: 'position:absolute',
+    fixed: 'position:fixed',
+    'inset-0': 'inset:0',
+    'top-0': 'top:0',
+    'right-0': 'right:0',
+    'bottom-0': 'bottom:0',
+    'left-0': 'left:0',
+    'z-10': 'z-index:10',
+    'z-20': 'z-index:20',
+    'z-30': 'z-index:30',
+    'h-full': 'height:100%',
+    'w-full': 'width:100%',
+    'h-screen': 'height:100vh',
+    'w-screen': 'width:100vw',
+    'min-h-0': 'min-height:0',
+    'min-w-0': 'min-width:0',
+    'aspect-square': 'aspect-ratio:1/1',
+    'flex-col': 'flex-direction:column',
+    'flex-row': 'flex-direction:row',
+    'flex-wrap': 'flex-wrap:wrap',
+    'flex-1': 'flex:1 1 0%',
+    'shrink-0': 'flex-shrink:0',
+    'grow': 'flex-grow:1',
+    'items-center': 'align-items:center',
+    'items-start': 'align-items:flex-start',
+    'items-end': 'align-items:flex-end',
+    'items-stretch': 'align-items:stretch',
+    'justify-center': 'justify-content:center',
+    'justify-between': 'justify-content:space-between',
+    'justify-around': 'justify-content:space-around',
+    'justify-start': 'justify-content:flex-start',
+    'justify-end': 'justify-content:flex-end',
+    'place-items-center': 'place-items:center',
+    'text-center': 'text-align:center',
+    'text-left': 'text-align:left',
+    'text-right': 'text-align:right',
+    'overflow-hidden': 'overflow:hidden',
+    'overflow-auto': 'overflow:auto',
+    'overflow-x-auto': 'overflow-x:auto',
+    'overflow-y-auto': 'overflow-y:auto',
+    'object-cover': 'object-fit:cover',
+    'object-contain': 'object-fit:contain',
+    'pointer-events-none': 'pointer-events:none',
+    'pointer-events-auto': 'pointer-events:auto',
+    'select-none': 'user-select:none',
+    'rounded-full': 'border-radius:9999px',
+    rounded: 'border-radius:0.25rem',
+    'rounded-md': 'border-radius:0.375rem',
+    'rounded-lg': 'border-radius:0.5rem',
+    'rounded-xl': 'border-radius:0.75rem',
+    'rounded-2xl': 'border-radius:1rem',
+    'rounded-3xl': 'border-radius:1.5rem',
+    border: 'border-width:1px;border-style:solid;border-color:rgb(255 255 255 / 0.35)',
+    'border-0': 'border-width:0',
+    'font-light': 'font-weight:300',
+    'font-normal': 'font-weight:400',
+    'font-medium': 'font-weight:500',
+    'font-semibold': 'font-weight:600',
+    'font-bold': 'font-weight:700',
+    'font-black': 'font-weight:900',
+    'italic': 'font-style:italic',
+    'leading-none': 'line-height:1',
+    'leading-snug': 'line-height:1.375',
+    'leading-tight': 'line-height:1.25',
+    'leading-normal': 'line-height:1.5',
+    'tracking-wide': 'letter-spacing:0.025em',
+    'tracking-wider': 'letter-spacing:0.05em',
+    'tracking-widest': 'letter-spacing:0.1em',
+    'truncate': 'overflow:hidden;text-overflow:ellipsis;white-space:nowrap',
+    'whitespace-pre-wrap': 'white-space:pre-wrap',
+    'whitespace-nowrap': 'white-space:nowrap',
+    'shadow-sm': 'box-shadow:0 1px 2px rgb(0 0 0 / 0.08)',
+    'shadow-md': 'box-shadow:0 4px 10px rgb(0 0 0 / 0.14)',
+    'shadow-lg': 'box-shadow:0 10px 18px rgb(0 0 0 / 0.16)',
+    'shadow-xl': 'box-shadow:0 18px 32px rgb(0 0 0 / 0.22)',
+    'shadow-2xl': 'box-shadow:0 24px 48px rgb(0 0 0 / 0.24)',
+    'backdrop-blur-sm': 'backdrop-filter:blur(4px);-webkit-backdrop-filter:blur(4px)',
+    'backdrop-blur': 'backdrop-filter:blur(8px);-webkit-backdrop-filter:blur(8px)',
+    'backdrop-blur-md': 'backdrop-filter:blur(12px);-webkit-backdrop-filter:blur(12px)',
+    'backdrop-blur-lg': 'backdrop-filter:blur(16px);-webkit-backdrop-filter:blur(16px)',
+    'backdrop-blur-xl': 'backdrop-filter:blur(24px);-webkit-backdrop-filter:blur(24px)',
+    'bg-gradient-to-b': 'background-image:linear-gradient(to bottom,var(--tw-gradient-stops))',
+    'bg-gradient-to-br': 'background-image:linear-gradient(to bottom right,var(--tw-gradient-stops))',
+    'bg-gradient-to-r': 'background-image:linear-gradient(to right,var(--tw-gradient-stops))',
+    'bg-gradient-to-t': 'background-image:linear-gradient(to top,var(--tw-gradient-stops))',
+  };
+  if (staticRules[className]) return `${selector}{${staticRules[className]}}`;
+
+  const arbitraryText = arbitraryValue('text');
+  if (arbitraryText) add('font-size', arbitraryText);
+  const arbitraryRounded = arbitraryValue('rounded');
+  if (arbitraryRounded) add('border-radius', arbitraryRounded);
+  const arbitraryBg = arbitraryValue('bg');
+  if (arbitraryBg) add('background', arbitraryBg);
+  const arbitraryShadow = arbitraryValue('shadow');
+  if (arbitraryShadow) add('box-shadow', arbitraryShadow);
+  const arbitraryW = arbitraryValue('w');
+  if (arbitraryW) add('width', arbitraryW);
+  const arbitraryH = arbitraryValue('h');
+  if (arbitraryH) add('height', arbitraryH);
+
+  let match = className.match(/^(-?)(p|px|py|pt|pr|pb|pl|m|mx|my|mt|mr|mb|ml|gap)-(.+)$/);
+  if (match) {
+    const value = `${match[1] ? '-' : ''}${spacingUnit(match[3])}`;
+    const map: Record<string, string[]> = {
+      p: ['padding'],
+      px: ['padding-left', 'padding-right'],
+      py: ['padding-top', 'padding-bottom'],
+      pt: ['padding-top'],
+      pr: ['padding-right'],
+      pb: ['padding-bottom'],
+      pl: ['padding-left'],
+      m: ['margin'],
+      mx: ['margin-left', 'margin-right'],
+      my: ['margin-top', 'margin-bottom'],
+      mt: ['margin-top'],
+      mr: ['margin-right'],
+      mb: ['margin-bottom'],
+      ml: ['margin-left'],
+      gap: ['gap'],
+    };
+    map[match[2]].forEach((property) => add(property, value));
+  }
+
+  match = className.match(/^(w|h|min-w|min-h|max-w|max-h)-(.+)$/);
+  if (match) {
+    const propertyMap: Record<string, string> = {
+      w: 'width',
+      h: 'height',
+      'min-w': 'min-width',
+      'min-h': 'min-height',
+      'max-w': 'max-width',
+      'max-h': 'max-height',
+    };
+    const value = match[2] === 'screen' && match[1].includes('w') ? '100vw' : spacingUnit(match[2]);
+    add(propertyMap[match[1]], value);
+  }
+
+  match = className.match(/^(-?)(inset|inset-x|inset-y|top|right|bottom|left)-(.+)$/);
+  if (match) {
+    const value = `${match[1] ? '-' : ''}${spacingUnit(match[3])}`;
+    const map: Record<string, string[]> = {
+      inset: ['inset'],
+      'inset-x': ['left', 'right'],
+      'inset-y': ['top', 'bottom'],
+      top: ['top'],
+      right: ['right'],
+      bottom: ['bottom'],
+      left: ['left'],
+    };
+    map[match[2]].forEach((property) => add(property, value));
+  }
+
+  match = className.match(/^grid-cols-(\d+)$/);
+  if (match) add('grid-template-columns', `repeat(${match[1]}, minmax(0, 1fr))`);
+
+  match = className.match(/^grid-rows-(\d+)$/);
+  if (match) add('grid-template-rows', `repeat(${match[1]}, minmax(0, 1fr))`);
+
+  match = className.match(/^space-y-(.+)$/);
+  if (match) {
+    const value = spacingUnit(match[1]);
+    return `${selector}>:not([hidden])~:not([hidden]){margin-top:${value}}`;
+  }
+
+  match = className.match(/^space-x-(.+)$/);
+  if (match) {
+    const value = spacingUnit(match[1]);
+    return `${selector}>:not([hidden])~:not([hidden]){margin-left:${value}}`;
+  }
+
+  match = className.match(/^border-(\d+)$/);
+  if (match) add('border-width', `${match[1]}px`);
+
+  match = className.match(/^text-(xs|sm|base|lg|xl|2xl|3xl|4xl|5xl|6xl)$/);
+  if (match) {
+    const sizes: Record<string, string> = {
+      xs: '0.75rem',
+      sm: '0.875rem',
+      base: '1rem',
+      lg: '1.125rem',
+      xl: '1.25rem',
+      '2xl': '1.5rem',
+      '3xl': '1.875rem',
+      '4xl': '2.25rem',
+      '5xl': '3rem',
+      '6xl': '3.75rem',
+    };
+    add('font-size', sizes[match[1]]);
+  }
+
+  match = className.match(/^(bg|text|border)-(.+)$/);
+  if (match && !className.startsWith('bg-gradient')) {
+    const color = resolveRuntimeColor(match[2]);
+    if (color) {
+      if (match[1] === 'bg') add('background-color', color);
+      if (match[1] === 'text') add('color', color);
+      if (match[1] === 'border') add('border-color', color);
+    }
+  }
+
+  match = className.match(/^(from|via|to)-(.+)$/);
+  if (match) {
+    const color = resolveRuntimeColor(match[2]);
+    if (color) {
+      if (match[1] === 'from') {
+        add('--tw-gradient-from', color);
+        add('--tw-gradient-to', 'rgb(255 255 255 / 0)');
+        add('--tw-gradient-stops', 'var(--tw-gradient-from), var(--tw-gradient-to)');
+      }
+      if (match[1] === 'via') {
+        add('--tw-gradient-via', color);
+        add('--tw-gradient-stops', 'var(--tw-gradient-from), var(--tw-gradient-via), var(--tw-gradient-to)');
+      }
+      if (match[1] === 'to') add('--tw-gradient-to', color);
+    }
+  }
+
+  match = className.match(/^opacity-(\d+)$/);
+  if (match) add('opacity', String(Math.min(Math.max(Number(match[1]), 0), 100) / 100));
+
+  return rules.length > 0 ? `${selector}{${rules.join(';')}}` : null;
+};
+
+const buildRuntimeTailwindCss = (markup: string, scoped = false): string => {
+  const classNames = new Set<string>();
+  markup.replace(/\bclass(?:Name)?=["']([^"']+)["']/g, (_match, value: string) => {
+    value.split(/\s+/).filter(Boolean).forEach((item) => classNames.add(item));
+    return '';
+  });
+  const rules = Array.from(classNames)
+    .map((className) => runtimeRuleForClass(className, scoped))
+    .filter(Boolean)
+    .join('\n');
+  return [
+    '.custom-widget-runtime,.custom-widget-runtime *{box-sizing:border-box}',
+    '.custom-widget-runtime{width:100%;height:100%;overflow:hidden}',
+    rules,
+  ].filter(Boolean).join('\n');
+};
+
+const wrapRuntimeMarkup = (markup: string): string => {
+  const runtimeCss = buildRuntimeTailwindCss(markup, true);
+  return `<style>${runtimeCss}</style>${markup}`;
+};
+
+const normalizeMusicActionClickHandlers = (source: string): string =>
+  source.replace(/\s+onClick=\{([^{}]+|\([^{}]*\)\s*=>\s*[^{}]+)\}/g, (match, expression: string) => {
+    const compactExpression = expression.replace(/\s+/g, '');
+    if (
+      compactExpression === 'handleToggle' ||
+      compactExpression === 'handleToggle()' ||
+      compactExpression.includes('togglePlayback')
+    ) {
+      return ' data-baobaobai-music-action="togglePlayback"';
+    }
+    if (
+      compactExpression === 'handlePrev' ||
+      compactExpression === 'handlePrev()' ||
+      compactExpression.includes('playPrev')
+    ) {
+      return ' data-baobaobai-music-action="playPrev"';
+    }
+    if (
+      compactExpression === 'handleNext' ||
+      compactExpression === 'handleNext()' ||
+      compactExpression.includes('playNext')
+    ) {
+      return ' data-baobaobai-music-action="playNext"';
+    }
+    return match;
+  });
+
+const normalizeJsxLikeMarkup = (source: string, system: Record<string, unknown>): string => {
+  let markup = normalizeMusicActionClickHandlers(extractReturnMarkup(source))
+    .replace(/^\s*<>\s*/, '')
+    .replace(/\s*<\/>\s*$/, '')
+    .replace(/\bclassName=/g, 'class=')
+    .replace(/\bhtmlFor=/g, 'for=')
+    .replace(/\{\/\*[\s\S]*?\*\/\}/g, '')
+    .replace(/\s+[a-zA-Z]+=\{(?:true|false|null|undefined)\}/g, '')
+    .replace(/\s+[a-zA-Z]+=\{[\s\S]*?\}/g, '')
+    .replace(/<([A-Z][A-Za-z0-9.]*)\b[^>]*\/>/g, '')
+    .replace(/<([A-Z][A-Za-z0-9.]*)\b[^>]*>[\s\S]*?<\/\1>/g, '');
+
+  markup = markup.replace(
+    /\{\s*system\.([A-Za-z0-9_?.]+)(?:\s*\|\|\s*['"`]([^'"`]+)['"`])?\s*\}/g,
+    (_match, path: string, fallback: string | undefined) => {
+      const value = resolveSystemValue(path, system);
+      return escapeHtml(value === undefined || value === null || value === '' ? fallback ?? '' : String(value));
+    }
+  );
+
+  markup = markup.replace(/\{[^{}]*\}/g, '');
+  return markup;
+};
+
 /**
  * Widget 占位组件
  * 当 Widget 未开发或加载中时展示
@@ -32,11 +430,13 @@ export interface WidgetPlaceholderProps {
   titleText?: string;
   titleColor?: string;
   titleFontSize?: number;
+  widgetCode?: string;
   musicPlaying?: boolean;
   musicTitle?: string;
   musicArtist?: string;
   isEditing?: boolean;
   onUpdateData?: (data: Record<string, unknown>) => void;
+  onRequestDesktopEdit?: () => void;
 }
 
 export const WidgetPlaceholder: React.FC<WidgetPlaceholderProps> = ({
@@ -55,26 +455,98 @@ export const WidgetPlaceholder: React.FC<WidgetPlaceholderProps> = ({
   titleText,
   titleColor,
   titleFontSize,
+  widgetCode,
   musicPlaying,
   musicTitle,
   musicArtist,
   isEditing = false,
   onUpdateData,
+  onRequestDesktopEdit,
 }) => {
   const [now, setNow] = React.useState(() => new Date());
+  const customWidgetFrameRef = React.useRef<HTMLIFrameElement | null>(null);
+  const customWidgetPressRef = React.useRef<{
+    pointerId: number;
+    startX: number;
+    startY: number;
+    timer: number;
+    longPressed: boolean;
+  } | null>(null);
   const dreamTracks = useDreamMusicStore((state) => state.tracks);
   const dreamCurrentTrackId = useDreamMusicStore((state) => state.currentTrackId);
   const dreamIsPlaying = useDreamMusicStore((state) => state.isPlaying);
+  const dreamTogglePlayback = useDreamMusicStore((state) => state.togglePlayback);
+  const dreamPlayNext = useDreamMusicStore((state) => state.playNext);
+  const dreamPlayPrev = useDreamMusicStore((state) => state.playPrev);
+  const dreamSetQueueAndPlay = useDreamMusicStore((state) => state.setQueueAndPlay);
   const dreamCurrentTrack = React.useMemo(
     () => dreamTracks.find((track) => track.id === dreamCurrentTrackId) ?? null,
     [dreamCurrentTrackId, dreamTracks]
   );
+  const dreamPlayableTrackIds = React.useMemo(
+    () => dreamTracks
+      .filter((track) => track.playableStatus === 'ready' && typeof track.playUrl === 'string')
+      .map((track) => track.id),
+    [dreamTracks]
+  );
+  const runDreamMusicAction = React.useCallback((action: unknown) => {
+    if (action === 'togglePlayback') {
+      if (!dreamCurrentTrackId && dreamPlayableTrackIds.length > 0) {
+        dreamSetQueueAndPlay(dreamPlayableTrackIds, dreamPlayableTrackIds[0]);
+        return;
+      }
+      dreamTogglePlayback();
+      return;
+    }
+    if (action === 'playNext') {
+      if (!dreamCurrentTrackId && dreamPlayableTrackIds.length > 0) {
+        dreamSetQueueAndPlay(dreamPlayableTrackIds, dreamPlayableTrackIds[0]);
+        return;
+      }
+      dreamPlayNext();
+      return;
+    }
+    if (action === 'playPrev') {
+      if (!dreamCurrentTrackId && dreamPlayableTrackIds.length > 0) {
+        dreamSetQueueAndPlay(dreamPlayableTrackIds, dreamPlayableTrackIds[0]);
+        return;
+      }
+      dreamPlayPrev();
+    }
+  }, [
+    dreamCurrentTrackId,
+    dreamPlayNext,
+    dreamPlayPrev,
+    dreamPlayableTrackIds,
+    dreamSetQueueAndPlay,
+    dreamTogglePlayback,
+  ]);
 
   React.useEffect(() => {
-    if (!['calendar-card', 'clock-card', 'text-card'].includes(templateId || '')) return undefined;
-    const timer = window.setInterval(() => setNow(new Date()), templateId === 'clock-card' ? 1000 : 60 * 1000);
+    if (!['calendar-card', 'clock-card', 'custom-code', 'text-card'].includes(templateId || '')) return undefined;
+    const timer = window.setInterval(() => setNow(new Date()), templateId === 'clock-card' || templateId === 'custom-code' ? 1000 : 60 * 1000);
     return () => window.clearInterval(timer);
   }, [templateId]);
+
+  React.useEffect(() => {
+    if (templateId !== 'custom-code') return undefined;
+    const onMessage = (event: MessageEvent) => {
+      if (event.data?.type === 'baobaobai:custom-widget-request-edit') {
+        onRequestDesktopEdit?.();
+        return;
+      }
+      if (event.data?.type !== 'baobaobai:custom-widget-music-action') return;
+      runDreamMusicAction(event.data.action);
+    };
+    window.addEventListener('message', onMessage);
+    return () => window.removeEventListener('message', onMessage);
+  }, [onRequestDesktopEdit, runDreamMusicAction, templateId]);
+
+  React.useEffect(() => () => {
+    if (customWidgetPressRef.current?.timer) {
+      window.clearTimeout(customWidgetPressRef.current.timer);
+    }
+  }, []);
 
   const calendarDays = React.useMemo(() => {
     const year = now.getFullYear();
@@ -111,6 +583,195 @@ export const WidgetPlaceholder: React.FC<WidgetPlaceholderProps> = ({
   const frostedOpacity = Math.min(0.6, resolvedFrosted / 40);
   const isWideVinyl = templateId === 'vinyl-record' && width > height;
   const isTransparentTemplate = templateId === 'calendar-card' || templateId === 'clock-card' || templateId === 'text-card';
+  const customWidgetSystem = React.useMemo(() => ({
+    date: {
+      now: now.toISOString(),
+      year: now.getFullYear(),
+      month: now.getMonth() + 1,
+      day: now.getDate(),
+      weekday: now.toLocaleDateString('zh-CN', { weekday: 'long' }),
+      monthName: calendarDays.monthName,
+    },
+    time: {
+      hhmm: now.toLocaleTimeString('zh-CN', { hour: '2-digit', minute: '2-digit', hour12: false }),
+      hhmmss: now.toLocaleTimeString('zh-CN', { hour: '2-digit', minute: '2-digit', second: '2-digit', hour12: false }),
+      timestamp: now.getTime(),
+    },
+    music: {
+      isPlaying: dreamIsPlaying,
+      currentTrack: dreamCurrentTrack
+        ? {
+            title: dreamCurrentTrack.title,
+            artist: dreamCurrentTrack.artist,
+            album: dreamCurrentTrack.album,
+            coverUrl: dreamCurrentTrack.coverUrl,
+            durationMs: dreamCurrentTrack.durationMs,
+          }
+        : null,
+      togglePlayback: dreamTogglePlayback,
+      playNext: dreamPlayNext,
+      playPrev: dreamPlayPrev,
+    },
+  }), [calendarDays.monthName, dreamCurrentTrack, dreamIsPlaying, dreamPlayNext, dreamPlayPrev, dreamTogglePlayback, now]);
+  const serializableCustomWidgetSystem = React.useMemo(() => ({
+    ...customWidgetSystem,
+    music: {
+      ...customWidgetSystem.music,
+      togglePlayback: undefined,
+      playNext: undefined,
+      playPrev: undefined,
+    },
+  }), [customWidgetSystem]);
+  React.useEffect(() => {
+    if (templateId !== 'custom-code') return;
+    customWidgetFrameRef.current?.contentWindow?.postMessage({
+      type: 'baobaobai:custom-widget-system-update',
+      system: serializableCustomWidgetSystem,
+    }, '*');
+  }, [serializableCustomWidgetSystem, templateId]);
+  const customWidgetHtml = React.useMemo(() => {
+    if (templateId !== 'custom-code') return '';
+    const source = widgetCode?.trim();
+    if (!source) return '';
+    const serializedSystem = JSON.stringify(serializableCustomWidgetSystem).replace(/</g, '\\u003c');
+    const systemBridgeScript = `<script>
+window.system=${serializedSystem};
+function bindBaobaobaiSystemActions(){
+  window.system=window.system||{};
+  window.system.music=window.system.music||{};
+  window.system.music.togglePlayback=function(){window.parent.postMessage({type:'baobaobai:custom-widget-music-action',action:'togglePlayback'},'*')};
+  window.system.music.playNext=function(){window.parent.postMessage({type:'baobaobai:custom-widget-music-action',action:'playNext'},'*')};
+  window.system.music.playPrev=function(){window.parent.postMessage({type:'baobaobai:custom-widget-music-action',action:'playPrev'},'*')};
+  window.triggerSystemAction=function(action){
+    if(action==='togglePlayback'||action==='playNext'||action==='playPrev'){
+      window.parent.postMessage({type:'baobaobai:custom-widget-music-action',action:action},'*');
+    }
+  };
+}
+bindBaobaobaiSystemActions();
+var baobaobaiPress=null;
+function clearBaobaobaiPress(){
+  if(baobaobaiPress&&baobaobaiPress.timer) window.clearTimeout(baobaobaiPress.timer);
+  baobaobaiPress=null;
+}
+window.addEventListener('pointerdown',function(event){
+  clearBaobaobaiPress();
+  var startX=event.clientX;
+  var startY=event.clientY;
+  var pointerId=event.pointerId;
+  var timer=window.setTimeout(function(){
+    if(!baobaobaiPress||baobaobaiPress.pointerId!==pointerId) return;
+    window.parent.postMessage({type:'baobaobai:custom-widget-request-edit'},'*');
+    clearBaobaobaiPress();
+  },520);
+  baobaobaiPress={pointerId:pointerId,startX:startX,startY:startY,timer:timer};
+},true);
+window.addEventListener('pointermove',function(event){
+  if(!baobaobaiPress||baobaobaiPress.pointerId!==event.pointerId) return;
+  var dx=event.clientX-baobaobaiPress.startX;
+  var dy=event.clientY-baobaobaiPress.startY;
+  if(Math.sqrt(dx*dx+dy*dy)>9) clearBaobaobaiPress();
+},true);
+window.addEventListener('pointerup',clearBaobaobaiPress,true);
+window.addEventListener('pointercancel',clearBaobaobaiPress,true);
+window.addEventListener('message',function(event){
+  if(!event.data||event.data.type!=='baobaobai:custom-widget-system-update') return;
+  window.system=event.data.system||{};
+  bindBaobaobaiSystemActions();
+  window.dispatchEvent(new CustomEvent('baobaobai:system-update',{detail:window.system}));
+});
+window.addEventListener('message',function(event){
+  if(!event.data||event.data.type!=='baobaobai:custom-widget-proxy-click') return;
+  var point=event.data.point||{};
+  var target=document.elementFromPoint(Number(point.x)||0,Number(point.y)||0);
+  if(!target) return;
+  ['pointerdown','pointerup','click'].forEach(function(type){
+    var clickEvent=new MouseEvent(type,{bubbles:true,cancelable:true,clientX:Number(point.x)||0,clientY:Number(point.y)||0});
+    target.dispatchEvent(clickEvent);
+  });
+});
+</script>`;
+    const hasDocument = /<!doctype html|<html[\s>]/i.test(source);
+    const hasHtmlTag = /<\/?[a-z][\s\S]*>/i.test(source);
+    const normalizedSource = source.replace(/\bclassName=/g, 'class=');
+    const runtimeCss = buildRuntimeTailwindCss(normalizedSource);
+    const looksLikeCssOnly =
+      !hasHtmlTag &&
+      /[{][\s\S]*[:][\s\S]*[}]/.test(source) &&
+      !/function\s|=>|const\s|let\s|var\s|document\.|window\./.test(source);
+    if (hasDocument) {
+      const documentSource = normalizedSource.replace(
+        /<head([^>]*)>/i,
+        `<head$1>${systemBridgeScript}<style>${runtimeCss}</style>`
+      );
+      return /<head[\s>]/i.test(documentSource)
+        ? documentSource
+        : `${systemBridgeScript}<style>${runtimeCss}</style>${documentSource}`;
+    }
+    if (looksLikeCssOnly) {
+      return `<!doctype html>
+<html>
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    ${systemBridgeScript}
+    <style>
+      html, body {
+        width: 100%;
+        height: 100%;
+        margin: 0;
+        overflow: hidden;
+        background: transparent;
+        font-family: ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+      }
+      * { box-sizing: border-box; }
+      ${runtimeCss}
+      ${source}
+    </style>
+  </head>
+  <body>
+    <div class="widget">
+      <div class="title">${name}</div>
+      <div class="sub">${customWidgetSystem.time.hhmm}</div>
+    </div>
+  </body>
+</html>`;
+    }
+    return `<!doctype html>
+<html>
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    ${systemBridgeScript}
+    <style>
+      html, body {
+        width: 100%;
+        height: 100%;
+        margin: 0;
+        overflow: hidden;
+        background: transparent;
+        font-family: ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+      }
+      * { box-sizing: border-box; }
+      ${runtimeCss}
+    </style>
+  </head>
+  <body><div class="custom-widget-runtime">${normalizedSource}</div></body>
+</html>`;
+  }, [name, templateId, widgetCode]);
+  const customWidgetInlineMarkup = React.useMemo(() => {
+    if (templateId !== 'custom-code') return '';
+    const source = widgetCode?.trim();
+    if (!source) return '';
+    const hasDocument = /<!doctype html|<html[\s>]/i.test(source);
+    const hasScript = /<script[\s>]/i.test(source);
+    const looksLikeCssOnly =
+      !/<\/?[a-z][\s\S]*>/i.test(source) &&
+      /[{][\s\S]*[:][\s\S]*[}]/.test(source) &&
+      !/function\s|=>|const\s|let\s|var\s|document\.|window\./.test(source);
+    if (hasDocument || hasScript || looksLikeCssOnly) return '';
+    return wrapRuntimeMarkup(normalizeJsxLikeMarkup(source, customWidgetSystem));
+  }, [customWidgetSystem, templateId, widgetCode]);
 
   if (hasBackground && !templateId) {
     return (
@@ -157,7 +818,64 @@ export const WidgetPlaceholder: React.FC<WidgetPlaceholderProps> = ({
       );
     }
 
-    const stopDesktopPointer = (event: React.SyntheticEvent) => event.stopPropagation();
+    const stopDesktopPointer = (event: React.SyntheticEvent) => {
+      if (!isEditing) event.stopPropagation();
+    };
+    const handleInlineCustomWidgetClick = (event: React.MouseEvent<HTMLDivElement>) => {
+      const actionTarget = (event.target as HTMLElement).closest('[data-baobaobai-music-action]');
+      if (!actionTarget) return;
+      event.stopPropagation();
+      const action = actionTarget.getAttribute('data-baobaobai-music-action');
+      runDreamMusicAction(action);
+    };
+    const clearCustomWidgetPress = () => {
+      if (customWidgetPressRef.current?.timer) {
+        window.clearTimeout(customWidgetPressRef.current.timer);
+      }
+      customWidgetPressRef.current = null;
+    };
+    const startCustomWidgetPress = (event: React.PointerEvent<HTMLDivElement>) => {
+      if (isEditing) return;
+      event.stopPropagation();
+      clearCustomWidgetPress();
+      const pointerId = event.pointerId;
+      const startX = event.clientX;
+      const startY = event.clientY;
+      const timer = window.setTimeout(() => {
+        if (customWidgetPressRef.current?.pointerId !== pointerId) return;
+        customWidgetPressRef.current.longPressed = true;
+        onRequestDesktopEdit?.();
+      }, 520);
+      customWidgetPressRef.current = { pointerId, startX, startY, timer, longPressed: false };
+      event.currentTarget.setPointerCapture(pointerId);
+    };
+    const moveCustomWidgetPress = (event: React.PointerEvent<HTMLDivElement>) => {
+      const press = customWidgetPressRef.current;
+      if (!press || press.pointerId !== event.pointerId) return;
+      const dx = event.clientX - press.startX;
+      const dy = event.clientY - press.startY;
+      if (Math.hypot(dx, dy) > 9 && !press.longPressed) {
+        clearCustomWidgetPress();
+      }
+    };
+    const endCustomWidgetPress = (event: React.PointerEvent<HTMLDivElement>) => {
+      const press = customWidgetPressRef.current;
+      if (!press || press.pointerId !== event.pointerId) return;
+      event.stopPropagation();
+      const wasLongPress = press.longPressed;
+      clearCustomWidgetPress();
+      if (wasLongPress || isEditing) return;
+      const frame = customWidgetFrameRef.current;
+      const rect = frame?.getBoundingClientRect();
+      if (!frame?.contentWindow || !rect) return;
+      frame.contentWindow.postMessage({
+        type: 'baobaobai:custom-widget-proxy-click',
+        point: {
+          x: event.clientX - rect.left,
+          y: event.clientY - rect.top,
+        },
+      }, '*');
+    };
     const readPhotoFile = (file: File | undefined) => {
       if (!file || !onUpdateData) return;
       const reader = new FileReader();
@@ -264,17 +982,40 @@ export const WidgetPlaceholder: React.FC<WidgetPlaceholderProps> = ({
               </div>
             </div>
           ) : templateId === 'custom-code' ? (
-            <div className="flex h-full flex-col items-center justify-center gap-1 p-4 text-center">
+            customWidgetInlineMarkup ? (
               <div
-                className="w-full whitespace-pre-wrap font-semibold leading-tight"
-                style={{ color: titleColor || '#ffffff', fontSize: `${titleFontSize || 22}px` }}
-              >
-                {titleText || name || 'Custom'}
+                className="custom-widget-runtime h-full w-full"
+                onPointerDown={startCustomWidgetPress}
+                onPointerMove={moveCustomWidgetPress}
+                onPointerUp={endCustomWidgetPress}
+                onPointerCancel={clearCustomWidgetPress}
+                onClick={handleInlineCustomWidgetClick}
+                dangerouslySetInnerHTML={{ __html: customWidgetInlineMarkup }}
+              />
+            ) : customWidgetHtml ? (
+              <div className="relative h-full w-full">
+                <iframe
+                  ref={customWidgetFrameRef}
+                  title={name}
+                  srcDoc={customWidgetHtml}
+                  className={`h-full w-full border-0 bg-transparent ${isEditing ? 'pointer-events-none' : ''}`}
+                  sandbox="allow-scripts"
+                  onPointerDown={stopDesktopPointer}
+                />
               </div>
-              <div className="whitespace-pre-wrap text-[12px] leading-5 text-white/75">
-                {subtitle || '编辑组件代码'}
+            ) : (
+              <div className="flex h-full flex-col items-center justify-center gap-1 p-4 text-center">
+                <div
+                  className="w-full whitespace-pre-wrap font-semibold leading-tight"
+                  style={{ color: titleColor || '#ffffff', fontSize: `${titleFontSize || 22}px` }}
+                >
+                  {titleText || name || 'Custom'}
+                </div>
+                <div className="whitespace-pre-wrap text-[12px] leading-5 text-white/75">
+                  {subtitle || '组件代码为空'}
+                </div>
               </div>
-            </div>
+            )
           ) : templateId === 'text-card' ? (
             <div className="flex h-full flex-col items-center justify-center gap-2 p-3 text-center" onPointerDown={stopDesktopPointer}>
               {isEditing ? (

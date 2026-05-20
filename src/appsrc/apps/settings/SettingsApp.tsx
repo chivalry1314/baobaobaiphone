@@ -6,6 +6,12 @@ import { useGlobalDesktopStore } from '@baobaobaiOS/sdk';
 import type { AppContext } from '../../../core/sdk/types';
 import { APP_OPEN_MOTION, APP_CLOSE_MOTION } from '../../../core/appOpenMotion';
 import { useMobileViewportPageStyle } from '../../../core/mobileViewport';
+import {
+  CUSTOM_WIDGET_LIBRARY_CHANGED_EVENT,
+  readCustomWidgetLibrary,
+  removeCustomWidgetLibraryItem,
+  upsertCustomWidgetLibraryItem,
+} from '../../../core/customWidgetLibrary';
 import { BeautifyView, ThemeManageView, IconManageView, FontManageView, WidgetManageView, WidgetEditorView, DesktopLayoutView, DesktopEditModeView, ApiSettingsView, PushNotificationView } from './components';
 
 type ViewType = 'main' | 'api' | 'notifications' | 'beautify' | 'themeManage' | 'iconManage' | 'fontManage' | 'widgetManage' | 'widgetEditor' | 'layout' | 'editMode';
@@ -29,6 +35,13 @@ const isSettingsInitialView = (view: unknown): view is ViewType => (
   view === 'editMode'
 );
 
+const createWidgetLibraryId = (): string => {
+  if (typeof crypto !== 'undefined' && typeof crypto.randomUUID === 'function') {
+    return crypto.randomUUID();
+  }
+  return `widget-${Date.now()}-${Math.random().toString(16).slice(2)}`;
+};
+
 export const SettingsApp: React.FC<SettingsAppProps> = ({ onClose, context }) => {
   const { settings, updateSettings } = useSettingsStore();
   const { desktopLayout, addDesktopItem, updateDesktopItem, removeDesktopItem, updateDesktopLayout } = useGlobalDesktopStore();
@@ -48,8 +61,20 @@ export const SettingsApp: React.FC<SettingsAppProps> = ({ onClose, context }) =>
   const [showImageApiKey, setShowImageApiKey] = useState(false);
   const [showVoiceApiKey, setShowVoiceApiKey] = useState(false);
   const [showMemoryApiKey, setShowMemoryApiKey] = useState(false);
+  const [localCustomWidgets, setLocalCustomWidgets] = useState(() => readCustomWidgetLibrary());
   const shouldFreezeViewport = currentView === 'api' || currentView === 'editMode';
   const viewportPageStyle = useMobileViewportPageStyle(!shouldFreezeViewport);
+
+  useEffect(() => {
+    const syncLocalCustomWidgets = () => setLocalCustomWidgets(readCustomWidgetLibrary());
+    syncLocalCustomWidgets();
+    window.addEventListener(CUSTOM_WIDGET_LIBRARY_CHANGED_EVENT, syncLocalCustomWidgets);
+    window.addEventListener('storage', syncLocalCustomWidgets);
+    return () => {
+      window.removeEventListener(CUSTOM_WIDGET_LIBRARY_CHANGED_EVENT, syncLocalCustomWidgets);
+      window.removeEventListener('storage', syncLocalCustomWidgets);
+    };
+  }, []);
 
   const findFirstSlot = (w: number, h: number, ignoreInstanceId?: string) => {
     const items = desktopLayout.items || [];
@@ -235,7 +260,11 @@ export const SettingsApp: React.FC<SettingsAppProps> = ({ onClose, context }) =>
     />
   );
 
-  const editingItem = widgetEditorId
+  const editingLibraryId = widgetEditorId?.startsWith('library:') ? widgetEditorId.slice('library:'.length) : undefined;
+  const editingLibraryWidget = editingLibraryId
+    ? [...(desktopLayout.customWidgets || []), ...localCustomWidgets].find((widget) => widget.id === editingLibraryId)
+    : undefined;
+  const editingItem = widgetEditorId && !editingLibraryId
     ? (desktopLayout.items || []).find(
         (item) =>
           item.instanceId === widgetEditorId &&
@@ -245,7 +274,18 @@ export const SettingsApp: React.FC<SettingsAppProps> = ({ onClose, context }) =>
       )
     : undefined;
 
-  const initialWidgetConfig = editingItem
+  const initialWidgetConfig = editingLibraryWidget
+    ? {
+        name: editingLibraryWidget.name || '自定义组件',
+        width: editingLibraryWidget.width || 2,
+        height: editingLibraryWidget.height || 2,
+        templateId: editingLibraryWidget.templateId || 'custom-code',
+        widgetCode: editingLibraryWidget.widgetCode,
+        cornerRadius: editingLibraryWidget.cornerRadius ?? 24,
+        frosted: editingLibraryWidget.frosted ?? 8,
+        shadow: editingLibraryWidget.shadow ?? 12,
+      }
+    : editingItem
     ? {
         name: editingItem.data?.name || '自定义组件',
         width: editingItem.w || 2,
@@ -335,7 +375,13 @@ export const SettingsApp: React.FC<SettingsAppProps> = ({ onClose, context }) =>
             <WidgetEditorView
               widgetId={widgetEditorId}
               initialConfig={initialWidgetConfig}
-              onDelete={editingItem ? () => {
+              onDelete={editingLibraryWidget ? () => {
+                updateDesktopLayout({
+                  customWidgets: (desktopLayout.customWidgets || []).filter((widget) => widget.id !== editingLibraryWidget.id),
+                });
+                removeCustomWidgetLibraryItem(editingLibraryWidget.id);
+                setCurrentView(widgetEditorReturnTo);
+              } : editingItem ? () => {
                 removeDesktopItem(editingItem.instanceId);
                 setCurrentView(widgetEditorReturnTo);
               } : undefined}
@@ -346,7 +392,62 @@ export const SettingsApp: React.FC<SettingsAppProps> = ({ onClose, context }) =>
                 const h = Math.min(Math.max(config.height, 1), rows);
                 const pageCount = desktopLayout.pageCount || 1;
 
-                if (editingItem) {
+                const libraryEntry = {
+                  id: editingLibraryWidget?.id || createWidgetLibraryId(),
+                  name: config.name,
+                  width: w,
+                  height: h,
+                  templateId: config.templateId || 'custom-code',
+                  widgetCode: config.widgetCode,
+                  cornerRadius: config.cornerRadius,
+                  frosted: config.frosted,
+                  shadow: config.shadow,
+                  data: {
+                    name: config.name,
+                    templateId: config.templateId || 'custom-code',
+                    widgetCode: config.widgetCode,
+                    cornerRadius: config.cornerRadius,
+                    frosted: config.frosted,
+                    shadow: config.shadow,
+                  },
+                };
+
+                const upsertLibraryEntry = () => {
+                  upsertCustomWidgetLibraryItem(libraryEntry);
+                  const currentWidgets = desktopLayout.customWidgets || [];
+                  const existingIndex = currentWidgets.findIndex(
+                    (widget) =>
+                      widget.id === libraryEntry.id ||
+                      (widget.widgetCode === config.widgetCode && widget.name === config.name)
+                  );
+                  updateDesktopLayout({
+                    customWidgets:
+                      existingIndex >= 0
+                        ? currentWidgets.map((widget, index) =>
+                            index === existingIndex ? { ...libraryEntry, id: widget.id } : widget
+                          )
+                        : [...currentWidgets, libraryEntry],
+                  });
+                };
+
+                if (editingLibraryWidget) {
+                  upsertCustomWidgetLibraryItem(libraryEntry);
+                  const existsInDesktopLibrary = (desktopLayout.customWidgets || []).some((widget) => widget.id === editingLibraryWidget.id);
+                  updateDesktopLayout({
+                    customWidgets: existsInDesktopLibrary
+                      ? (desktopLayout.customWidgets || []).map((widget) =>
+                          widget.id === editingLibraryWidget.id ? libraryEntry : widget
+                        )
+                      : [...(desktopLayout.customWidgets || []), libraryEntry],
+                  });
+                } else if (config.templateId === 'custom-code') {
+                  upsertLibraryEntry();
+                }
+
+                if (editingLibraryWidget || (!editingItem && widgetEditorReturnTo === 'widgetManage' && config.templateId === 'custom-code')) {
+                  setCurrentView(widgetEditorReturnTo);
+                  return;
+                } else if (editingItem) {
                   const canStayInPlace = (
                     editingItem.x + w <= cols &&
                     editingItem.y + h <= rows &&

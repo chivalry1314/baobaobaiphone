@@ -16,9 +16,11 @@ import { hasCoreStoresHydrated, onCoreStoresHydrated } from './core/stores/hydra
 import { useSettingsCoreStore } from './core/stores/settings/store';
 import { ensureWebPushSubscription, isPushOpenAppMessage, PUSH_OPEN_APP_MESSAGE_TYPE } from './core/push/webPush';
 import { isSystemAppId, SYSTEM_APP_IDS } from './core/systemApps';
+import { CUSTOM_WIDGET_LIBRARY_CHANGED_EVENT, readCustomWidgetLibrary } from './core/customWidgetLibrary';
 import { hasAppMarketHydrated, onAppMarketHydrated, useAppMarketStore } from './appsrc/apps/appmarket/store';
 import { getInstalledRuntimeMarketApps, isMarketAppId } from './appsrc/apps/appmarket/runtime';
 import { WidgetPlaceholder } from './appsrc/apps/settings/components/WidgetPlaceholder';
+import { DreamMusicAudioHost } from './appsrc/apps/dreammusic/DreamMusicAudioHost';
 
 // 默认壁纸
 const DEFAULT_WALLPAPER = `data:image/svg+xml;utf8,${encodeURIComponent(`
@@ -260,6 +262,11 @@ const desktopFrameWidgetTemplates = [
 const isRecord = (value: unknown): value is Record<string, unknown> =>
   typeof value === 'object' && value !== null && !Array.isArray(value);
 
+const getCustomWidgetDisplayName = (data: Record<string, any> | undefined): string => {
+  const savedName = typeof data?.name === 'string' ? data.name.trim() : '';
+  return savedName || '自定义组件';
+};
+
 const parsePendingPushLaunch = (): { appId: string; params?: Record<string, unknown> } | null => {
   if (typeof window === 'undefined') {
     return null;
@@ -317,6 +324,7 @@ export default function App() {
   const [storesHydrated, setStoresHydrated] = useState(
     () => hasCoreStoresHydrated() && hasAppMarketHydrated()
   );
+  const [localCustomWidgets, setLocalCustomWidgets] = useState(() => readCustomWidgetLibrary());
   const settings = useSettingsCoreStore((state) => state.settings);
   const updateSettings = useSettingsCoreStore((state) => state.updateSettings);
   const desktopLayout = useDesktopCoreStore((state) => state.desktopLayout);
@@ -328,6 +336,17 @@ export default function App() {
 
   // 初始化桌面布局
   const { cols = 4, rows = 6, items = [], pageCount = 1 } = desktopLayout;
+
+  useEffect(() => {
+    const syncLocalCustomWidgets = () => setLocalCustomWidgets(readCustomWidgetLibrary());
+    syncLocalCustomWidgets();
+    window.addEventListener(CUSTOM_WIDGET_LIBRARY_CHANGED_EVENT, syncLocalCustomWidgets);
+    window.addEventListener('storage', syncLocalCustomWidgets);
+    return () => {
+      window.removeEventListener(CUSTOM_WIDGET_LIBRARY_CHANGED_EVENT, syncLocalCustomWidgets);
+      window.removeEventListener('storage', syncLocalCustomWidgets);
+    };
+  }, []);
 
   const installableLocalAppIdSet = useMemo(() => {
     return new Set(localApps.filter((app) => !app.isSystem).map((app) => app.id));
@@ -355,6 +374,11 @@ export default function App() {
     instanceId: string;
     dx: number;
     dy: number;
+    clientX: number;
+    clientY: number;
+    sourcePage: number;
+    pointerOffsetX: number;
+    pointerOffsetY: number;
   } | null>(null);
   const touchStartRef = useRef<{ x: number; y: number } | null>(null);
   const desktopGridRef = useRef<HTMLDivElement | null>(null);
@@ -377,6 +401,7 @@ export default function App() {
     instanceId: string;
     startX: number;
     startY: number;
+    sourcePage: number;
     pointerOffsetX: number;
     pointerOffsetY: number;
     moved: boolean;
@@ -846,6 +871,55 @@ export default function App() {
   // 分离 App 和 Widget
   const appItems = currentPageItems.filter(item => item.type === 'app');
   const widgetItems = currentPageItems.filter(item => item.type === 'widget');
+  const customDesktopWidgets = useMemo(
+    () => {
+      const seen = new Set<string>();
+      const savedWidgets = [...(desktopLayout.customWidgets || []), ...localCustomWidgets].map((widget) => ({
+        instanceId: `library:${widget.id}`,
+        name: getCustomWidgetDisplayName({ name: widget.name, widgetCode: widget.widgetCode }),
+        width: widget.width || 2,
+        height: widget.height || 2,
+        data: {
+          ...(widget.data || {}),
+          name: widget.name,
+          templateId: widget.templateId || 'custom-code',
+          widgetCode: widget.widgetCode,
+          cornerRadius: widget.cornerRadius,
+          frosted: widget.frosted,
+          shadow: widget.shadow,
+        },
+      }));
+      savedWidgets.forEach((widget) => {
+        seen.add(`${widget.name}::${String(widget.data.widgetCode || '')}`);
+      });
+      const legacyWidgets = items
+        .filter((item) => {
+          if (
+            item.type !== 'widget' ||
+            item.componentId !== 'custom-widget' ||
+            item.data?.templateId !== 'custom-code' ||
+            typeof item.data?.widgetCode !== 'string' ||
+            item.data.widgetCode.trim().length === 0
+          ) {
+            return false;
+          }
+          const displayName = getCustomWidgetDisplayName(item.data);
+          const key = `${displayName}::${item.data.widgetCode.trim()}`;
+          if (seen.has(key)) return false;
+          seen.add(key);
+          return true;
+        })
+        .map((item) => ({
+          instanceId: item.instanceId,
+          name: getCustomWidgetDisplayName(item.data),
+          width: item.w || 2,
+          height: item.h || 2,
+          data: item.data || {},
+        }));
+      return [...savedWidgets, ...legacyWidgets];
+    },
+    [desktopLayout.customWidgets, items, localCustomWidgets]
+  );
 
   // 创建位置映射，用于按 x,y 坐标定位项目
   const appPositionMap = new Map<string, typeof appItems[0]>();
@@ -1125,27 +1199,38 @@ export default function App() {
     setActiveWidgetFrameMenuId(null);
   }, [updateDesktopItem]);
 
-  const canPlaceDesktopWidgetFrame = useCallback((target: DesktopItem, x: number, y: number, width = target.w || 1, height = target.h || 1) => {
+  const convertDesktopWidgetFrameToCustom = useCallback((instanceId: string, widget: typeof customDesktopWidgets[number]) => {
+    updateDesktopItem(instanceId, {
+      data: {
+        ...widget.data,
+        name: widget.name,
+        templateId: 'custom-code',
+      },
+    });
+    setActiveWidgetFrameMenuId(null);
+  }, [updateDesktopItem]);
+
+  const canPlaceDesktopWidgetFrame = useCallback((target: DesktopItem, x: number, y: number, width = target.w || 1, height = target.h || 1, page = activePage) => {
     if (x < 0 || y < 0 || x + width > cols || y + height > rows) return false;
     return !items.some((item) => {
-      if (item.instanceId === target.instanceId || item.type !== 'widget' || (item.page ?? 0) !== activePage) return false;
+      if (item.instanceId === target.instanceId || item.type !== 'widget' || (item.page ?? 0) !== page) return false;
       const itemWidth = item.w || 1;
       const itemHeight = item.h || 1;
       return x < item.x + itemWidth && x + width > item.x && y < item.y + itemHeight && y + height > item.y;
     });
   }, [activePage, cols, items, rows]);
 
-  const moveAppsAwayFromWidgetFrame = useCallback((target: DesktopItem, x: number, y: number, width = target.w || 1, height = target.h || 1) => {
+  const moveAppsAwayFromWidgetFrame = useCallback((target: DesktopItem, x: number, y: number, width = target.w || 1, height = target.h || 1, page = activePage) => {
     const widgetBlockers = [
       ...items.filter((item) => item.type === 'widget' && item.instanceId !== target.instanceId),
-      { ...target, page: activePage, x, y, w: width, h: height },
+      { ...target, page, x, y, w: width, h: height },
     ];
     const nextAppItems = items
       .filter((item) => item.type === 'app')
       .map((item) => ({ ...item }));
     const movedApps = new Set<string>();
     const overlapsTarget = (app: DesktopItem) => (
-      (app.page ?? 0) === activePage &&
+      (app.page ?? 0) === page &&
       app.x < x + width &&
       app.x + (app.w || 1) > x &&
       app.y < y + height &&
@@ -1168,12 +1253,12 @@ export default function App() {
       ));
     };
     const findNextAppCell = (movingInstanceId: string) => {
-      const maxPage = Math.max(activePage, computedPageCount - 1);
-      for (let page = activePage; page <= maxPage + 1; page += 1) {
+      const maxPage = Math.max(page, computedPageCount - 1);
+      for (let nextPage = page; nextPage <= maxPage + 1; nextPage += 1) {
         for (let nextY = 0; nextY < rows; nextY += 1) {
           for (let nextX = 0; nextX < cols; nextX += 1) {
-            if (isCellFreeForApp(page, nextX, nextY, movingInstanceId)) {
-              return { page, x: nextX, y: nextY };
+            if (isCellFreeForApp(nextPage, nextX, nextY, movingInstanceId)) {
+              return { page: nextPage, x: nextX, y: nextY };
             }
           }
         }
@@ -1258,6 +1343,49 @@ export default function App() {
     });
   }, [cols, computedPageCount, rows, updateDesktopItem]);
 
+  const scheduleDesktopAutoPage = useCallback((clientX: number) => {
+    const hasDrag = Boolean(iconDragRef.current || widgetDragRef.current);
+    if (!hasDrag) return;
+
+    const edgeZone = 42;
+    const viewportWidth = window.innerWidth;
+    const targetPage =
+      clientX > viewportWidth - edgeZone
+        ? activePage + 1
+        : clientX < edgeZone
+          ? activePage - 1
+          : null;
+
+    if (targetPage === null || targetPage < 0) {
+      clearDesktopAutoPageTimer();
+      return;
+    }
+
+    const maxTargetPage = computedPageCount;
+    if (targetPage > maxTargetPage) {
+      clearDesktopAutoPageTimer();
+      return;
+    }
+
+    if (desktopAutoPageTargetRef.current === targetPage && desktopAutoPageTimerRef.current !== null) {
+      return;
+    }
+
+    clearDesktopAutoPageTimer();
+    desktopAutoPageTargetRef.current = targetPage;
+    desktopAutoPageTimerRef.current = window.setTimeout(() => {
+      if (!iconDragRef.current && !widgetDragRef.current) {
+        clearDesktopAutoPageTimer();
+        return;
+      }
+      if (targetPage >= computedPageCount) {
+        updateDesktopLayout({ pageCount: targetPage + 1 });
+      }
+      setActivePage(targetPage);
+      clearDesktopAutoPageTimer();
+    }, 360);
+  }, [activePage, clearDesktopAutoPageTimer, computedPageCount, updateDesktopLayout]);
+
   const startDesktopWidgetPointer = useCallback((event: React.PointerEvent<HTMLDivElement>, item: DesktopItem) => {
     if (event.button !== 0) return;
     event.stopPropagation();
@@ -1283,6 +1411,7 @@ export default function App() {
       instanceId: item.instanceId,
       startX: event.clientX,
       startY: event.clientY,
+      sourcePage: item.page ?? activePage,
       pointerOffsetX: event.clientX - rect.left,
       pointerOffsetY: event.clientY - rect.top,
       moved: false,
@@ -1291,9 +1420,18 @@ export default function App() {
     if (item.data?.templateId !== 'glass-frame') {
       setActiveWidgetFrameMenuId(null);
     }
-    setDraggingDesktopWidget({ instanceId: item.instanceId, dx: 0, dy: 0 });
+    setDraggingDesktopWidget({
+      instanceId: item.instanceId,
+      dx: 0,
+      dy: 0,
+      clientX: event.clientX,
+      clientY: event.clientY,
+      sourcePage: item.page ?? activePage,
+      pointerOffsetX: event.clientX - rect.left,
+      pointerOffsetY: event.clientY - rect.top,
+    });
     event.currentTarget.setPointerCapture(event.pointerId);
-  }, [clearIconLongPress, isDesktopEditing]);
+  }, [activePage, clearIconLongPress, isDesktopEditing]);
 
   const moveDesktopWidgetPointer = useCallback((event: React.PointerEvent<HTMLDivElement>) => {
     if (!isDesktopEditing) {
@@ -1311,8 +1449,18 @@ export default function App() {
       drag.moved = true;
       widgetClickSuppressRef.current = true;
     }
-    setDraggingDesktopWidget({ instanceId: drag.instanceId, dx, dy });
-  }, [clearIconLongPress, isDesktopEditing]);
+    setDraggingDesktopWidget({
+      instanceId: drag.instanceId,
+      dx,
+      dy,
+      clientX: event.clientX,
+      clientY: event.clientY,
+      sourcePage: drag.sourcePage,
+      pointerOffsetX: drag.pointerOffsetX,
+      pointerOffsetY: drag.pointerOffsetY,
+    });
+    scheduleDesktopAutoPage(event.clientX);
+  }, [clearIconLongPress, isDesktopEditing, scheduleDesktopAutoPage]);
 
   const endDesktopWidgetPointer = useCallback((event: React.PointerEvent<HTMLDivElement>) => {
     if (!isDesktopEditing) {
@@ -1389,49 +1537,6 @@ export default function App() {
       event.currentTarget.releasePointerCapture(event.pointerId);
     }
   }, [activePage, compactDesktopAppsAfterWidgetResize]);
-
-  const scheduleDesktopAutoPage = useCallback((clientX: number) => {
-    const drag = iconDragRef.current;
-    if (!drag) return;
-
-    const edgeZone = 42;
-    const viewportWidth = window.innerWidth;
-    const targetPage =
-      clientX > viewportWidth - edgeZone
-        ? activePage + 1
-        : clientX < edgeZone
-          ? activePage - 1
-          : null;
-
-    if (targetPage === null || targetPage < 0) {
-      clearDesktopAutoPageTimer();
-      return;
-    }
-
-    const maxTargetPage = computedPageCount;
-    if (targetPage > maxTargetPage) {
-      clearDesktopAutoPageTimer();
-      return;
-    }
-
-    if (desktopAutoPageTargetRef.current === targetPage && desktopAutoPageTimerRef.current !== null) {
-      return;
-    }
-
-    clearDesktopAutoPageTimer();
-    desktopAutoPageTargetRef.current = targetPage;
-    desktopAutoPageTimerRef.current = window.setTimeout(() => {
-      if (!iconDragRef.current) {
-        clearDesktopAutoPageTimer();
-        return;
-      }
-      if (targetPage >= computedPageCount) {
-        updateDesktopLayout({ pageCount: targetPage + 1 });
-      }
-      setActivePage(targetPage);
-      clearDesktopAutoPageTimer();
-    }, 360);
-  }, [activePage, clearDesktopAutoPageTimer, computedPageCount, updateDesktopLayout]);
 
   const startDesktopIconPointer = useCallback((
     event: React.PointerEvent<HTMLDivElement>,
@@ -1532,35 +1637,80 @@ export default function App() {
     if (!isDesktopEditing) return;
 
     const handlePointerMove = (event: PointerEvent) => {
-      const drag = iconDragRef.current;
-      if (!drag || drag.pointerId !== event.pointerId) return;
-      const dx = event.clientX - drag.startX;
-      const dy = event.clientY - drag.startY;
-      if (Math.hypot(dx, dy) > 6) {
-        drag.moved = true;
+      const iconDrag = iconDragRef.current;
+      if (iconDrag && iconDrag.pointerId === event.pointerId) {
+        const dx = event.clientX - iconDrag.startX;
+        const dy = event.clientY - iconDrag.startY;
+        if (Math.hypot(dx, dy) > 6) {
+          iconDrag.moved = true;
+        }
+        setDraggingDesktopIcon({
+          instanceId: iconDrag.instanceId,
+          dx,
+          dy,
+          clientX: event.clientX,
+          clientY: event.clientY,
+          sourcePage: iconDrag.sourcePage,
+          pointerOffsetX: iconDrag.pointerOffsetX,
+          pointerOffsetY: iconDrag.pointerOffsetY,
+        });
+        scheduleDesktopAutoPage(event.clientX);
+        return;
       }
-      setDraggingDesktopIcon({
-        instanceId: drag.instanceId,
+
+      const widgetDrag = widgetDragRef.current;
+      if (!widgetDrag || widgetDrag.pointerId !== event.pointerId) return;
+      const dx = event.clientX - widgetDrag.startX;
+      const dy = event.clientY - widgetDrag.startY;
+      if (Math.hypot(dx, dy) > 6) {
+        widgetDrag.moved = true;
+        widgetClickSuppressRef.current = true;
+      }
+      setDraggingDesktopWidget({
+        instanceId: widgetDrag.instanceId,
         dx,
         dy,
         clientX: event.clientX,
         clientY: event.clientY,
-        sourcePage: drag.sourcePage,
-        pointerOffsetX: drag.pointerOffsetX,
-        pointerOffsetY: drag.pointerOffsetY,
+        sourcePage: widgetDrag.sourcePage,
+        pointerOffsetX: widgetDrag.pointerOffsetX,
+        pointerOffsetY: widgetDrag.pointerOffsetY,
       });
       scheduleDesktopAutoPage(event.clientX);
     };
 
     const handlePointerEnd = (event: PointerEvent) => {
-      const drag = iconDragRef.current;
-      if (!drag || drag.pointerId !== event.pointerId) return;
-      const targetCell = resolveIconCellFromPointer(event.clientX, event.clientY, drag.pointerOffsetX, drag.pointerOffsetY);
+      const iconDrag = iconDragRef.current;
+      if (iconDrag && iconDrag.pointerId === event.pointerId) {
+        const targetCell = resolveIconCellFromPointer(event.clientX, event.clientY, iconDrag.pointerOffsetX, iconDrag.pointerOffsetY);
+        clearDesktopAutoPageTimer();
+        iconDragRef.current = null;
+        setDraggingDesktopIcon(null);
+        if (targetCell) {
+          moveDesktopAppToCell(iconDrag.instanceId, targetCell.x, targetCell.y);
+        }
+        return;
+      }
+
+      const widgetDrag = widgetDragRef.current;
+      if (!widgetDrag || widgetDrag.pointerId !== event.pointerId) return;
+      const item = items.find((entry) => entry.instanceId === widgetDrag.instanceId);
+      const cell = item
+        ? resolveWidgetCellFromPointer(
+            event.clientX,
+            event.clientY,
+            widgetDrag.pointerOffsetX,
+            widgetDrag.pointerOffsetY,
+            item.w || 1,
+            item.h || 1
+          )
+        : null;
       clearDesktopAutoPageTimer();
-      iconDragRef.current = null;
-      setDraggingDesktopIcon(null);
-      if (targetCell) {
-        moveDesktopAppToCell(drag.instanceId, targetCell.x, targetCell.y);
+      widgetDragRef.current = null;
+      setDraggingDesktopWidget(null);
+      if (item && cell && canPlaceDesktopWidgetFrame(item, cell.x, cell.y, item.w || 1, item.h || 1, activePage)) {
+        moveAppsAwayFromWidgetFrame(item, cell.x, cell.y, item.w || 1, item.h || 1, activePage);
+        updateDesktopItem(item.instanceId, { x: cell.x, y: cell.y, page: activePage });
       }
     };
 
@@ -1574,10 +1724,16 @@ export default function App() {
     };
   }, [
     clearDesktopAutoPageTimer,
+    activePage,
+    canPlaceDesktopWidgetFrame,
     isDesktopEditing,
+    items,
     moveDesktopAppToCell,
+    moveAppsAwayFromWidgetFrame,
     resolveIconCellFromPointer,
+    resolveWidgetCellFromPointer,
     scheduleDesktopAutoPage,
+    updateDesktopItem,
   ]);
 
   const uninstallDesktopApp = useCallback((item: DesktopItem) => {
@@ -1650,6 +1806,7 @@ export default function App() {
       className="fixed left-0 right-0 top-0 bg-white overflow-hidden flex flex-col"
       style={{ height: 'var(--app-physical-height, var(--app-dvh, 100dvh))' }}
     >
+      {activeAppId !== 'dreammusic' ? <DreamMusicAudioHost /> : null}
       <AnimatePresence>{isBooting && <SystemBootScreen version={__APP_VERSION__} />}</AnimatePresence>
 
       <AnimatePresence>
@@ -1921,6 +2078,7 @@ export default function App() {
                       }}
                       className={`relative rounded-2xl touch-none ${isDesktopEditing ? 'cursor-grab active:cursor-grabbing' : ''}`}
                       onPointerDownCapture={(event) => {
+                        if ((event.target as HTMLElement).closest('[data-custom-widget-press-layer]')) return;
                         if (!isDesktopEditing) startDesktopWidgetPointer(event, widgetItem);
                       }}
                       onPointerDown={(event) => {
@@ -2000,10 +2158,12 @@ export default function App() {
                             titleText={typeof widgetItem.data?.titleText === 'string' ? widgetItem.data.titleText : undefined}
                             titleColor={typeof widgetItem.data?.titleColor === 'string' ? widgetItem.data.titleColor : undefined}
                             titleFontSize={typeof widgetItem.data?.titleFontSize === 'number' ? widgetItem.data.titleFontSize : undefined}
+                            widgetCode={typeof widgetItem.data?.widgetCode === 'string' ? widgetItem.data.widgetCode : undefined}
                             musicPlaying={typeof widgetItem.data?.musicPlaying === 'boolean' ? widgetItem.data.musicPlaying : undefined}
                             musicTitle={typeof widgetItem.data?.musicTitle === 'string' ? widgetItem.data.musicTitle : undefined}
                             musicArtist={typeof widgetItem.data?.musicArtist === 'string' ? widgetItem.data.musicArtist : undefined}
                             isEditing={isDesktopEditing}
+                            onRequestDesktopEdit={() => setIsDesktopEditing(true)}
                             onUpdateData={(nextData) => updateDesktopItem(widgetItem.instanceId, {
                               data: {
                                 ...widgetItem.data,
@@ -2019,7 +2179,8 @@ export default function App() {
                       widgetItem.data?.templateId === 'glass-frame' &&
                       activeWidgetFrameMenuId === widgetItem.instanceId ? (
                         <div
-                          className="absolute left-1 top-8 z-30 w-[min(180px,calc(100vw-48px))] overflow-hidden rounded-[18px] border border-white/35 bg-white/18 p-2 text-slate-700 shadow-[inset_0_1px_0_rgba(255,255,255,0.34),0_14px_32px_rgba(15,23,42,0.18)] backdrop-blur-xl"
+                          className="absolute left-1 top-8 z-30 w-[min(180px,calc(100vw-48px))] overflow-y-auto rounded-[18px] border border-white/35 bg-white/18 p-2 text-slate-700 shadow-[inset_0_1px_0_rgba(255,255,255,0.34),0_14px_32px_rgba(15,23,42,0.18)] backdrop-blur-xl"
+                          style={{ maxHeight: 'min(320px, calc(100vh - 180px))' }}
                           onPointerDown={(event) => event.stopPropagation()}
                           onClick={(event) => event.stopPropagation()}
                         >
@@ -2038,6 +2199,17 @@ export default function App() {
                                 </button>
                               );
                             })}
+                            {customDesktopWidgets.map((widget) => (
+                              <button
+                                key={widget.instanceId}
+                                type="button"
+                                className="flex items-center gap-2 rounded-[12px] border border-white/14 bg-white/10 px-2 py-1.5 text-left text-[11px] font-semibold text-slate-700 shadow-[inset_0_1px_0_rgba(255,255,255,0.16)]"
+                                onClick={() => convertDesktopWidgetFrameToCustom(widgetItem.instanceId, widget)}
+                              >
+                                <Palette size={14} strokeWidth={1.9} />
+                                <span className="min-w-0 flex-1 truncate">{widget.name}</span>
+                              </button>
+                            ))}
                           </div>
                         </div>
                       ) : null}
@@ -2147,6 +2319,50 @@ export default function App() {
               radius={effectiveIconRadius}
               frosted={settings.iconFrosted}
               shadow={effectiveIconShadow}
+            />
+          </div>
+        );
+      })() : null}
+
+      {draggingDesktopWidget && activePage !== draggingDesktopWidget.sourcePage ? (() => {
+        const item = items.find((entry) => entry.instanceId === draggingDesktopWidget.instanceId);
+        if (!item) return null;
+        const widgetConfig = getWidgetById(item.componentId);
+        const width = item.w || widgetConfig?.defaultWidth || 1;
+        const height = item.h || widgetConfig?.defaultHeight || 1;
+        const gridRect = desktopGridRef.current?.getBoundingClientRect();
+        const overlayWidth = gridRect ? (gridRect.width / cols) * width : width * 86;
+        const overlayHeight = gridRect ? (gridRect.height / rows) * height : height * 86;
+        return (
+          <div
+            className="pointer-events-none fixed z-[80] overflow-hidden rounded-2xl"
+            style={{
+              left: `${draggingDesktopWidget.clientX - draggingDesktopWidget.pointerOffsetX}px`,
+              top: `${draggingDesktopWidget.clientY - draggingDesktopWidget.pointerOffsetY}px`,
+              width: `${overlayWidth}px`,
+              height: `${overlayHeight}px`,
+            }}
+          >
+            <WidgetPlaceholder
+              name={item.data?.name || widgetConfig?.name || 'Widget'}
+              backgroundImage={item.data?.backgroundImage || item.data?.placeholderIcon || ''}
+              defaultIcon={widgetConfig?.defaultIcon || ''}
+              status={item.componentId === 'custom-widget' ? 'normal' : 'building'}
+              cornerRadius={item.data?.cornerRadius}
+              frosted={item.data?.frosted}
+              shadow={item.data?.shadow}
+              templateId={typeof item.data?.templateId === 'string' ? item.data.templateId : undefined}
+              subtitle={typeof item.data?.subtitle === 'string' ? item.data.subtitle : undefined}
+              titleText={typeof item.data?.titleText === 'string' ? item.data.titleText : undefined}
+              titleColor={typeof item.data?.titleColor === 'string' ? item.data.titleColor : undefined}
+              titleFontSize={typeof item.data?.titleFontSize === 'number' ? item.data.titleFontSize : undefined}
+              widgetCode={typeof item.data?.widgetCode === 'string' ? item.data.widgetCode : undefined}
+              musicPlaying={typeof item.data?.musicPlaying === 'boolean' ? item.data.musicPlaying : undefined}
+              musicTitle={typeof item.data?.musicTitle === 'string' ? item.data.musicTitle : undefined}
+              musicArtist={typeof item.data?.musicArtist === 'string' ? item.data.musicArtist : undefined}
+              isEditing={false}
+              width={width}
+              height={height}
             />
           </div>
         );

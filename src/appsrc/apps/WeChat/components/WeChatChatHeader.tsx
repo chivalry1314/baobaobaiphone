@@ -10,6 +10,7 @@ interface WeChatChatHeaderProps {
   onReturnToShopping?: () => void;
   returnToShoppingLabel?: string;
   onExitSelection: () => void;
+  onDetailsClick?: () => void;
 }
 
 export const WeChatChatHeader: React.FC<WeChatChatHeaderProps> = ({
@@ -21,6 +22,7 @@ export const WeChatChatHeader: React.FC<WeChatChatHeaderProps> = ({
   onReturnToShopping,
   returnToShoppingLabel,
   onExitSelection,
+  onDetailsClick,
 }) => {
   if (isSelectionMode) {
     return (
@@ -58,7 +60,12 @@ export const WeChatChatHeader: React.FC<WeChatChatHeaderProps> = ({
       <h1 className="flex-1 text-center text-[17px] font-medium text-gray-900 truncate px-4">
         {isTyping ? '对方正在输入...' : characterName}
       </h1>
-      <button className="text-gray-900 active:opacity-50 px-2">
+      <button
+        type="button"
+        onClick={onDetailsClick}
+        className="text-gray-900 active:opacity-50 px-2"
+        aria-label="聊天详情"
+      >
         <MoreHorizontal size={26} strokeWidth={1.5} />
       </button>
     </div>

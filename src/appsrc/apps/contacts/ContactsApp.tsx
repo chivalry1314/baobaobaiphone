@@ -75,6 +75,7 @@ export const ContactsApp: React.FC<ContactsAppProps> = ({ onClose, context }) =>
     setActiveMyCard,
     updateMyCard,
     updateContact,
+    deleteContact,
     addCallRecord,
     deleteCallRecord,
   } = useContactsStore();
@@ -502,6 +503,13 @@ export const ContactsApp: React.FC<ContactsAppProps> = ({ onClose, context }) =>
               onSubmit={(payload) => {
                 updateContact(selectedContact.id, payload);
                 setCurrentPage('contactDetail');
+              }}
+              onDelete={() => {
+                const confirmed = window.confirm('删除联系人后将无法恢复，确定要删除吗？');
+                if (!confirmed) return;
+                deleteContact(selectedContact.id);
+                setSelectedContactId(null);
+                setCurrentPage('main');
               }}
             />
           )}
