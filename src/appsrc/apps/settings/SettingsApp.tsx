@@ -376,10 +376,28 @@ export const SettingsApp: React.FC<SettingsAppProps> = ({ onClose, context }) =>
               widgetId={widgetEditorId}
               initialConfig={initialWidgetConfig}
               onDelete={editingLibraryWidget ? () => {
+                const deletedName = editingLibraryWidget.name?.trim();
+                const deletedCode = editingLibraryWidget.widgetCode?.trim();
+                const isSameCustomWidget = (name: unknown, widgetCode: unknown) => (
+                  typeof name === 'string' &&
+                  typeof widgetCode === 'string' &&
+                  name.trim() === deletedName &&
+                  widgetCode.trim() === deletedCode
+                );
                 updateDesktopLayout({
-                  customWidgets: (desktopLayout.customWidgets || []).filter((widget) => widget.id !== editingLibraryWidget.id),
+                  customWidgets: (desktopLayout.customWidgets || []).filter((widget) => (
+                    widget.id !== editingLibraryWidget.id &&
+                    !isSameCustomWidget(widget.name, widget.widgetCode)
+                  )),
+                  items: (desktopLayout.items || []).filter((item) => {
+                    if (item.type !== 'widget' || item.componentId !== 'custom-widget') return true;
+                    return !isSameCustomWidget(item.data?.name, item.data?.widgetCode);
+                  }),
                 });
-                removeCustomWidgetLibraryItem(editingLibraryWidget.id);
+                removeCustomWidgetLibraryItem(editingLibraryWidget.id, {
+                  name: editingLibraryWidget.name,
+                  widgetCode: editingLibraryWidget.widgetCode,
+                });
                 setCurrentView(widgetEditorReturnTo);
               } : editingItem ? () => {
                 removeDesktopItem(editingItem.instanceId);

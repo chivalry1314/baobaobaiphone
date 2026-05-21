@@ -874,21 +874,28 @@ export default function App() {
   const customDesktopWidgets = useMemo(
     () => {
       const seen = new Set<string>();
-      const savedWidgets = [...(desktopLayout.customWidgets || []), ...localCustomWidgets].map((widget) => ({
-        instanceId: `library:${widget.id}`,
-        name: getCustomWidgetDisplayName({ name: widget.name, widgetCode: widget.widgetCode }),
-        width: widget.width || 2,
-        height: widget.height || 2,
-        data: {
-          ...(widget.data || {}),
-          name: widget.name,
-          templateId: widget.templateId || 'custom-code',
-          widgetCode: widget.widgetCode,
-          cornerRadius: widget.cornerRadius,
-          frosted: widget.frosted,
-          shadow: widget.shadow,
-        },
-      }));
+      const savedWidgets = [...(desktopLayout.customWidgets || []), ...localCustomWidgets]
+        .filter((widget, index, array) => (
+          array.findIndex((item) => (
+            item.id === widget.id ||
+            (item.name === widget.name && item.widgetCode === widget.widgetCode)
+          )) === index
+        ))
+        .map((widget) => ({
+          instanceId: `library:${widget.id}`,
+          name: getCustomWidgetDisplayName({ name: widget.name, widgetCode: widget.widgetCode }),
+          width: widget.width || 2,
+          height: widget.height || 2,
+          data: {
+            ...(widget.data || {}),
+            name: widget.name,
+            templateId: widget.templateId || 'custom-code',
+            widgetCode: widget.widgetCode,
+            cornerRadius: widget.cornerRadius,
+            frosted: widget.frosted,
+            shadow: widget.shadow,
+          },
+        }));
       savedWidgets.forEach((widget) => {
         seen.add(`${widget.name}::${String(widget.data.widgetCode || '')}`);
       });

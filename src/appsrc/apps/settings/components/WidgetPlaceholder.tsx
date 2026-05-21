@@ -349,6 +349,18 @@ const wrapRuntimeMarkup = (markup: string): string => {
   return `<style>${runtimeCss}</style>${markup}`;
 };
 
+const normalizeCustomWidgetSource = (source: string): string =>
+  source
+    .replace(/<\s+([a-zA-Z][\w:-]*)(?=[\s>/])/g, '<$1')
+    .replace(/<\/\s+([a-zA-Z][\w:-]*)\s*>/g, '</$1>');
+
+const normalizeCustomWidgetImageUrl = (url: string | undefined): string | undefined => {
+  const value = url?.trim();
+  if (!value) return undefined;
+  if (value.startsWith('http://')) return `https://${value.slice('http://'.length)}`;
+  return value;
+};
+
 const normalizeMusicActionClickHandlers = (source: string): string =>
   source.replace(/\s+onClick=\{([^{}]+|\([^{}]*\)\s*=>\s*[^{}]+)\}/g, (match, expression: string) => {
     const compactExpression = expression.replace(/\s+/g, '');
@@ -604,7 +616,9 @@ export const WidgetPlaceholder: React.FC<WidgetPlaceholderProps> = ({
             title: dreamCurrentTrack.title,
             artist: dreamCurrentTrack.artist,
             album: dreamCurrentTrack.album,
-            coverUrl: dreamCurrentTrack.coverUrl,
+            coverUrl: normalizeCustomWidgetImageUrl(dreamCurrentTrack.coverUrl),
+            artworkUrl: normalizeCustomWidgetImageUrl(dreamCurrentTrack.coverUrl),
+            picUrl: normalizeCustomWidgetImageUrl(dreamCurrentTrack.coverUrl),
             durationMs: dreamCurrentTrack.durationMs,
           }
         : null,
@@ -631,7 +645,7 @@ export const WidgetPlaceholder: React.FC<WidgetPlaceholderProps> = ({
   }, [serializableCustomWidgetSystem, templateId]);
   const customWidgetHtml = React.useMemo(() => {
     if (templateId !== 'custom-code') return '';
-    const source = widgetCode?.trim();
+    const source = normalizeCustomWidgetSource(widgetCode?.trim() || '');
     if (!source) return '';
     const serializedSystem = JSON.stringify(serializableCustomWidgetSystem).replace(/</g, '\\u003c');
     const systemBridgeScript = `<script>
@@ -693,7 +707,7 @@ window.addEventListener('message',function(event){
 </script>`;
     const hasDocument = /<!doctype html|<html[\s>]/i.test(source);
     const hasHtmlTag = /<\/?[a-z][\s\S]*>/i.test(source);
-    const normalizedSource = source.replace(/\bclassName=/g, 'class=');
+    const normalizedSource = normalizeCustomWidgetSource(source).replace(/\bclassName=/g, 'class=');
     const runtimeCss = buildRuntimeTailwindCss(normalizedSource);
     const looksLikeCssOnly =
       !hasHtmlTag &&
@@ -761,7 +775,7 @@ window.addEventListener('message',function(event){
   }, [name, templateId, widgetCode]);
   const customWidgetInlineMarkup = React.useMemo(() => {
     if (templateId !== 'custom-code') return '';
-    const source = widgetCode?.trim();
+    const source = normalizeCustomWidgetSource(widgetCode?.trim() || '');
     if (!source) return '';
     const hasDocument = /<!doctype html|<html[\s>]/i.test(source);
     const hasScript = /<script[\s>]/i.test(source);

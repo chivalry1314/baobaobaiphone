@@ -31,6 +31,19 @@ export const upsertCustomWidgetLibraryItem = (widget: CustomWidgetDefinition) =>
   writeCustomWidgetLibrary(nextWidgets);
 };
 
-export const removeCustomWidgetLibraryItem = (id: string) => {
-  writeCustomWidgetLibrary(readCustomWidgetLibrary().filter((widget) => widget.id !== id));
+export const removeCustomWidgetLibraryItem = (
+  id: string,
+  match?: { name?: string; widgetCode?: string }
+) => {
+  const matchName = match?.name?.trim();
+  const matchCode = match?.widgetCode?.trim();
+  writeCustomWidgetLibrary(
+    readCustomWidgetLibrary().filter((widget) => {
+      if (widget.id === id) return false;
+      if (matchName && matchCode && widget.name?.trim() === matchName && widget.widgetCode?.trim() === matchCode) {
+        return false;
+      }
+      return true;
+    })
+  );
 };
