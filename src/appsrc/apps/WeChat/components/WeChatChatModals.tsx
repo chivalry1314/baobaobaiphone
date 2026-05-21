@@ -145,6 +145,7 @@ export const Modals = {
     onCopy,
     onForward,
     onDelete,
+    onAddSticker,
     onSelect,
     onQuote,
     onTranscribe,
@@ -164,7 +165,11 @@ export const Modals = {
           >
             <MenuItem icon={Copy} label="复制" onClick={onCopy} />
             <MenuItem icon={Forward} label="转发" onClick={onForward} />
-            <MenuItem icon={Star} label="收藏" onClick={closeMenu} />
+            {typeof onAddSticker === 'function' ? (
+              <MenuItem icon={Star} label="添加到表情" onClick={onAddSticker} />
+            ) : (
+              <MenuItem icon={Star} label="收藏" onClick={closeMenu} />
+            )}
             {typeof onTranscribe === 'function' ? (
               <MenuItem icon={Type} label={transcribeLabel || '转文字'} onClick={onTranscribe} />
             ) : null}

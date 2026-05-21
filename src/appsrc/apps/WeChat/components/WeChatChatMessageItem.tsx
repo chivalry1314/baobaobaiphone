@@ -3,6 +3,7 @@ import React from 'react';
 import { Check, ArrowRightLeft, User, Pause, Volume2 } from 'lucide-react';
 import type { CSSProperties } from 'react';
 import type { WeChatBubblePreset, WeChatMessage, WeChatUiRenderConfig } from '../types';
+import { decodeWeChatOnlineStickerToken, wechatGifStickers } from '../emojiStickers';
 import { DELIVERY_STORAGE_KEY } from '../../delivery/data';
 import { DELIVERY_ORDERS_CHANGED_EVENT } from '../../delivery/paymentBridge';
 import type { DeliveryOrderRecord, DeliveryTrackingRecord } from '../../delivery/types';
@@ -71,6 +72,26 @@ const normalizeStyle = (
     (acc as Record<string, string | number>)[key] = value;
     return acc;
   }, {});
+};
+
+const renderInlineEmojiContent = (content: string) => {
+  const stickerMap = new Map(wechatGifStickers.map((sticker) => [sticker.name, sticker]));
+  const parts = content.split(/(\[gif:[^\]]+\]|\[[^\[\]]{1,12}\])/g).filter((part) => part.length > 0);
+  return parts.map((part, index) => {
+    const onlineSticker = decodeWeChatOnlineStickerToken(part);
+    const name = part.match(/^\[([^\[\]]{1,12})\]$/)?.[1];
+    const sticker = onlineSticker || (name ? stickerMap.get(name) : undefined);
+    if (!sticker) return <React.Fragment key={`${part}-${index}`}>{part}</React.Fragment>;
+    return (
+      <img
+        key={`${sticker.id}-${index}`}
+        src={sticker.url}
+        alt={sticker.name}
+        className="-mx-1 inline-block h-8 w-8 align-[-8px]"
+        loading="lazy"
+      />
+    );
+  });
 };
 
 const isRecord = (value: unknown): value is Record<string, unknown> =>
@@ -152,6 +173,7 @@ export const WeChatChatMessageItem: React.FC<WeChatChatMessageItemProps> = ({
   const isRecipeCard = message.type === 'recipe_card' && Boolean(message.recipeCard);
   const isVoice = message.type === 'voice' && Boolean(message.voiceAudioDataUrl);
   const isImage = message.type === 'image' && Boolean(message.imageDataUrl);
+  const isSticker = message.type === 'sticker' && Boolean(message.stickerUrl);
   const imageCaption = message.content.trim();
   const showImageCaption = imageCaption.length > 0 && imageCaption !== '[图片]';
   const voiceDuration = Math.max(1, Math.round(message.voiceDurationSeconds || 1));
@@ -173,7 +195,8 @@ export const WeChatChatMessageItem: React.FC<WeChatChatMessageItemProps> = ({
     !isShoppingInvite &&
     !isMovieTicket &&
     !isGiftDelivery &&
-    !isRecipeCard;
+    !isRecipeCard &&
+    !isSticker;
   const tailClass = isUser ? 'border-l-[#95ec69]' : 'border-r-white';
   const movieTicket = message.movieTicket;
   const giftDelivery = message.giftDelivery;
@@ -360,10 +383,12 @@ export const WeChatChatMessageItem: React.FC<WeChatChatMessageItemProps> = ({
                   ? `bg-[#F39B3A] text-white overflow-hidden ${message.type === 'transfer_accepted' ? 'opacity-95' : ''}` 
                   : isOrderRequest || isShoppingInvite || isMovieTicket || isGiftDelivery || isRecipeCard
                     ? 'overflow-hidden rounded-[18px] border border-[#EAECEF] bg-white shadow-[0_8px_20px_rgba(15,23,42,0.06)]'
-                  : `${bubblePresetClass} ${isImage ? 'p-1.5' : 'px-3.5 py-2.5'}`
+                  : isSticker
+                    ? 'bg-transparent p-0'
+                    : `${bubblePresetClass} ${isImage ? 'p-1.5' : 'px-3.5 py-2.5'}`
                 }`}
               style={
-                !isTransfer && !isOrderRequest && !isShoppingInvite && !isMovieTicket && !isGiftDelivery && !isRecipeCard
+                !isTransfer && !isOrderRequest && !isShoppingInvite && !isMovieTicket && !isGiftDelivery && !isRecipeCard && !isSticker
                   ? customBubbleStyle
                   : undefined
               }
@@ -710,6 +735,22 @@ export const WeChatChatMessageItem: React.FC<WeChatChatMessageItemProps> = ({
                     </>
                   )}
                 </div>
+              ) : isSticker ? (
+                <div
+                  className="flex max-w-[170px] overflow-hidden"
+                  onContextMenu={(event) => {
+                    event.preventDefault();
+                    event.stopPropagation();
+                    openMenuByPoint(event.clientX, event.clientY);
+                  }}
+                >
+                  <img
+                    src={message.stickerUrl}
+                    alt={message.stickerName || '表情'}
+                    className="h-24 w-24 object-contain"
+                    loading="lazy"
+                  />
+                </div>
               ) : isImage ? (
                 <div
                   className="flex w-[220px] max-w-full flex-col gap-2 overflow-hidden"
@@ -739,7 +780,7 @@ export const WeChatChatMessageItem: React.FC<WeChatChatMessageItemProps> = ({
                   style={{ wordBreak: 'break-word', whiteSpace: 'pre-wrap', ...customTextStyle }}
                   className="text-[16px] leading-[1.4]"
                 >
-                  {message.content}
+                  {renderInlineEmojiContent(message.content)}
                 </div>
               )}
             </div>

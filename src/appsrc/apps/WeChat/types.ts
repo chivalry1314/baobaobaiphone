@@ -28,6 +28,7 @@ export interface WeChatMessage {
     | 'pat'
     | 'voice'
     | 'image'
+    | 'sticker'
     | 'order_request'
     | 'movie_ticket'
     | 'gift_delivery'
@@ -68,6 +69,8 @@ export interface WeChatMessage {
   voiceTranscriptVisible?: boolean;
   imageDataUrl?: string;
   imageMimeType?: string;
+  stickerUrl?: string;
+  stickerName?: string;
 }
 
 export interface WeChatOrderPreviewItem {

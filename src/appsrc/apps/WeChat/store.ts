@@ -200,6 +200,10 @@ const normalizeMessageContentForMemory = (
     return WECHAT_IMAGE_PLACEHOLDER;
   }
 
+  if (message.type === 'sticker') {
+    return `[动态表情] ${message.stickerName || message.content.replace('[表情]', '').trim() || '表情'}`;
+  }
+
   if (message.type === 'voice') {
     const transcript = message.voiceTranscriptText?.trim();
     if (transcript) return transcript;

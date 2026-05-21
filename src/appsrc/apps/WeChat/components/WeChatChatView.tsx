@@ -23,6 +23,7 @@ import { WeChatChatHeader } from './WeChatChatHeader';
 import { WeChatChatMessageItem } from './WeChatChatMessageItem';
 import { WeChatChatInputBar } from './WeChatChatInputBar';
 import { Modals } from './WeChatChatModals';
+import { addWeChatCustomSticker } from '../emojiStickers';
 
 interface SpeechRecognitionAlternativeLike {
   transcript: string;
@@ -240,6 +241,10 @@ const normalizeMessageContentForMemoryComparison = (message: WeChatMessage): str
     return '[图片]';
   }
 
+  if (message.type === 'sticker') {
+    return `[动态表情] ${message.stickerName || message.content.replace('[表情]', '').trim() || '表情'}`;
+  }
+
   if (message.type === 'voice') {
     const transcript = message.voiceTranscriptText?.trim();
     if (transcript) return transcript;
@@ -254,6 +259,43 @@ const normalizeMessageContentForMemoryComparison = (message: WeChatMessage): str
   }
 
   return message.content.trim();
+};
+
+const WECHAT_EMOJI_MEANING_MAP: Record<string, string> = {
+  流泪: '难过、委屈、想哭',
+  大哭: '非常难过或撒娇式崩溃',
+  大笑: '开心、觉得好笑',
+  发怒: '生气、不满',
+  爱心: '喜欢、关心、表达爱意',
+  点赞: '认可、赞同',
+  害羞: '不好意思、羞涩',
+  震惊: '惊讶、疑惑',
+  亲亲: '亲昵、撒娇',
+  睡觉: '困了、想睡',
+  便便: '吐槽、嫌弃、玩笑',
+  庆祝: '开心庆祝',
+};
+
+const explainWeChatEmojiText = (content: string): string => {
+  const onlineGifNames = Array.from(content.matchAll(/\[gif:([^:\]]+):[^\]]+\]/g))
+    .map((match) => {
+      try {
+        return decodeURIComponent(match[1]);
+      } catch {
+        return '';
+      }
+    })
+    .filter(Boolean);
+  const emojiNames = Array.from(content.matchAll(/\[([^\[\]:]{1,12})\]/g))
+    .map((match) => match[1])
+    .filter((name) => WECHAT_EMOJI_MEANING_MAP[name]);
+  if (emojiNames.length === 0 && onlineGifNames.length === 0) return content;
+  const uniqueNames = Array.from(new Set(emojiNames));
+  const explanations = [
+    ...uniqueNames.map((name) => `[${name}]≈${WECHAT_EMOJI_MEANING_MAP[name]}`),
+    ...Array.from(new Set(onlineGifNames)).map((name) => `[在线GIF:${name}]≈动态表情，表达${name}`),
+  ].join('；');
+  return `${content}\n（表情含义：${explanations}）`;
 };
 
 const isIOSViewportDevice = (): boolean => {
@@ -341,6 +383,7 @@ export const WeChatChatView: React.FC<WeChatChatViewProps> = ({
     messageType?: WeChatMessage['type'];
     canTranscribe?: boolean;
     transcriptVisible?: boolean;
+    canAddSticker?: boolean;
   } | null>(null);
   const [isSelectionMode, setIsSelectionMode] = useState(false);
   const [selectedMessageIds, setSelectedMessageIds] = useState<string[]>([]);
@@ -1376,13 +1419,39 @@ export const WeChatChatView: React.FC<WeChatChatViewProps> = ({
     setIsMultiline(scrollHeight > 36);
   };
 
-  const handleInputChange = (e: React.ChangeEvent<HTMLTextAreaElement>) => {
+  const handleInputChange = (value: string) => {
     if (pendingVoiceDraft) {
       setPendingVoiceDraft(null);
     }
-    setInputValue(e.target.value);
-    adjustTextareaHeight(e.target);
+    setInputValue(value);
+    adjustTextareaHeight(textareaRef.current);
     if (showPlusMenu) setShowPlusMenu(false);
+  };
+
+  const handleDeleteInput = () => {
+    if (pendingVoiceDraft) {
+      setPendingVoiceDraft(null);
+    }
+    const textarea = textareaRef.current;
+    const start = textarea?.selectionStart ?? inputValue.length;
+    const end = textarea?.selectionEnd ?? inputValue.length;
+    if (start === 0 && end === 0) return;
+    const beforeCursor = inputValue.slice(0, start);
+    const emojiTokenMatch = beforeCursor.match(/\[[^\[\]]{1,8}\]$/);
+    const deleteStart = start === end
+      ? emojiTokenMatch
+        ? start - emojiTokenMatch[0].length
+        : Math.max(0, start - (Array.from(beforeCursor).at(-1)?.length || 1))
+      : start;
+    const nextValue = `${inputValue.slice(0, deleteStart)}${inputValue.slice(end)}`;
+    setInputValue(nextValue);
+    window.requestAnimationFrame(() => {
+      const nextTextarea = textareaRef.current;
+      if (!nextTextarea) return;
+      nextTextarea.focus({ preventScroll: true });
+      nextTextarea.setSelectionRange(deleteStart, deleteStart);
+      adjustTextareaHeight(nextTextarea);
+    });
   };
 
   const toggleSelection = (messageId: string) => {
@@ -1407,6 +1476,7 @@ export const WeChatChatView: React.FC<WeChatChatViewProps> = ({
       messageType: msg.type,
       canTranscribe: msg.type === 'voice' && Boolean(msg.voiceTranscriptText),
       transcriptVisible: Boolean(msg.voiceTranscriptVisible),
+      canAddSticker: msg.type === 'sticker' && Boolean(msg.stickerUrl),
     });
   };
 
@@ -1526,6 +1596,8 @@ export const WeChatChatView: React.FC<WeChatChatViewProps> = ({
         voiceTranscriptVisible: messageItem.voiceTranscriptVisible,
         imageDataUrl: messageItem.imageDataUrl,
         imageMimeType: messageItem.imageMimeType,
+        stickerUrl: messageItem.stickerUrl,
+        stickerName: messageItem.stickerName,
       })
     );
 
@@ -1717,7 +1789,7 @@ export const WeChatChatView: React.FC<WeChatChatViewProps> = ({
         return;
       }
 
-      let content = m.content;
+      let content = explainWeChatEmojiText(m.content);
       if (m.type === 'order_request') {
         const actionText =
           m.orderRequestStatus === 'accepted'
@@ -2174,7 +2246,9 @@ export const WeChatChatView: React.FC<WeChatChatViewProps> = ({
       stopVoiceRecognition(true);
     }
     const hasVoiceDraftToSend = Boolean(pendingVoiceDraft);
-    if ((!contentToSend && !hasVoiceDraftToSend) || !character) return;
+    if ((!contentToSend && !hasVoiceDraftToSend) || !character) {
+      return;
+    }
     if (!settings.apiKey) {
       alert('请先配置 API Key');
       return;
@@ -2209,6 +2283,63 @@ export const WeChatChatView: React.FC<WeChatChatViewProps> = ({
     if (textareaRef.current) textareaRef.current.style.height = 'auto';
     scrollToBottom();
     focusComposer();
+  };
+
+  const handleSendOnlineSticker = (sticker: { name: string; url: string }) => {
+    if (!character || !sticker.url) return;
+    if (!settings.apiKey) {
+      alert('请先配置 API Key');
+      return;
+    }
+    const sessionId = session?.id || createWeChatSession(character.id);
+    addWeChatMessage(sessionId, {
+      role: 'user',
+      type: 'sticker',
+      content: `[在线GIF:${sticker.name || '表情'}]`,
+      stickerUrl: sticker.url,
+      stickerName: sticker.name || '表情',
+      assistantReplyPending: true,
+    });
+    setInputValue('');
+    setPendingVoiceDraft(null);
+    setQuotingMessage(null);
+    setShowFullScreenEditor(false);
+    setIsMultiline(false);
+    setShowPlusMenu(false);
+    scrollToBottom();
+  };
+
+  const handleAddCustomStickerFile = async (file: File) => {
+    try {
+      const reader = new FileReader();
+      const dataUrl = await new Promise<string>((resolve, reject) => {
+        reader.onload = () => resolve(String(reader.result || ''));
+        reader.onerror = () => reject(reader.error);
+        reader.readAsDataURL(file);
+      });
+      addWeChatCustomSticker({
+        name: file.name.replace(/\.[^.]+$/, '') || '表情',
+        url: dataUrl,
+      });
+      setToastMessage('已添加到表情');
+      setTimeout(() => setToastMessage(null), 1500);
+    } catch {
+      setToastMessage('添加失败');
+      setTimeout(() => setToastMessage(null), 1500);
+    }
+  };
+
+  const handleAddStickerFromMessage = () => {
+    const target = messages.find((item) => item.id === menuState?.messageId);
+    if (!target?.stickerUrl) return;
+    addWeChatCustomSticker({
+      name: target.stickerName || '表情',
+      url: target.stickerUrl,
+      online: /^https?:\/\//.test(target.stickerUrl),
+    });
+    setMenuState(null);
+    setToastMessage('已添加到表情');
+    setTimeout(() => setToastMessage(null), 1500);
   };
 
   const applyOrderRequestAction = useCallback(
@@ -2705,6 +2836,9 @@ export const WeChatChatView: React.FC<WeChatChatViewProps> = ({
             }
           }}
           onInputChange={handleInputChange}
+          onDeleteInput={handleDeleteInput}
+          onSendOnlineSticker={handleSendOnlineSticker}
+          onAddCustomStickerFile={handleAddCustomStickerFile}
           onShowTransfer={() => setShowTransferView(true)}
           onShowCallOptions={handleOpenCallTypeSheet}
           onChooseImage={handleOpenImagePicker}
@@ -2795,6 +2929,7 @@ export const WeChatChatView: React.FC<WeChatChatViewProps> = ({
         onCopy={() => handleCopy(menuState!.text)}
         onForward={() => { setForwardTargetModal({ messageIds: [menuState!.messageId] }); setMenuState(null); }}
         onDelete={() => { setDeleteTarget(menuState!.messageId); setMenuState(null); }}
+        onAddSticker={menuState?.canAddSticker ? handleAddStickerFromMessage : undefined}
         onSelect={() => { setIsSelectionMode(true); setSelectedMessageIds([menuState!.messageId]); setMenuState(null); }}
         onQuote={() => {
           const t = messages.find(m => m.id === menuState!.messageId);

@@ -5,6 +5,7 @@ import type { WeChatInteractionMemoryRecord, WeChatMessage } from './types';
 const WECHAT_SOURCE_LABELS: Partial<Record<NonNullable<WeChatMessage['type']>, string>> = {
   text: '文本',
   image: '图片',
+  sticker: '动态表情',
   voice: '语音',
   transfer: '转账',
   transfer_accepted: '收款',
