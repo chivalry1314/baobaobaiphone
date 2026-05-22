@@ -342,7 +342,7 @@ export const WeChatChatView: React.FC<WeChatChatViewProps> = ({
 }) => {
   const {
     wechatSessions, addWeChatMessage, deleteWeChatMessages,
-    updateWeChatMessage, createWeChatSession, ensureWeChatSession, wechatUserProfile, withdrawWeChatBalance, wechatUiSettings
+    updateWeChatMessage, createWeChatSession, ensureWeChatSession, wechatUserProfile, withdrawWeChatBalance, wechatUiSettings, updateWeChatUiSettings
   } = useWeChatStore();
   const wechatCharacters = useWeChatCharactersFromContacts();
   const settings = useGlobalSettingsStore((state) => state.settings);
@@ -512,6 +512,15 @@ export const WeChatChatView: React.FC<WeChatChatViewProps> = ({
     wechatUiSettings.chatBackgroundImage,
     wechatUiSettings.chatBackgroundOpacity,
   ]);
+  const chatFontFamily = wechatUiSettings.chatFontFamily || '';
+  const chatFontFaceCss = [
+    ...(wechatUiSettings.chatFontData && chatFontFamily
+      ? [`@font-face{font-family:${JSON.stringify(chatFontFamily)};src:url(${wechatUiSettings.chatFontData});font-display:swap;}`]
+      : []),
+    ...(wechatUiSettings.customChatFonts || []).map(
+      (font) => `@font-face{font-family:${JSON.stringify(font.fontFamily)};src:url(${font.fontData});font-display:swap;}`
+    ),
+  ].join('\n');
 
   const scrollToBottom = useCallback((extraPasses = 2) => {
     if (isSelectionMode) return;
@@ -2329,6 +2338,65 @@ export const WeChatChatView: React.FC<WeChatChatViewProps> = ({
     }
   };
 
+  const handleAddCustomFontFile = async (file: File, name: string) => {
+    try {
+      const reader = new FileReader();
+      const dataUrl = await new Promise<string>((resolve, reject) => {
+        reader.onload = () => resolve(String(reader.result || ''));
+        reader.onerror = () => reject(reader.error);
+        reader.readAsDataURL(file);
+      });
+      const fontName = `WechatCustomFont_${Date.now()}`;
+      const nextFont = {
+        id: `font-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`,
+        name: name.trim() || file.name.replace(/\.[^.]+$/, '') || '自定义字体',
+        fontFamily: fontName,
+        fontData: dataUrl,
+      };
+      updateWeChatUiSettings({
+        chatFontFamily: fontName,
+        chatFontData: dataUrl,
+        customChatFonts: [nextFont, ...(wechatUiSettings.customChatFonts || [])],
+      });
+      setToastMessage('已导入字体');
+      setTimeout(() => setToastMessage(null), 1500);
+    } catch {
+      setToastMessage('字体导入失败');
+      setTimeout(() => setToastMessage(null), 1500);
+    }
+  };
+
+  const handleAddCustomBubbleStyle = (name: string, css: string) => {
+    const nextStyle = {
+      id: `bubble-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`,
+      name: name.trim() || '自定义气泡',
+      css: css.trim(),
+    };
+    updateWeChatUiSettings({
+      customBubbleCss: nextStyle.css,
+      customBubbleStyleId: nextStyle.id,
+      customBubbleStyles: [nextStyle, ...(wechatUiSettings.customBubbleStyles || [])],
+    });
+  };
+
+  const handleDeleteCustomBubbleStyle = (id: string) => {
+    const isDeletingSelected = wechatUiSettings.customBubbleStyleId === id;
+    updateWeChatUiSettings({
+      customBubbleCss: isDeletingSelected ? '' : wechatUiSettings.customBubbleCss,
+      customBubbleStyleId: isDeletingSelected ? '' : wechatUiSettings.customBubbleStyleId,
+      customBubbleStyles: (wechatUiSettings.customBubbleStyles || []).filter((item) => item.id !== id),
+    });
+  };
+
+  const handleDeleteCustomFont = (id: string) => {
+    const target = (wechatUiSettings.customChatFonts || []).find((item) => item.id === id);
+    updateWeChatUiSettings({
+      chatFontFamily: target?.fontFamily === wechatUiSettings.chatFontFamily ? '' : wechatUiSettings.chatFontFamily,
+      chatFontData: target?.fontFamily === wechatUiSettings.chatFontFamily ? '' : wechatUiSettings.chatFontData,
+      customChatFonts: (wechatUiSettings.customChatFonts || []).filter((item) => item.id !== id),
+    });
+  };
+
   const handleAddStickerFromMessage = () => {
     const target = messages.find((item) => item.id === menuState?.messageId);
     if (!target?.stickerUrl) return;
@@ -2745,6 +2813,7 @@ export const WeChatChatView: React.FC<WeChatChatViewProps> = ({
 
   return (
     <>
+      {chatFontFaceCss ? <style>{chatFontFaceCss}</style> : null}
       <motion.div
         initial={{ opacity: 0, x: 20 }}
         animate={{ opacity: 1, x: 0 }}
@@ -2793,6 +2862,9 @@ export const WeChatChatView: React.FC<WeChatChatViewProps> = ({
                     userAvatar={wechatUserProfile?.avatar} characterAvatar={character.avatar} characterName={character.name}
                     selfBubblePreset={wechatUiSettings.selfBubblePreset}
                     peerBubblePreset={wechatUiSettings.peerBubblePreset}
+                    selfBubbleColor={wechatUiSettings.selfBubbleColor}
+                    customBubbleCss={wechatUiSettings.customBubbleCss}
+                    chatFontFamily={chatFontFamily}
                     customRenderConfig={customRenderConfig}
                     isSelected={selectedMessageIds.includes(message.id)} isSelectionMode={isSelectionMode}
                     isMenuOpen={menuState?.messageId === message.id}
@@ -2839,6 +2911,22 @@ export const WeChatChatView: React.FC<WeChatChatViewProps> = ({
           onDeleteInput={handleDeleteInput}
           onSendOnlineSticker={handleSendOnlineSticker}
           onAddCustomStickerFile={handleAddCustomStickerFile}
+          currentBubblePreset={wechatUiSettings.selfBubblePreset}
+          currentBubbleColor={wechatUiSettings.selfBubbleColor}
+          customBubbleCss={wechatUiSettings.customBubbleCss}
+          currentCustomBubbleStyleId={wechatUiSettings.customBubbleStyleId || ''}
+          currentChatFontFamily={chatFontFamily}
+          hasCustomChatFont={Boolean(wechatUiSettings.chatFontData)}
+          customBubbleStyles={wechatUiSettings.customBubbleStyles || []}
+          customChatFonts={wechatUiSettings.customChatFonts || []}
+          onSelectBubblePreset={(preset) => updateWeChatUiSettings({ selfBubblePreset: preset, peerBubblePreset: preset, customBubbleCss: '', customBubbleStyleId: '' })}
+          onSelectBubbleColor={(color) => updateWeChatUiSettings({ selfBubbleColor: color })}
+          onSelectCustomBubbleStyle={(id, css) => updateWeChatUiSettings({ customBubbleStyleId: id, customBubbleCss: css })}
+          onAddCustomBubbleStyle={handleAddCustomBubbleStyle}
+          onDeleteCustomBubbleStyle={handleDeleteCustomBubbleStyle}
+          onAddCustomFontFile={handleAddCustomFontFile}
+          onDeleteCustomFont={handleDeleteCustomFont}
+          onSelectChatFont={(fontFamily) => updateWeChatUiSettings({ chatFontFamily: fontFamily, chatFontData: fontFamily ? wechatUiSettings.chatFontData : '' })}
           onShowTransfer={() => setShowTransferView(true)}
           onShowCallOptions={handleOpenCallTypeSheet}
           onChooseImage={handleOpenImagePicker}

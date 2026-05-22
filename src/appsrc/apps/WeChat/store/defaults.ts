@@ -24,6 +24,13 @@ const defaultUiSettings: WeChatUiSettings = {
   chatBackgroundOpacity: 1,
   selfBubblePreset: 'wechat',
   peerBubblePreset: 'wechat',
+  selfBubbleColor: '#bbf7d0',
+  customBubbleCss: '',
+  customBubbleStyleId: '',
+  chatFontFamily: '',
+  chatFontData: '',
+  customBubbleStyles: [],
+  customChatFonts: [],
   customRendererEnabled: false,
   customRendererSource: '',
 };

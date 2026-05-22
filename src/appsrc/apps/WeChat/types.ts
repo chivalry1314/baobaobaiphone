@@ -181,11 +181,31 @@ export interface WeChatUiRenderConfig {
   peerTextStyle?: Record<string, string | number>;
 }
 
+export interface WeChatCustomBubbleStyle {
+  id: string;
+  name: string;
+  css: string;
+}
+
+export interface WeChatCustomFontStyle {
+  id: string;
+  name: string;
+  fontFamily: string;
+  fontData: string;
+}
+
 export interface WeChatUiSettings {
   chatBackgroundImage: string;
   chatBackgroundOpacity: number;
   selfBubblePreset: WeChatBubblePreset;
   peerBubblePreset: WeChatBubblePreset;
+  selfBubbleColor: string;
+  customBubbleCss: string;
+  customBubbleStyleId: string;
+  chatFontFamily: string;
+  chatFontData: string;
+  customBubbleStyles: WeChatCustomBubbleStyle[];
+  customChatFonts: WeChatCustomFontStyle[];
   customRendererEnabled: boolean;
   customRendererSource: string;
 }

@@ -9,6 +9,7 @@ import {
   wechatGifStickers,
   type WeChatGifSticker,
 } from '../emojiStickers';
+import type { WeChatBubblePreset, WeChatCustomBubbleStyle, WeChatCustomFontStyle } from '../types';
 import {
   Mic,
   Radio,
@@ -25,7 +26,9 @@ import {
   ArrowRightLeft,
   Video,
   Heart,
+  MessageCircle,
   Search,
+  Type,
   Delete,
   ChevronDown,
   Loader2,
@@ -55,6 +58,22 @@ interface WeChatChatInputBarProps {
   onDeleteInput: () => void;
   onSendOnlineSticker: (sticker: WeChatGifSticker) => void;
   onAddCustomStickerFile: (file: File) => void;
+  currentBubblePreset: WeChatBubblePreset;
+  currentBubbleColor: string;
+  customBubbleCss: string;
+  currentCustomBubbleStyleId: string;
+  currentChatFontFamily: string;
+  hasCustomChatFont: boolean;
+  customBubbleStyles: WeChatCustomBubbleStyle[];
+  customChatFonts: WeChatCustomFontStyle[];
+  onSelectBubblePreset: (preset: WeChatBubblePreset) => void;
+  onSelectBubbleColor: (color: string) => void;
+  onSelectCustomBubbleStyle: (id: string, css: string) => void;
+  onAddCustomBubbleStyle: (name: string, css: string) => void;
+  onDeleteCustomBubbleStyle: (id: string) => void;
+  onAddCustomFontFile: (file: File, name: string) => void;
+  onDeleteCustomFont: (id: string) => void;
+  onSelectChatFont: (fontFamily: string) => void;
   onShowTransfer: () => void;
   onShowCallOptions: () => void;
   onChooseImage: () => void;
@@ -90,6 +109,22 @@ export const WeChatChatInputBar: React.FC<WeChatChatInputBarProps> = ({
   onDeleteInput,
   onSendOnlineSticker,
   onAddCustomStickerFile,
+  currentBubblePreset,
+  currentBubbleColor,
+  customBubbleCss,
+  currentCustomBubbleStyleId,
+  currentChatFontFamily,
+  hasCustomChatFont,
+  customBubbleStyles,
+  customChatFonts,
+  onSelectBubblePreset,
+  onSelectBubbleColor,
+  onSelectCustomBubbleStyle,
+  onAddCustomBubbleStyle,
+  onDeleteCustomBubbleStyle,
+  onAddCustomFontFile,
+  onDeleteCustomFont,
+  onSelectChatFont,
   onShowTransfer,
   onShowCallOptions,
   onChooseImage,
@@ -101,26 +136,104 @@ export const WeChatChatInputBar: React.FC<WeChatChatInputBarProps> = ({
   onDeleteMulti,
 }) => {
   const [showEmojiPanel, setShowEmojiPanel] = React.useState(false);
-  const [emojiPanelMode, setEmojiPanelMode] = React.useState<'local' | 'search' | 'custom'>('local');
+  const [emojiPanelMode, setEmojiPanelMode] = React.useState<'local' | 'search' | 'custom' | 'bubble' | 'font'>('local');
   const [gifSearchQuery, setGifSearchQuery] = React.useState('');
   const [gifSearchResults, setGifSearchResults] = React.useState<WeChatGifSticker[]>([]);
   const [isGifSearching, setIsGifSearching] = React.useState(false);
   const [gifSearchError, setGifSearchError] = React.useState('');
   const [customStickers, setCustomStickers] = React.useState<WeChatGifSticker[]>(() => readWeChatCustomStickers());
+  const [customBubbleDraftCss, setCustomBubbleDraftCss] = React.useState(customBubbleCss);
   const [isManagingCustomStickers, setIsManagingCustomStickers] = React.useState(false);
+  const [isManagingCustomBubbles, setIsManagingCustomBubbles] = React.useState(false);
+  const [isManagingCustomFonts, setIsManagingCustomFonts] = React.useState(false);
   const editorRef = React.useRef<HTMLDivElement | null>(null);
   const customStickerInputRef = React.useRef<HTMLInputElement | null>(null);
+  const customFontInputRef = React.useRef<HTMLInputElement | null>(null);
+  const savedEditorRangeRef = React.useRef<Range | null>(null);
+  const bubblePresetOptions: Array<{
+    key: WeChatBubblePreset;
+    label: string;
+    selfClass: string;
+    peerClass: string;
+  }> = [
+    { key: 'wechat', label: '微信经典', selfClass: 'rounded-lg rounded-tr-none', peerClass: 'rounded-lg rounded-tl-none' },
+    { key: 'rounded', label: '柔和圆角', selfClass: 'rounded-2xl rounded-tr-[8px] shadow-sm', peerClass: 'rounded-2xl rounded-tl-[8px] shadow-sm' },
+    { key: 'glass', label: '玻璃气泡', selfClass: 'rounded-2xl rounded-tr-[8px] backdrop-blur-md opacity-80', peerClass: 'rounded-2xl rounded-tl-[8px] backdrop-blur-md opacity-80' },
+    { key: 'outline', label: '描边气泡', selfClass: 'rounded-xl rounded-tr-[8px]', peerClass: 'rounded-xl rounded-tl-[8px]' },
+  ];
+  const bubbleColorOptions = ['#bbf7d0', '#bae6fd', '#fbcfe8', '#fef08a', '#ddd6fe', '#fed7aa', '#ccfbf1', '#fecaca'];
+  const getSoftPreviewColor = (color: string) => {
+    const hex = color.match(/^#([0-9a-f]{6})$/i)?.[1];
+    if (hex) {
+      const r = parseInt(hex.slice(0, 2), 16);
+      const g = parseInt(hex.slice(2, 4), 16);
+      const b = parseInt(hex.slice(4, 6), 16);
+      return {
+        backgroundColor: `rgba(${r}, ${g}, ${b}, 0.58)`,
+        borderColor: `rgba(${r}, ${g}, ${b}, 0.42)`,
+      };
+    }
+    const rgb = color.match(/^rgba?\(([^)]+)\)$/i);
+    if (rgb) {
+      const [r, g, b] = rgb[1].split(',').map((part) => Number.parseFloat(part.trim()));
+      if ([r, g, b].every((item) => Number.isFinite(item))) {
+        return {
+          backgroundColor: `rgba(${r}, ${g}, ${b}, 0.58)`,
+          borderColor: `rgba(${r}, ${g}, ${b}, 0.42)`,
+        };
+      }
+    }
+    return { backgroundColor: color || '#bbf7d0', borderColor: color || '#bbf7d0' };
+  };
+  const extractBubbleCssDeclarations = (css: string): string => {
+    const blockMatch = css.match(/\.bubble\s*\{([\s\S]*?)\}/i);
+    return (blockMatch?.[1] || css).trim();
+  };
+  const parseCssPreviewStyle = (css: string): React.CSSProperties => {
+    return extractBubbleCssDeclarations(css)
+      .split(';')
+      .map((item) => item.trim())
+      .filter(Boolean)
+      .reduce<React.CSSProperties>((acc, item) => {
+        const index = item.indexOf(':');
+        if (index <= 0) return acc;
+        const key = item
+          .slice(0, index)
+          .trim()
+          .replace(/[-_]+([a-zA-Z0-9])/g, (_, c: string) => c.toUpperCase());
+        const value = item.slice(index + 1).trim();
+        if (key && value) (acc as Record<string, string>)[key] = value;
+        return acc;
+      }, {});
+  };
   const lastEditorValueRef = React.useRef('');
   const keepTextareaFocused = (
     event: React.MouseEvent<HTMLButtonElement> | React.PointerEvent<HTMLButtonElement>
   ) => {
     event.preventDefault();
   };
+  const saveEditorSelection = React.useCallback(() => {
+    const editor = editorRef.current;
+    const selection = window.getSelection();
+    if (!editor || !selection || selection.rangeCount === 0) return;
+    const range = selection.getRangeAt(0);
+    if (editor.contains(range.commonAncestorContainer)) {
+      savedEditorRangeRef.current = range.cloneRange();
+    }
+  }, []);
+  const closeEmojiPanelForTyping = React.useCallback(() => {
+    if (showEmojiPanel) setShowEmojiPanel(false);
+    setShowPlusMenu(false);
+  }, [setShowPlusMenu, showEmojiPanel]);
   const bottomPaddingClass = isKeyboardVisible ? 'pb-0' : 'pb-safe';
   const stickerByName = React.useMemo(
     () => new Map(wechatGifStickers.map((sticker) => [sticker.name, sticker])),
     []
   );
+
+  React.useEffect(() => {
+    setCustomBubbleDraftCss(customBubbleCss);
+  }, [customBubbleCss]);
 
   const serializeEditor = React.useCallback((root: HTMLElement): string => {
     const readNode = (node: Node): string => {
@@ -187,15 +300,12 @@ export const WeChatChatInputBar: React.FC<WeChatChatInputBarProps> = ({
   const insertStickerIntoEditor = React.useCallback((sticker: WeChatGifSticker) => {
     const editor = editorRef.current;
     if (!editor) return;
-    editor.focus({ preventScroll: true });
     const selection = window.getSelection();
-    let range = selection && selection.rangeCount > 0 ? selection.getRangeAt(0) : null;
+    let range = savedEditorRangeRef.current?.cloneRange() || (selection && selection.rangeCount > 0 ? selection.getRangeAt(0) : null);
     if (!range || !editor.contains(range.commonAncestorContainer)) {
       range = document.createRange();
       range.selectNodeContents(editor);
       range.collapse(false);
-      selection?.removeAllRanges();
-      selection?.addRange(range);
     }
     const span = document.createElement('span');
     span.dataset.stickerId = sticker.id;
@@ -215,8 +325,7 @@ export const WeChatChatInputBar: React.FC<WeChatChatInputBarProps> = ({
     span.after(spacer);
     range.setStartAfter(spacer);
     range.collapse(true);
-    selection?.removeAllRanges();
-    selection?.addRange(range);
+    savedEditorRangeRef.current = range.cloneRange();
     syncEditorValue();
   }, [syncEditorValue]);
 
@@ -399,6 +508,21 @@ export const WeChatChatInputBar: React.FC<WeChatChatInputBarProps> = ({
           if (file) onAddCustomStickerFile(file);
         }}
       />
+      <input
+        ref={customFontInputRef}
+        type="file"
+        accept=".ttf,.otf,.woff,.woff2,font/*"
+        className="hidden"
+        onChange={(event) => {
+          const file = event.target.files?.[0];
+          event.target.value = '';
+          if (file) {
+            const fallbackName = file.name.replace(/\.[^.]+$/, '') || '自定义字体';
+            const name = window.prompt('给这个字体起个名字', fallbackName)?.trim();
+            if (name) onAddCustomFontFile(file, name);
+          }
+        }}
+      />
       <style>{`
         @keyframes wechatEmojiFloat {
           0%, 100% { transform: translate3d(0, 0, 0) scale(1); }
@@ -440,7 +564,13 @@ export const WeChatChatInputBar: React.FC<WeChatChatInputBarProps> = ({
               aria-multiline="true"
               onInput={syncEditorValue}
               onKeyDown={onKeyDown}
-              onFocus={onInputFocus}
+              onKeyUp={saveEditorSelection}
+              onMouseUp={saveEditorSelection}
+              onFocus={() => {
+                closeEmojiPanelForTyping();
+                saveEditorSelection();
+                onInputFocus();
+              }}
               onBlur={onInputBlur}
               className="max-h-[120px] min-h-6 flex-1 min-w-0 overflow-y-auto bg-transparent text-[16px] leading-snug text-gray-900 outline-none empty:before:text-gray-400"
               suppressContentEditableWarning
@@ -462,9 +592,12 @@ export const WeChatChatInputBar: React.FC<WeChatChatInputBarProps> = ({
             onPointerDown={keepTextareaFocused}
             onMouseDown={keepTextareaFocused}
             onClick={() => {
-              setShowEmojiPanel((show) => !show);
+              const nextShow = !showEmojiPanel;
+              saveEditorSelection();
+              setShowEmojiPanel(nextShow);
               setEmojiPanelMode('local');
               setShowPlusMenu(false);
+              if (nextShow) editorRef.current?.blur();
             }}
             className={`active:opacity-50 p-1 mb-0.5 shrink-0 w-[30px] sm:w-[32px] flex items-center justify-center ${
               showEmojiPanel ? 'text-[#07C160]' : 'text-gray-700'
@@ -496,6 +629,7 @@ export const WeChatChatInputBar: React.FC<WeChatChatInputBarProps> = ({
                   key="plus"
                   onClick={() => {
                     setShowEmojiPanel(false);
+                    editorRef.current?.blur();
                     setShowPlusMenu(!showPlusMenu);
                   }}
                   initial={{ scale: 0.8, opacity: 0 }}
@@ -642,6 +776,22 @@ export const WeChatChatInputBar: React.FC<WeChatChatInputBarProps> = ({
                     >
                       <Heart size={22} strokeWidth={1.8} />
                     </button>
+                    <button
+                      type="button"
+                      onClick={() => setEmojiPanelMode('bubble')}
+                      className="flex h-7 w-7 shrink-0 items-center justify-center rounded-full text-[#111] active:bg-black/5"
+                      aria-label="气泡样式"
+                    >
+                      <MessageCircle size={22} strokeWidth={1.8} />
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => setEmojiPanelMode('font')}
+                      className="flex h-7 w-7 shrink-0 items-center justify-center rounded-full text-[#111] active:bg-black/5"
+                      aria-label="聊天字体"
+                    >
+                      <Type size={22} strokeWidth={1.8} />
+                    </button>
                   </div>
                   <div className="flex h-3 shrink-0 items-center justify-center border-t border-gray-200/80 bg-[#EDEDED]">
                     <span className="h-0.5 w-10 rounded-full bg-black/12" />
@@ -727,6 +877,22 @@ export const WeChatChatInputBar: React.FC<WeChatChatInputBarProps> = ({
                     </button>
                     <button
                       type="button"
+                      onClick={() => setEmojiPanelMode('bubble')}
+                      className="flex h-7 w-7 shrink-0 items-center justify-center rounded-full text-[#111] active:bg-black/5"
+                      aria-label="气泡样式"
+                    >
+                      <MessageCircle size={22} strokeWidth={1.8} />
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => setEmojiPanelMode('font')}
+                      className="flex h-7 w-7 shrink-0 items-center justify-center rounded-full text-[#111] active:bg-black/5"
+                      aria-label="聊天字体"
+                    >
+                      <Type size={22} strokeWidth={1.8} />
+                    </button>
+                    <button
+                      type="button"
                       onClick={() => setIsManagingCustomStickers((value) => !value)}
                       className="ml-auto text-[12px] text-[#666] active:opacity-60"
                     >
@@ -773,6 +939,283 @@ export const WeChatChatInputBar: React.FC<WeChatChatInputBarProps> = ({
                           ) : null}
                         </div>
                       ))}
+                    </div>
+                  </div>
+                </>
+              ) : null}
+              {emojiPanelMode === 'bubble' ? (
+                <>
+                  <div className="flex h-11 shrink-0 items-center gap-4 overflow-x-auto px-5">
+                    <button
+                      type="button"
+                      onClick={() => setEmojiPanelMode('search')}
+                      className="flex h-7 w-7 shrink-0 items-center justify-center rounded-full text-[#111] active:bg-black/5"
+                      aria-label="搜索表情"
+                    >
+                      <Search size={22} strokeWidth={1.8} />
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => {
+                        setEmojiPanelMode('local');
+                        setIsManagingCustomStickers(false);
+                      }}
+                      className="flex h-7 w-7 shrink-0 items-center justify-center rounded-full text-[#111] active:bg-black/5"
+                      aria-label="默认表情"
+                    >
+                      <Smile size={22} strokeWidth={1.8} />
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => setEmojiPanelMode('custom')}
+                      className="flex h-7 w-7 shrink-0 items-center justify-center rounded-full text-[#111] active:bg-black/5"
+                      aria-label="收藏表情"
+                    >
+                      <Heart size={22} strokeWidth={1.8} />
+                    </button>
+                    <button
+                      type="button"
+                      className="flex h-8 w-8 shrink-0 items-center justify-center rounded-xl bg-white text-[#111] shadow-sm active:bg-black/5"
+                      aria-label="气泡样式"
+                    >
+                      <MessageCircle size={22} strokeWidth={1.8} />
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => setEmojiPanelMode('font')}
+                      className="flex h-7 w-7 shrink-0 items-center justify-center rounded-full text-[#111] active:bg-black/5"
+                      aria-label="聊天字体"
+                    >
+                      <Type size={22} strokeWidth={1.8} />
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => setIsManagingCustomBubbles((value) => !value)}
+                      className="ml-auto shrink-0 text-[12px] text-[#666] active:opacity-60"
+                    >
+                      {isManagingCustomBubbles ? '完成' : '管理'}
+                    </button>
+                  </div>
+                  <div className="flex h-3 shrink-0 items-center justify-center border-t border-gray-200/80 bg-[#EDEDED]">
+                    <span className="h-0.5 w-10 rounded-full bg-black/12" />
+                  </div>
+                  <div className="min-h-0 flex-1 overflow-y-auto px-5 pb-4 pt-4 [scrollbar-width:thin]">
+                    <div className="mb-4 text-[14px] text-[#6F6F6F]">气泡样式</div>
+                    <div className="grid grid-cols-2 gap-3">
+                      {bubblePresetOptions.map((option) => (
+                        <button
+                          key={option.key}
+                          type="button"
+                          onClick={() => onSelectBubblePreset(option.key)}
+                          className={`rounded-xl border bg-white p-3 text-left active:opacity-80 ${
+                            !customBubbleCss && !currentCustomBubbleStyleId && currentBubblePreset === option.key ? 'border-[#07C160]' : 'border-transparent'
+                          }`}
+                        >
+                          <div className="mb-1 flex justify-start">
+                            <div
+                              className={`max-w-[92%] border px-3 py-1.5 text-[12px] text-gray-900 ${option.peerClass}`}
+                              style={{ backgroundColor: '#ffffff', borderColor: '#e5e7eb' }}
+                            >
+                              对方气泡
+                            </div>
+                          </div>
+                          <div className="mb-2 flex justify-end">
+                            <div
+                              className={`max-w-[92%] border px-3 py-1.5 text-[12px] text-gray-900 ${option.selfClass}`}
+                              style={getSoftPreviewColor(currentBubbleColor || '#bbf7d0')}
+                            >
+                              我的气泡
+                            </div>
+                          </div>
+                          <div className="flex items-center justify-between text-[12px] text-[#666]">
+                            <span>{option.label}</span>
+                            {!customBubbleCss && !currentCustomBubbleStyleId && currentBubblePreset === option.key ? (
+                              <span className="text-[#07C160]">已选</span>
+                            ) : null}
+                          </div>
+                        </button>
+                      ))}
+                    </div>
+                    <div className="mt-4">
+                      <div className="mb-2 text-[12px] text-[#777]">气泡颜色</div>
+                      <div className="mb-3 flex gap-2 overflow-x-auto pb-1">
+                        {bubbleColorOptions.map((color) => (
+                          <button
+                            key={color}
+                            type="button"
+                            onClick={() => onSelectBubbleColor(color)}
+                            className={`h-7 w-7 shrink-0 rounded-full border-2 ${
+                              currentBubbleColor === color ? 'border-[#111]' : 'border-white'
+                            } shadow-sm`}
+                            style={{ backgroundColor: color }}
+                            aria-label={`选择气泡颜色${color}`}
+                          />
+                        ))}
+                      </div>
+                      <input
+                        value={currentBubbleColor}
+                        onChange={(event) => onSelectBubbleColor(event.target.value)}
+                        placeholder="rgb(149, 236, 105)"
+                        className="h-9 w-full rounded-md border border-gray-200 bg-white px-3 text-[12px] text-[#111] outline-none"
+                      />
+                    </div>
+                    <div className="mt-4">
+                      <div className="mb-2 text-[12px] text-[#777]">自定义气泡 CSS</div>
+                      {customBubbleStyles.length > 0 ? (
+                        <div className="mb-3 grid grid-cols-2 gap-2">
+                          {customBubbleStyles.map((item) => (
+                            <div key={item.id} className="relative">
+                              <button
+                                type="button"
+                                onClick={() => {
+                                  setCustomBubbleDraftCss(item.css);
+                                  onSelectCustomBubbleStyle(item.id, item.css);
+                                }}
+                                className={`w-full rounded-lg border bg-white p-2 text-left text-[12px] active:opacity-80 ${
+                                  currentCustomBubbleStyleId === item.id ? 'border-[#07C160]' : 'border-transparent'
+                                }`}
+                              >
+                                <div className="mb-2 flex justify-end">
+                                  <div
+                                    className="max-w-full px-3 py-1.5 text-[12px] text-gray-900"
+                                    style={{
+                                      ...getSoftPreviewColor(currentBubbleColor || '#bbf7d0'),
+                                      ...parseCssPreviewStyle(item.css),
+                                    }}
+                                  >
+                                    {item.name}
+                                  </div>
+                                </div>
+                                <div className="truncate text-[#999]">{item.css}</div>
+                              </button>
+                              {isManagingCustomBubbles ? (
+                                <button
+                                  type="button"
+                                  onClick={() => onDeleteCustomBubbleStyle(item.id)}
+                                  className="absolute -right-2 -top-2 flex h-6 w-6 items-center justify-center rounded-full bg-black/65 text-white shadow"
+                                  aria-label={`删除${item.name}`}
+                                >
+                                  <Trash2 size={13} strokeWidth={2} />
+                                </button>
+                              ) : null}
+                            </div>
+                          ))}
+                        </div>
+                      ) : null}
+                      <div className="mb-2 flex items-center justify-between gap-2">
+                        <button
+                          type="button"
+                          onClick={() => {
+                            const name = window.prompt('给这个气泡样式起个名字', '自定义气泡')?.trim();
+                            if (!name) return;
+                            const css = customBubbleDraftCss.trim();
+                            if (!css) return;
+                            onAddCustomBubbleStyle(name, css);
+                          }}
+                          className="flex h-12 w-12 items-center justify-center rounded-xl border border-dashed border-[#999] text-[#333] active:bg-black/5"
+                          aria-label="自定义气泡"
+                        >
+                          <Plus size={26} strokeWidth={1.6} />
+                        </button>
+                        <button
+                          type="button"
+                          onClick={() => setCustomBubbleDraftCss('')}
+                          disabled={!customBubbleDraftCss}
+                          className="h-8 rounded-md px-3 text-[12px] text-[#666] active:bg-black/5 disabled:text-[#BBB]"
+                        >
+                          清空
+                        </button>
+                      </div>
+                      <textarea
+                        value={customBubbleDraftCss}
+                        onChange={(event) => setCustomBubbleDraftCss(event.target.value)}
+                        placeholder="border-radius: 18px; box-shadow: 0 6px 14px rgba(0,0,0,.08);"
+                        className="h-20 w-full resize-none rounded-md border border-gray-200 bg-white px-3 py-2 text-[12px] text-[#111] outline-none"
+                      />
+                    </div>
+                  </div>
+                </>
+              ) : null}
+              {emojiPanelMode === 'font' ? (
+                <>
+                  <div className="flex h-11 shrink-0 items-center gap-4 overflow-x-auto px-5">
+                    <button type="button" onClick={() => setEmojiPanelMode('search')} className="flex h-7 w-7 shrink-0 items-center justify-center rounded-full text-[#111] active:bg-black/5" aria-label="搜索表情">
+                      <Search size={22} strokeWidth={1.8} />
+                    </button>
+                    <button type="button" onClick={() => setEmojiPanelMode('local')} className="flex h-7 w-7 shrink-0 items-center justify-center rounded-full text-[#111] active:bg-black/5" aria-label="默认表情">
+                      <Smile size={22} strokeWidth={1.8} />
+                    </button>
+                    <button type="button" onClick={() => setEmojiPanelMode('custom')} className="flex h-7 w-7 shrink-0 items-center justify-center rounded-full text-[#111] active:bg-black/5" aria-label="收藏表情">
+                      <Heart size={22} strokeWidth={1.8} />
+                    </button>
+                    <button type="button" onClick={() => setEmojiPanelMode('bubble')} className="flex h-7 w-7 shrink-0 items-center justify-center rounded-full text-[#111] active:bg-black/5" aria-label="气泡样式">
+                      <MessageCircle size={22} strokeWidth={1.8} />
+                    </button>
+                    <button type="button" className="flex h-8 w-8 shrink-0 items-center justify-center rounded-xl bg-white text-[#111] shadow-sm active:bg-black/5" aria-label="聊天字体">
+                      <Type size={22} strokeWidth={1.8} />
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => setIsManagingCustomFonts((value) => !value)}
+                      className="ml-auto text-[12px] text-[#666] active:opacity-60"
+                    >
+                      {isManagingCustomFonts ? '完成' : '管理'}
+                    </button>
+                  </div>
+                  <div className="flex h-3 shrink-0 items-center justify-center border-t border-gray-200/80 bg-[#EDEDED]">
+                    <span className="h-0.5 w-10 rounded-full bg-black/12" />
+                  </div>
+                  <div className="min-h-0 flex-1 overflow-y-auto px-5 pb-4 pt-4 [scrollbar-width:thin]">
+                    <div className="mb-4 text-[14px] text-[#6F6F6F]">聊天字体</div>
+                    <div className="grid grid-cols-2 gap-3 text-[12px]">
+                      {[
+                        { label: '系统默认', value: '' },
+                        { label: '圆润字体', value: 'ui-rounded, system-ui, sans-serif' },
+                        { label: '衬线字体', value: 'Georgia, serif' },
+                        { label: '等宽字体', value: 'ui-monospace, SFMono-Regular, Menlo, monospace' },
+                      ].map((item) => (
+                        <button
+                          key={item.label}
+                          type="button"
+                          onClick={() => onSelectChatFont(item.value)}
+                          className={`rounded-xl border bg-white p-3 text-left active:opacity-80 ${currentChatFontFamily === item.value ? 'border-[#07C160]' : 'border-transparent'}`}
+                        >
+                          <div style={{ fontFamily: item.value || undefined }} className="mb-2 text-[16px] text-[#111]">你好呀 Aa</div>
+                          <div className="text-[#666]">{item.label}</div>
+                        </button>
+                      ))}
+                      {customChatFonts.map((font) => (
+                        <div key={font.id} className="relative">
+                          <button
+                            type="button"
+                            onClick={() => onSelectChatFont(font.fontFamily)}
+                            className={`min-h-[74px] w-full rounded-xl border bg-white p-3 text-left active:opacity-80 ${
+                              currentChatFontFamily === font.fontFamily ? 'border-[#07C160]' : 'border-transparent'
+                            }`}
+                          >
+                            <div style={{ fontFamily: font.fontFamily }} className="mb-2 text-[16px] text-[#111]">你好呀 Aa</div>
+                            <div className="truncate text-[#666]">{font.name}</div>
+                          </button>
+                          {isManagingCustomFonts ? (
+                            <button
+                              type="button"
+                              onClick={() => onDeleteCustomFont(font.id)}
+                              className="absolute -right-2 -top-2 flex h-6 w-6 items-center justify-center rounded-full bg-black/65 text-white shadow"
+                              aria-label={`删除${font.name}`}
+                            >
+                              <Trash2 size={13} strokeWidth={2} />
+                            </button>
+                          ) : null}
+                        </div>
+                      ))}
+                      <button
+                        type="button"
+                        onClick={() => customFontInputRef.current?.click()}
+                        className="flex min-h-[74px] flex-col items-center justify-center rounded-xl border border-dashed border-[#999] bg-white text-[#333] active:bg-black/5"
+                      >
+                        <Plus size={28} strokeWidth={1.6} />
+                        <span className="mt-1 text-[12px]">导入字体</span>
+                      </button>
                     </div>
                   </div>
                 </>

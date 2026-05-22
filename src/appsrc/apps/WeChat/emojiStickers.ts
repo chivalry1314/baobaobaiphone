@@ -9,7 +9,10 @@ export interface WeChatGifSticker {
 const STICKER_ASSET_VERSION = '202605212224';
 const CUSTOM_STICKER_STORAGE_KEY = 'baobaobaiphone:wechat:custom-gif-stickers';
 export const WECHAT_CUSTOM_STICKERS_CHANGED_EVENT = 'baobaobaiphone:wechat:custom-stickers-changed';
-const withStickerVersion = (url: string): string => `${url}${url.includes('?') ? '&' : '?'}v=${STICKER_ASSET_VERSION}`;
+const withStickerVersion = (url: string): string => {
+  if (url.startsWith('data:') || url.startsWith('blob:')) return url;
+  return `${url}${url.includes('?') ? '&' : '?'}v=${STICKER_ASSET_VERSION}`;
+};
 const ONLINE_GIF_TOKEN_PREFIX = 'gif';
 
 export const encodeWeChatStickerToken = (sticker: WeChatGifSticker): string => {

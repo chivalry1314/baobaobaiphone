@@ -27,6 +27,9 @@ interface WeChatChatMessageItemProps {
   characterName: string;
   selfBubblePreset: WeChatBubblePreset;
   peerBubblePreset: WeChatBubblePreset;
+  selfBubbleColor?: string;
+  customBubbleCss?: string;
+  chatFontFamily?: string;
   customRenderConfig: WeChatUiRenderConfig | null;
   isSelected: boolean;
   isSelectionMode: boolean;
@@ -74,6 +77,90 @@ const normalizeStyle = (
   }, {});
 };
 
+const normalizeSoftBubbleColor = (color: string): { backgroundColor: string; borderColor: string } => {
+  const value = color.trim() || '#95ec69';
+  const hex = value.match(/^#([0-9a-f]{6})$/i)?.[1];
+  if (hex) {
+    const r = parseInt(hex.slice(0, 2), 16);
+    const g = parseInt(hex.slice(2, 4), 16);
+    const b = parseInt(hex.slice(4, 6), 16);
+    return {
+      backgroundColor: `rgba(${r}, ${g}, ${b}, 0.58)`,
+      borderColor: `rgba(${r}, ${g}, ${b}, 0.42)`,
+    };
+  }
+  const rgb = value.match(/^rgba?\(([^)]+)\)$/i);
+  if (rgb) {
+    const [r, g, b] = rgb[1].split(',').map((part) => Number.parseFloat(part.trim()));
+    if ([r, g, b].every((item) => Number.isFinite(item))) {
+      return {
+        backgroundColor: `rgba(${r}, ${g}, ${b}, 0.58)`,
+        borderColor: `rgba(${r}, ${g}, ${b}, 0.42)`,
+      };
+    }
+  }
+  return { backgroundColor: value, borderColor: value };
+};
+
+const toCamelCaseStyleKey = (value: string): string =>
+  value.trim().replace(/[-_]+([a-zA-Z0-9])/g, (_, c: string) => c.toUpperCase());
+
+const readCssBlock = (css: string, selector: string): string => {
+  const escapedSelector = selector.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+  const match = css.match(new RegExp(`${escapedSelector}\\s*\\{([\\s\\S]*?)\\}`, 'i'));
+  return (match?.[1] || '').trim();
+};
+
+const parseCssDeclarationStyle = (css: string): CSSProperties | undefined => {
+  const declarations = readCssBlock(css, '.bubble') || css;
+  const entries = declarations
+    .split(';')
+    .map((item) => item.trim())
+    .filter(Boolean)
+    .map((item) => {
+      const index = item.indexOf(':');
+      if (index <= 0) return null;
+      return [toCamelCaseStyleKey(item.slice(0, index)), item.slice(index + 1).trim()] as const;
+    })
+    .filter((item): item is readonly [string, string] => Boolean(item?.[0] && item?.[1]));
+  if (entries.length === 0) return undefined;
+  return entries.reduce<CSSProperties>((acc, [key, value]) => {
+    (acc as Record<string, string>)[key] = value;
+    return acc;
+  }, {});
+};
+
+const parseBubblePseudoStyle = (
+  css: string,
+  selector: '.bubble::before' | '.bubble::after'
+): CSSProperties | undefined => parseCssDeclarationStyle(readCssBlock(css, selector));
+
+const omitBubbleColorStyle = (style?: CSSProperties): CSSProperties | undefined => {
+  if (!style) return undefined;
+  const colorKeys = new Set([
+    'background',
+    'backgroundColor',
+    'backgroundImage',
+    'border',
+    'borderColor',
+    'borderTop',
+    'borderRight',
+    'borderBottom',
+    'borderLeft',
+    'borderTopColor',
+    'borderRightColor',
+    'borderBottomColor',
+    'borderLeftColor',
+    'color',
+  ]);
+  const entries = Object.entries(style).filter(([key]) => !colorKeys.has(key));
+  if (entries.length === 0) return undefined;
+  return entries.reduce<CSSProperties>((acc, [key, value]) => {
+    (acc as Record<string, string | number>)[key] = value as string | number;
+    return acc;
+  }, {});
+};
+
 const renderInlineEmojiContent = (content: string) => {
   const stickerMap = new Map(wechatGifStickers.map((sticker) => [sticker.name, sticker]));
   const parts = content.split(/(\[gif:[^\]]+\]|\[[^\[\]]{1,12}\])/g).filter((part) => part.length > 0);
@@ -82,12 +169,16 @@ const renderInlineEmojiContent = (content: string) => {
     const name = part.match(/^\[([^\[\]]{1,12})\]$/)?.[1];
     const sticker = onlineSticker || (name ? stickerMap.get(name) : undefined);
     if (!sticker) return <React.Fragment key={`${part}-${index}`}>{part}</React.Fragment>;
+    const previousPart = parts[index - 1] || '';
+    const previousOnlineSticker = decodeWeChatOnlineStickerToken(previousPart);
+    const previousName = previousPart.match(/^\[([^\[\]]{1,12})\]$/)?.[1];
+    const hasPreviousSticker = Boolean(previousOnlineSticker || (previousName && stickerMap.has(previousName)));
     return (
       <img
         key={`${sticker.id}-${index}`}
         src={sticker.url}
         alt={sticker.name}
-        className="-mx-1 inline-block h-8 w-8 align-[-8px]"
+        className={`${hasPreviousSticker ? '-ml-1' : ''} inline-block h-8 w-8 min-w-8 shrink-0 align-[-8px] object-contain`}
         loading="lazy"
       />
     );
@@ -161,7 +252,7 @@ const createLiveDeliveryTracking = (
 
 export const WeChatChatMessageItem: React.FC<WeChatChatMessageItemProps> = ({
   message, isUser, userAvatar, characterAvatar, characterName,
-  selfBubblePreset, peerBubblePreset, customRenderConfig,
+  selfBubblePreset, peerBubblePreset, selfBubbleColor, customBubbleCss, chatFontFamily, customRenderConfig,
   isSelected, isSelectionMode, isMenuOpen, onMessageClick, onOpenMessageMenu, onVoiceMessagePlay, onOrderRequestAction, isVoicePlaying, onToggleSelection, onAvatarClick
 }) => {
   const isPat = message.type === 'pat';
@@ -181,13 +272,31 @@ export const WeChatChatMessageItem: React.FC<WeChatChatMessageItemProps> = ({
   const quoteText = message.quoteText;
   const bubblePreset = isUser ? selfBubblePreset : peerBubblePreset;
   const bubblePresetClass = getBubblePresetClass(bubblePreset, isUser);
+  const effectiveSelfBubbleColor = selfBubbleColor?.trim() || '#95ec69';
   const customBubbleStyle = normalizeStyle(
     isUser ? customRenderConfig?.selfBubbleStyle : customRenderConfig?.peerBubbleStyle
   );
+  const customCssBubbleStyleRaw = parseCssDeclarationStyle(customBubbleCss || '');
+  const customCssBubbleBeforeStyleRaw = parseBubblePseudoStyle(customBubbleCss || '', '.bubble::before');
+  const customCssBubbleAfterStyleRaw = parseBubblePseudoStyle(customBubbleCss || '', '.bubble::after');
+  const customCssBubbleStyle = isUser ? customCssBubbleStyleRaw : omitBubbleColorStyle(customCssBubbleStyleRaw);
+  const customCssBubbleBeforeStyle = isUser ? customCssBubbleBeforeStyleRaw : omitBubbleColorStyle(customCssBubbleBeforeStyleRaw);
+  const customCssBubbleAfterStyle = isUser ? customCssBubbleAfterStyleRaw : omitBubbleColorStyle(customCssBubbleAfterStyleRaw);
+  const selfBubbleColorStyle: CSSProperties | undefined = isUser
+    ? normalizeSoftBubbleColor(effectiveSelfBubbleColor)
+    : undefined;
+  const mergedBubbleStyle: CSSProperties | undefined = customBubbleStyle || selfBubbleColorStyle || customCssBubbleStyle
+    ? {
+        ...(selfBubbleColorStyle || {}),
+        ...(customCssBubbleStyle || {}),
+        ...(customBubbleStyle || {}),
+      }
+    : undefined;
+  const messageFontStyle: CSSProperties | undefined = chatFontFamily ? { fontFamily: chatFontFamily } : undefined;
   const customTextStyle = normalizeStyle(
     isUser ? customRenderConfig?.selfTextStyle : customRenderConfig?.peerTextStyle
   );
-  const isUsingCustomBubble = Boolean(customBubbleStyle);
+  const isUsingCustomBubble = Boolean(customBubbleStyle || customCssBubbleStyle);
   const showTail =
     !isUsingCustomBubble &&
     bubblePreset === 'wechat' &&
@@ -198,6 +307,9 @@ export const WeChatChatMessageItem: React.FC<WeChatChatMessageItemProps> = ({
     !isRecipeCard &&
     !isSticker;
   const tailClass = isUser ? 'border-l-[#95ec69]' : 'border-r-white';
+  const tailStyle: CSSProperties | undefined = isUser
+    ? { borderLeftColor: normalizeSoftBubbleColor(effectiveSelfBubbleColor).backgroundColor }
+    : undefined;
   const movieTicket = message.movieTicket;
   const giftDelivery = message.giftDelivery;
   const recipeCard = message.recipeCard;
@@ -372,7 +484,7 @@ export const WeChatChatMessageItem: React.FC<WeChatChatMessageItemProps> = ({
                 isUser
                   ? `left-full ${isTransfer ? 'border-l-[#F39B3A]' : tailClass}`
                   : `right-full ${isTransfer ? 'border-r-[#F39B3A]' : tailClass}`
-              }`} />
+              }`} style={!isTransfer ? tailStyle : undefined} />
             ) : null}
             
             {/* 气泡本体 */}
@@ -389,10 +501,16 @@ export const WeChatChatMessageItem: React.FC<WeChatChatMessageItemProps> = ({
                 }`}
               style={
                 !isTransfer && !isOrderRequest && !isShoppingInvite && !isMovieTicket && !isGiftDelivery && !isRecipeCard && !isSticker
-                  ? customBubbleStyle
+                  ? mergedBubbleStyle
                   : undefined
               }
             >
+              {!isTransfer && !isOrderRequest && !isShoppingInvite && !isMovieTicket && !isGiftDelivery && !isRecipeCard && !isSticker && customCssBubbleBeforeStyle ? (
+                <span className="pointer-events-none absolute" style={customCssBubbleBeforeStyle} />
+              ) : null}
+              {!isTransfer && !isOrderRequest && !isShoppingInvite && !isMovieTicket && !isGiftDelivery && !isRecipeCard && !isSticker && customCssBubbleAfterStyle ? (
+                <span className="pointer-events-none absolute" style={customCssBubbleAfterStyle} />
+              ) : null}
               {isTransfer ? (
                 <div className="flex flex-col w-[200px] sm:w-[220px]">
                   <div className="flex items-center gap-3 p-3">
@@ -768,7 +886,7 @@ export const WeChatChatMessageItem: React.FC<WeChatChatMessageItemProps> = ({
                   />
                   {showImageCaption ? (
                     <div
-                      style={{ wordBreak: 'break-word', whiteSpace: 'pre-wrap', ...customTextStyle }}
+                      style={{ wordBreak: 'break-word', whiteSpace: 'pre-wrap', ...messageFontStyle, ...customTextStyle }}
                       className="px-0.5 pb-0.5 text-[14px] leading-[1.35]"
                     >
                       {imageCaption}
@@ -777,7 +895,7 @@ export const WeChatChatMessageItem: React.FC<WeChatChatMessageItemProps> = ({
                 </div>
               ) : (
                 <div
-                  style={{ wordBreak: 'break-word', whiteSpace: 'pre-wrap', ...customTextStyle }}
+                  style={{ wordBreak: 'break-word', whiteSpace: 'pre-wrap', ...messageFontStyle, ...customTextStyle }}
                   className="text-[16px] leading-[1.4]"
                 >
                   {renderInlineEmojiContent(message.content)}
