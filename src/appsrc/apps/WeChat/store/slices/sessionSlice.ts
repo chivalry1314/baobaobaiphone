@@ -379,12 +379,7 @@ export const createWeChatSessionSlice = ({
           session.id === normalizedSessionId
             ? {
                 ...session,
-                ...(typeof settings.isPinned === 'boolean'
-                  ? { isPinned: settings.isPinned }
-                  : {}),
-                ...(typeof settings.chatBackgroundImage === 'string'
-                  ? { chatBackgroundImage: settings.chatBackgroundImage }
-                  : {}),
+                ...settings,
               }
             : session
         ),

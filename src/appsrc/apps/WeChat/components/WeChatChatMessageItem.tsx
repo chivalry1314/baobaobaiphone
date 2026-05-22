@@ -111,16 +111,47 @@ const readCssBlock = (css: string, selector: string): string => {
   return (match?.[1] || '').trim();
 };
 
+const splitCssDeclarations = (css: string): string[] => {
+  const parts: string[] = [];
+  let current = '';
+  let parenDepth = 0;
+  let quote: string | null = null;
+  for (const char of css) {
+    if (quote) {
+      current += char;
+      if (char === quote) quote = null;
+      continue;
+    }
+    if (char === '"' || char === "'") {
+      quote = char;
+      current += char;
+      continue;
+    }
+    if (char === '(') parenDepth += 1;
+    if (char === ')') parenDepth = Math.max(0, parenDepth - 1);
+    if (char === ';' && parenDepth === 0) {
+      parts.push(current);
+      current = '';
+    } else {
+      current += char;
+    }
+  }
+  if (current.trim()) parts.push(current);
+  return parts;
+};
+
 const parseCssDeclarationStyle = (css: string): CSSProperties | undefined => {
   const declarations = readCssBlock(css, '.bubble') || css;
-  const entries = declarations
-    .split(';')
+  const blockedKeys = new Set(['zIndex']);
+  const entries = splitCssDeclarations(declarations)
     .map((item) => item.trim())
     .filter(Boolean)
     .map((item) => {
       const index = item.indexOf(':');
       if (index <= 0) return null;
-      return [toCamelCaseStyleKey(item.slice(0, index)), item.slice(index + 1).trim()] as const;
+      const key = toCamelCaseStyleKey(item.slice(0, index));
+      if (blockedKeys.has(key)) return null;
+      return [key, item.slice(index + 1).trim()] as const;
     })
     .filter((item): item is readonly [string, string] => Boolean(item?.[0] && item?.[1]));
   if (entries.length === 0) return undefined;
@@ -134,6 +165,30 @@ const parseBubblePseudoStyle = (
   css: string,
   selector: '.bubble::before' | '.bubble::after'
 ): CSSProperties | undefined => parseCssDeclarationStyle(readCssBlock(css, selector));
+
+const mirrorBubbleSideStyle = (style?: CSSProperties): CSSProperties | undefined => {
+  if (!style) return undefined;
+  const next: CSSProperties = { ...style };
+  const left = next.left;
+  next.left = next.right;
+  next.right = left;
+  const marginLeft = next.marginLeft;
+  next.marginLeft = next.marginRight;
+  next.marginRight = marginLeft;
+  const borderLeft = next.borderLeft;
+  next.borderLeft = next.borderRight;
+  next.borderRight = borderLeft;
+  const borderLeftColor = next.borderLeftColor;
+  next.borderLeftColor = next.borderRightColor;
+  next.borderRightColor = borderLeftColor;
+  const borderTopLeftRadius = next.borderTopLeftRadius;
+  next.borderTopLeftRadius = next.borderTopRightRadius;
+  next.borderTopRightRadius = borderTopLeftRadius;
+  const borderBottomLeftRadius = next.borderBottomLeftRadius;
+  next.borderBottomLeftRadius = next.borderBottomRightRadius;
+  next.borderBottomRightRadius = borderBottomLeftRadius;
+  return next;
+};
 
 const omitBubbleColorStyle = (style?: CSSProperties): CSSProperties | undefined => {
   if (!style) return undefined;
@@ -279,9 +334,10 @@ export const WeChatChatMessageItem: React.FC<WeChatChatMessageItemProps> = ({
   const customCssBubbleStyleRaw = parseCssDeclarationStyle(customBubbleCss || '');
   const customCssBubbleBeforeStyleRaw = parseBubblePseudoStyle(customBubbleCss || '', '.bubble::before');
   const customCssBubbleAfterStyleRaw = parseBubblePseudoStyle(customBubbleCss || '', '.bubble::after');
+  const shouldMirrorImageBubble = !isUser && Boolean(customCssBubbleStyleRaw?.borderImageSource);
   const customCssBubbleStyle = isUser ? customCssBubbleStyleRaw : omitBubbleColorStyle(customCssBubbleStyleRaw);
-  const customCssBubbleBeforeStyle = isUser ? customCssBubbleBeforeStyleRaw : omitBubbleColorStyle(customCssBubbleBeforeStyleRaw);
-  const customCssBubbleAfterStyle = isUser ? customCssBubbleAfterStyleRaw : omitBubbleColorStyle(customCssBubbleAfterStyleRaw);
+  const customCssBubbleBeforeStyle = isUser ? customCssBubbleBeforeStyleRaw : mirrorBubbleSideStyle(customCssBubbleBeforeStyleRaw);
+  const customCssBubbleAfterStyle = isUser ? customCssBubbleAfterStyleRaw : mirrorBubbleSideStyle(customCssBubbleAfterStyleRaw);
   const selfBubbleColorStyle: CSSProperties | undefined = isUser
     ? normalizeSoftBubbleColor(effectiveSelfBubbleColor)
     : undefined;
@@ -290,8 +346,12 @@ export const WeChatChatMessageItem: React.FC<WeChatChatMessageItemProps> = ({
         ...(selfBubbleColorStyle || {}),
         ...(customCssBubbleStyle || {}),
         ...(customBubbleStyle || {}),
+        ...(shouldMirrorImageBubble
+          ? { transform: `${customCssBubbleStyle?.transform || ''} scaleX(-1)`.trim() }
+          : {}),
       }
     : undefined;
+  const mirrorContentStyle: CSSProperties | undefined = shouldMirrorImageBubble ? { transform: 'scaleX(-1)' } : undefined;
   const messageFontStyle: CSSProperties | undefined = chatFontFamily ? { fontFamily: chatFontFamily } : undefined;
   const customTextStyle = normalizeStyle(
     isUser ? customRenderConfig?.selfTextStyle : customRenderConfig?.peerTextStyle
@@ -886,7 +946,7 @@ export const WeChatChatMessageItem: React.FC<WeChatChatMessageItemProps> = ({
                   />
                   {showImageCaption ? (
                     <div
-                      style={{ wordBreak: 'break-word', whiteSpace: 'pre-wrap', ...messageFontStyle, ...customTextStyle }}
+                      style={{ wordBreak: 'break-word', whiteSpace: 'pre-wrap', ...mirrorContentStyle, ...messageFontStyle, ...customTextStyle }}
                       className="px-0.5 pb-0.5 text-[14px] leading-[1.35]"
                     >
                       {imageCaption}
@@ -895,7 +955,7 @@ export const WeChatChatMessageItem: React.FC<WeChatChatMessageItemProps> = ({
                 </div>
               ) : (
                 <div
-                  style={{ wordBreak: 'break-word', whiteSpace: 'pre-wrap', ...messageFontStyle, ...customTextStyle }}
+                  style={{ wordBreak: 'break-word', whiteSpace: 'pre-wrap', ...mirrorContentStyle, ...messageFontStyle, ...customTextStyle }}
                   className="text-[16px] leading-[1.4]"
                 >
                   {renderInlineEmojiContent(message.content)}

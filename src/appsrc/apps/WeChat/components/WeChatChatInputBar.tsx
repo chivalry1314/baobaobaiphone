@@ -142,14 +142,27 @@ export const WeChatChatInputBar: React.FC<WeChatChatInputBarProps> = ({
   const [isGifSearching, setIsGifSearching] = React.useState(false);
   const [gifSearchError, setGifSearchError] = React.useState('');
   const [customStickers, setCustomStickers] = React.useState<WeChatGifSticker[]>(() => readWeChatCustomStickers());
-  const [customBubbleDraftCss, setCustomBubbleDraftCss] = React.useState(customBubbleCss);
   const [isManagingCustomStickers, setIsManagingCustomStickers] = React.useState(false);
   const [isManagingCustomBubbles, setIsManagingCustomBubbles] = React.useState(false);
   const [isManagingCustomFonts, setIsManagingCustomFonts] = React.useState(false);
+  const [isBubbleEditorOpen, setIsBubbleEditorOpen] = React.useState(false);
+  const [bubbleEditorName, setBubbleEditorName] = React.useState('自定义气泡');
+  const [bubbleEditorImage, setBubbleEditorImage] = React.useState('');
+  const [bubbleEditorSize, setBubbleEditorSize] = React.useState({ width: 0, height: 0 });
+  const [bubbleStretchInsets, setBubbleStretchInsets] = React.useState({ top: 24, right: 24, bottom: 24, left: 24 });
+  const [bubbleContentInsets, setBubbleContentInsets] = React.useState({ top: 18, right: 18, bottom: 18, left: 18 });
+  const [activeBubbleHandle, setActiveBubbleHandle] = React.useState<{
+    group: 'stretch' | 'content';
+    edge: 'top' | 'right' | 'bottom' | 'left';
+  } | null>(null);
   const editorRef = React.useRef<HTMLDivElement | null>(null);
   const customStickerInputRef = React.useRef<HTMLInputElement | null>(null);
   const customFontInputRef = React.useRef<HTMLInputElement | null>(null);
+  const customBubbleImageInputRef = React.useRef<HTMLInputElement | null>(null);
+  const bubbleEditorImageBoxRef = React.useRef<HTMLDivElement | null>(null);
   const savedEditorRangeRef = React.useRef<Range | null>(null);
+  const BUBBLE_EDITOR_TARGET_WIDTH = 360;
+  const BUBBLE_EDITOR_TARGET_HEIGHT = 160;
   const bubblePresetOptions: Array<{
     key: WeChatBubblePreset;
     label: string;
@@ -189,9 +202,36 @@ export const WeChatChatInputBar: React.FC<WeChatChatInputBarProps> = ({
     const blockMatch = css.match(/\.bubble\s*\{([\s\S]*?)\}/i);
     return (blockMatch?.[1] || css).trim();
   };
+  const splitCssDeclarations = (css: string): string[] => {
+    const parts: string[] = [];
+    let current = '';
+    let parenDepth = 0;
+    let quote: string | null = null;
+    for (const char of css) {
+      if (quote) {
+        current += char;
+        if (char === quote) quote = null;
+        continue;
+      }
+      if (char === '"' || char === "'") {
+        quote = char;
+        current += char;
+        continue;
+      }
+      if (char === '(') parenDepth += 1;
+      if (char === ')') parenDepth = Math.max(0, parenDepth - 1);
+      if (char === ';' && parenDepth === 0) {
+        parts.push(current);
+        current = '';
+      } else {
+        current += char;
+      }
+    }
+    if (current.trim()) parts.push(current);
+    return parts;
+  };
   const parseCssPreviewStyle = (css: string): React.CSSProperties => {
-    return extractBubbleCssDeclarations(css)
-      .split(';')
+    return splitCssDeclarations(extractBubbleCssDeclarations(css))
       .map((item) => item.trim())
       .filter(Boolean)
       .reduce<React.CSSProperties>((acc, item) => {
@@ -231,9 +271,77 @@ export const WeChatChatInputBar: React.FC<WeChatChatInputBarProps> = ({
     []
   );
 
+  const buildImageBubbleCss = React.useCallback(() => {
+    if (!bubbleEditorImage || !bubbleEditorSize.width || !bubbleEditorSize.height) return '';
+    const clean = (value: number, max: number) => Math.max(0, Math.min(max, Math.round(value)));
+    const top = clean(bubbleStretchInsets.top, bubbleEditorSize.height);
+    const right = clean(bubbleStretchInsets.right, bubbleEditorSize.width);
+    const bottom = clean(bubbleStretchInsets.bottom, bubbleEditorSize.height);
+    const left = clean(bubbleStretchInsets.left, bubbleEditorSize.width);
+    const contentTop = Math.max(8, Math.min(28, clean(bubbleContentInsets.top, bubbleEditorSize.height) * 0.2));
+    const contentRight = Math.max(10, Math.min(34, clean(bubbleContentInsets.right, bubbleEditorSize.width) * 0.16));
+    const contentBottom = Math.max(8, Math.min(28, clean(bubbleContentInsets.bottom, bubbleEditorSize.height) * 0.2));
+    const contentLeft = Math.max(10, Math.min(34, clean(bubbleContentInsets.left, bubbleEditorSize.width) * 0.16));
+    const renderTop = Math.max(8, Math.min(32, top * 0.2));
+    const renderRight = Math.max(8, Math.min(38, right * 0.16));
+    const renderBottom = Math.max(8, Math.min(32, bottom * 0.2));
+    const renderLeft = Math.max(8, Math.min(38, left * 0.16));
+    return `.bubble{
+border-style:solid;
+border-color:transparent;
+border-width:${renderTop}px ${renderRight}px ${renderBottom}px ${renderLeft}px;
+border-image-source:url("${bubbleEditorImage}");
+border-image-slice:${top} ${right} ${bottom} ${left} fill;
+border-image-width:${renderTop}px ${renderRight}px ${renderBottom}px ${renderLeft}px;
+border-image-repeat:stretch;
+background:transparent;
+padding:${contentTop}px ${contentRight}px ${contentBottom}px ${contentLeft}px;
+}`;
+  }, [bubbleContentInsets, bubbleEditorImage, bubbleEditorSize, bubbleStretchInsets]);
+
+  const generatedBubbleCss = buildImageBubbleCss();
+
+  const updateBubbleHandleByPoint = React.useCallback((clientX: number, clientY: number) => {
+    if (!activeBubbleHandle || !bubbleEditorImageBoxRef.current || !bubbleEditorSize.width || !bubbleEditorSize.height) return;
+    const rect = bubbleEditorImageBoxRef.current.getBoundingClientRect();
+    const x = Math.max(0, Math.min(rect.width, clientX - rect.left));
+    const y = Math.max(0, Math.min(rect.height, clientY - rect.top));
+    const imageX = (x / rect.width) * bubbleEditorSize.width;
+    const imageY = (y / rect.height) * bubbleEditorSize.height;
+    const setter = activeBubbleHandle.group === 'stretch' ? setBubbleStretchInsets : setBubbleContentInsets;
+    setter((prev) => {
+      const next = { ...prev };
+      const minGapX = activeBubbleHandle.group === 'content' ? 48 : 24;
+      const minGapY = activeBubbleHandle.group === 'content' ? 28 : 18;
+      const clamp = (value: number, min: number, max: number) =>
+        Math.max(min, Math.min(max, Math.round(value)));
+      if (activeBubbleHandle.edge === 'left') {
+        next.left = clamp(imageX, 0, bubbleEditorSize.width - prev.right - minGapX);
+      }
+      if (activeBubbleHandle.edge === 'right') {
+        next.right = clamp(bubbleEditorSize.width - imageX, 0, bubbleEditorSize.width - prev.left - minGapX);
+      }
+      if (activeBubbleHandle.edge === 'top') {
+        next.top = clamp(imageY, 0, bubbleEditorSize.height - prev.bottom - minGapY);
+      }
+      if (activeBubbleHandle.edge === 'bottom') {
+        next.bottom = clamp(bubbleEditorSize.height - imageY, 0, bubbleEditorSize.height - prev.top - minGapY);
+      }
+      return next;
+    });
+  }, [activeBubbleHandle, bubbleEditorSize]);
+
   React.useEffect(() => {
-    setCustomBubbleDraftCss(customBubbleCss);
-  }, [customBubbleCss]);
+    if (!activeBubbleHandle) return undefined;
+    const handleMove = (event: PointerEvent) => updateBubbleHandleByPoint(event.clientX, event.clientY);
+    const handleUp = () => setActiveBubbleHandle(null);
+    window.addEventListener('pointermove', handleMove);
+    window.addEventListener('pointerup', handleUp);
+    return () => {
+      window.removeEventListener('pointermove', handleMove);
+      window.removeEventListener('pointerup', handleUp);
+    };
+  }, [activeBubbleHandle, updateBubbleHandleByPoint]);
 
   const serializeEditor = React.useCallback((root: HTMLElement): string => {
     const readNode = (node: Node): string => {
@@ -329,6 +437,73 @@ export const WeChatChatInputBar: React.FC<WeChatChatInputBarProps> = ({
     syncEditorValue();
   }, [syncEditorValue]);
 
+  const removeStickerNearCaret = React.useCallback((direction: 'backward' | 'forward'): boolean => {
+    const editor = editorRef.current;
+    const selection = window.getSelection();
+    if (!editor || !selection || selection.rangeCount === 0) return false;
+    const range = selection.getRangeAt(0);
+    if (!range.collapsed || !editor.contains(range.commonAncestorContainer)) return false;
+
+    const isStickerNode = (node: Node | null): node is HTMLElement =>
+      node instanceof HTMLElement && Boolean(node.dataset?.stickerName);
+
+    const removeSticker = (stickerNode: HTMLElement, adjacentTextNode?: Text, zeroWidthIndex?: number) => {
+      if (typeof zeroWidthIndex === 'number' && adjacentTextNode) {
+        adjacentTextNode.deleteData(zeroWidthIndex, 1);
+      }
+      const nextRange = document.createRange();
+      const parent = stickerNode.parentNode || editor;
+      const index = Array.prototype.indexOf.call(parent.childNodes, stickerNode);
+      stickerNode.remove();
+      nextRange.setStart(parent, Math.max(0, index));
+      nextRange.collapse(true);
+      selection.removeAllRanges();
+      selection.addRange(nextRange);
+      savedEditorRangeRef.current = nextRange.cloneRange();
+      syncEditorValue();
+    };
+
+    if (range.startContainer.nodeType === Node.TEXT_NODE) {
+      const textNode = range.startContainer as Text;
+      const offset = range.startOffset;
+      if (direction === 'backward') {
+        const zeroWidthIndex = offset > 0 && textNode.data[offset - 1] === '\u200B' ? offset - 1 : undefined;
+        const previousNode = zeroWidthIndex !== undefined ? textNode.previousSibling : null;
+        if (isStickerNode(previousNode)) {
+          removeSticker(previousNode, textNode, zeroWidthIndex);
+          return true;
+        }
+      } else if (textNode.data[offset] === '\u200B' && isStickerNode(textNode.nextSibling)) {
+        removeSticker(textNode.nextSibling, textNode, offset);
+        return true;
+      }
+    }
+
+    const container = range.startContainer;
+    const childNodes = container.childNodes;
+    const candidate =
+      direction === 'backward'
+        ? childNodes[Math.max(0, range.startOffset - 1)] || container.previousSibling
+        : childNodes[range.startOffset] || container.nextSibling;
+    if (isStickerNode(candidate)) {
+      removeSticker(candidate);
+      return true;
+    }
+    return false;
+  }, [syncEditorValue]);
+
+  const handleEditorKeyDown = React.useCallback((event: React.KeyboardEvent<HTMLDivElement>) => {
+    if (event.key === 'Backspace' && removeStickerNearCaret('backward')) {
+      event.preventDefault();
+      return;
+    }
+    if (event.key === 'Delete' && removeStickerNearCaret('forward')) {
+      event.preventDefault();
+      return;
+    }
+    onKeyDown(event);
+  }, [onKeyDown, removeStickerNearCaret]);
+
   const searchOnlineGifs = React.useCallback(async (query: string) => {
     const keyword = query.trim();
     if (!keyword) {
@@ -357,7 +532,7 @@ export const WeChatChatInputBar: React.FC<WeChatChatInputBarProps> = ({
         contentfilter: 'medium',
         locale: 'zh_CN',
       });
-      const response = await fetch(`https://tenor.googleapis.com/v2/search?${params.toString()}`);
+      const response = await fetch(`https://tenor.googleapis.com/v2/search?${params.toString()}`, { cache: 'no-store', referrerPolicy: 'no-referrer' });
       if (!response.ok) throw new Error(`Tenor v2 ${response.status}`);
       const payload = await response.json();
       const results = Array.isArray(payload?.results) ? payload.results : [];
@@ -368,6 +543,73 @@ export const WeChatChatInputBar: React.FC<WeChatChatInputBarProps> = ({
         })
         .filter(Boolean) as WeChatGifSticker[];
     };
+    const fetchQqStickerSearch = async (): Promise<WeChatGifSticker[]> => {
+      const params = new URLSearchParams({
+        msg: keyword,
+        page: '1',
+        num: '32',
+      });
+      const response = await fetch(`https://api.xcvts.cn/api/img/qqbqbss?${params.toString()}`, {
+        cache: 'no-store',
+        referrerPolicy: 'no-referrer',
+      });
+      if (!response.ok) throw new Error(`QQ sticker ${response.status}`);
+      const payload = await response.json();
+      const results = Array.isArray(payload?.data) ? payload.data : [];
+      return results
+        .map((item: any, index: number) => {
+          const url = String(item?.sticker_url || '');
+          const format = String(item?.sticker_format || '').toLowerCase();
+          return toSticker(`qq-${item?.sticker_num || index}`, format ? `${keyword}-${format}` : keyword, url, index);
+        })
+        .filter(Boolean) as WeChatGifSticker[];
+    };
+    const fetchBaiduImageJsonp = async (): Promise<WeChatGifSticker[]> => {
+      if (typeof document === 'undefined') return [];
+      const callbackName = `__wechatBaiduImageSearch_${Date.now()}_${Math.random().toString(36).slice(2, 7)}`;
+      const params = new URLSearchParams({
+        tn: 'resultjson_com',
+        ipn: 'rj',
+        ct: '201326592',
+        fp: 'result',
+        queryWord: `${keyword} 表情包 gif`,
+        word: `${keyword} 表情包 gif`,
+        pn: '0',
+        rn: '32',
+        gsm: '1e',
+        callback: callbackName,
+      });
+      return new Promise((resolve, reject) => {
+        const script = document.createElement('script');
+        const timeoutId = window.setTimeout(() => {
+          cleanup();
+          reject(new Error('Baidu image JSONP timeout'));
+        }, 9000);
+        const cleanup = () => {
+          window.clearTimeout(timeoutId);
+          script.remove();
+          delete (window as unknown as Record<string, unknown>)[callbackName];
+        };
+        (window as unknown as Record<string, (payload: any) => void>)[callbackName] = (payload: any) => {
+          cleanup();
+          const results = Array.isArray(payload?.data) ? payload.data : [];
+          resolve(
+            results
+              .map((item: any, index: number) => {
+                const url = String(item?.thumbURL || item?.middleURL || item?.hoverURL || item?.objURL || '');
+                return toSticker(`baidu-${item?.di || index}`, String(item?.fromPageTitleEnc || keyword), url, index);
+              })
+              .filter(Boolean) as WeChatGifSticker[]
+          );
+        };
+        script.onerror = () => {
+          cleanup();
+          reject(new Error('Baidu image JSONP failed'));
+        };
+        script.src = `https://image.baidu.com/search/acjson?${params.toString()}`;
+        document.head.appendChild(script);
+      });
+    };
     const fetchTenorV1 = async (): Promise<WeChatGifSticker[]> => {
       const params = new URLSearchParams({
         q: keyword,
@@ -377,7 +619,7 @@ export const WeChatChatInputBar: React.FC<WeChatChatInputBarProps> = ({
         contentfilter: 'medium',
         locale: 'zh_CN',
       });
-      const response = await fetch(`https://g.tenor.com/v1/search?${params.toString()}`);
+      const response = await fetch(`https://g.tenor.com/v1/search?${params.toString()}`, { cache: 'no-store', referrerPolicy: 'no-referrer' });
       if (!response.ok) throw new Error(`Tenor v1 ${response.status}`);
       const payload = await response.json();
       const results = Array.isArray(payload?.results) ? payload.results : [];
@@ -397,7 +639,7 @@ export const WeChatChatInputBar: React.FC<WeChatChatInputBarProps> = ({
         rating: 'pg-13',
         lang: 'zh-CN',
       });
-      const response = await fetch(`https://api.giphy.com/v1/gifs/search?${params.toString()}`);
+      const response = await fetch(`https://api.giphy.com/v1/gifs/search?${params.toString()}`, { cache: 'no-store', referrerPolicy: 'no-referrer' });
       if (!response.ok) throw new Error(`GIPHY ${response.status}`);
       const payload = await response.json();
       const results = Array.isArray(payload?.data) ? payload.data : [];
@@ -408,25 +650,77 @@ export const WeChatChatInputBar: React.FC<WeChatChatInputBarProps> = ({
         })
         .filter(Boolean) as WeChatGifSticker[];
     };
+    const fetchTenorJsonp = async (): Promise<WeChatGifSticker[]> => {
+      if (typeof document === 'undefined') return [];
+      const callbackName = `__wechatTenorSearch_${Date.now()}_${Math.random().toString(36).slice(2, 7)}`;
+      const params = new URLSearchParams({
+        q: keyword,
+        key: 'LIVDSRZULELA',
+        limit: '32',
+        media_filter: 'minimal',
+        contentfilter: 'medium',
+        locale: 'zh_CN',
+        callback: callbackName,
+      });
+      return new Promise((resolve, reject) => {
+        const script = document.createElement('script');
+        const timeoutId = window.setTimeout(() => {
+          cleanup();
+          reject(new Error('Tenor JSONP timeout'));
+        }, 9000);
+        const cleanup = () => {
+          window.clearTimeout(timeoutId);
+          script.remove();
+          delete (window as unknown as Record<string, unknown>)[callbackName];
+        };
+        (window as unknown as Record<string, (payload: any) => void>)[callbackName] = (payload: any) => {
+          cleanup();
+          const results = Array.isArray(payload?.results) ? payload.results : [];
+          resolve(
+            results
+              .map((item: any, index: number) => {
+                const media = Array.isArray(item?.media) ? item.media[0] : null;
+                const url = media?.tinygif?.url || media?.gif?.url || '';
+                return toSticker(String(item?.id || ''), String(item?.title || keyword), String(url), index);
+              })
+              .filter(Boolean) as WeChatGifSticker[]
+          );
+        };
+        script.onerror = () => {
+          cleanup();
+          reject(new Error('Tenor JSONP failed'));
+        };
+        script.src = `https://g.tenor.com/v1/search?${params.toString()}`;
+        document.head.appendChild(script);
+      });
+    };
     try {
       let stickers: WeChatGifSticker[] = [];
-      let failedSourceCount = 0;
-      for (const loader of [fetchTenorV2, fetchTenorV1, fetchGiphy]) {
+      const sourceErrors: string[] = [];
+      for (const [sourceName, loader] of [
+        ['百度图片', fetchBaiduImageJsonp],
+        ['QQ 表情', fetchQqStickerSearch],
+        ['Tenor v2', fetchTenorV2],
+        ['Tenor v1', fetchTenorV1],
+        ['Tenor JSONP', fetchTenorJsonp],
+        ['GIPHY', fetchGiphy],
+      ] as const) {
         try {
           stickers = await loader();
           if (stickers.length > 0) break;
-        } catch {
-          failedSourceCount += 1;
+          sourceErrors.push(`${sourceName}: 0 results`);
+        } catch (error) {
+          sourceErrors.push(`${sourceName}: ${error instanceof Error ? error.message : String(error)}`);
           stickers = [];
         }
       }
       setGifSearchResults(stickers);
       if (stickers.length === 0) {
-        setGifSearchError(failedSourceCount >= 3 ? '在线表情源访问失败，请检查网络后重试' : '没有找到相关表情');
+        setGifSearchError('没有找到相关表情');
       }
     } catch {
       setGifSearchResults([]);
-      setGifSearchError('搜索失败，请检查网络后重试');
+      setGifSearchError('没有找到相关表情');
     } finally {
       setIsGifSearching(false);
     }
@@ -455,6 +749,40 @@ export const WeChatChatInputBar: React.FC<WeChatChatInputBarProps> = ({
       window.removeEventListener('storage', syncCustomStickers);
     };
   }, []);
+
+  const bubbleHandleLineStyle = (
+    group: 'stretch' | 'content',
+    edge: 'top' | 'right' | 'bottom' | 'left'
+  ): React.CSSProperties => {
+    const insets = group === 'stretch' ? bubbleStretchInsets : bubbleContentInsets;
+    const color = group === 'stretch' ? '#f59e0b' : '#0ea5e9';
+    const dashed = group === 'content';
+    if (!bubbleEditorSize.width || !bubbleEditorSize.height) return {};
+    const isHorizontal = edge === 'top' || edge === 'bottom';
+    const pos =
+      edge === 'top'
+        ? (insets.top / bubbleEditorSize.height) * 100
+        : edge === 'bottom'
+          ? 100 - (insets.bottom / bubbleEditorSize.height) * 100
+          : edge === 'left'
+            ? (insets.left / bubbleEditorSize.width) * 100
+            : 100 - (insets.right / bubbleEditorSize.width) * 100;
+    return isHorizontal
+      ? {
+          top: `${pos}%`,
+          left: 0,
+          right: 0,
+          borderTop: `3px ${dashed ? 'dashed' : 'solid'} ${color}`,
+          cursor: 'ns-resize',
+        }
+      : {
+          left: `${pos}%`,
+          top: 0,
+          bottom: 0,
+          borderLeft: `3px ${dashed ? 'dashed' : 'solid'} ${color}`,
+          cursor: 'ew-resize',
+        };
+  };
 
   if (readOnly) {
     return (
@@ -523,12 +851,192 @@ export const WeChatChatInputBar: React.FC<WeChatChatInputBarProps> = ({
           }
         }}
       />
+      <input
+        ref={customBubbleImageInputRef}
+        type="file"
+        accept="image/*"
+        className="hidden"
+        onChange={(event) => {
+          const file = event.target.files?.[0];
+          event.target.value = '';
+          if (!file) return;
+          const reader = new FileReader();
+          reader.onload = () => {
+            const dataUrl = String(reader.result || '');
+            const image = new Image();
+            image.onload = () => {
+              const canvas = document.createElement('canvas');
+              canvas.width = BUBBLE_EDITOR_TARGET_WIDTH;
+              canvas.height = BUBBLE_EDITOR_TARGET_HEIGHT;
+              const context = canvas.getContext('2d');
+              if (!context) return;
+              context.clearRect(0, 0, canvas.width, canvas.height);
+              const scale = Math.max(canvas.width / image.naturalWidth, canvas.height / image.naturalHeight) * 1.01;
+              const drawWidth = image.naturalWidth * scale;
+              const drawHeight = image.naturalHeight * scale;
+              const drawX = (canvas.width - drawWidth) / 2;
+              const drawY = (canvas.height - drawHeight) / 2;
+              context.drawImage(image, drawX, drawY, drawWidth, drawHeight);
+              const imageData = context.getImageData(0, 0, canvas.width, canvas.height);
+              const data = imageData.data;
+              for (let index = 0; index < data.length; index += 4) {
+                const r = data[index];
+                const g = data[index + 1];
+                const b = data[index + 2];
+                const max = Math.max(r, g, b);
+                const min = Math.min(r, g, b);
+                if (max > 238 && max - min < 22) {
+                  data[index + 3] = 0;
+                }
+              }
+              context.putImageData(imageData, 0, 0);
+              const normalizedDataUrl = canvas.toDataURL('image/png');
+              const width = BUBBLE_EDITOR_TARGET_WIDTH;
+              const height = BUBBLE_EDITOR_TARGET_HEIGHT;
+              setBubbleEditorImage(normalizedDataUrl);
+              setBubbleEditorSize({ width, height });
+              setBubbleStretchInsets({
+                top: Math.round(height * 0.25),
+                right: Math.round(width * 0.25),
+                bottom: Math.round(height * 0.25),
+                left: Math.round(width * 0.25),
+              });
+              setBubbleContentInsets({
+                top: Math.round(height * 0.32),
+                right: Math.round(width * 0.22),
+                bottom: Math.round(height * 0.22),
+                left: Math.round(width * 0.22),
+              });
+            };
+            image.src = dataUrl;
+          };
+          reader.readAsDataURL(file);
+        }}
+      />
       <style>{`
         @keyframes wechatEmojiFloat {
           0%, 100% { transform: translate3d(0, 0, 0) scale(1); }
           45% { transform: translate3d(0, -2px, 0) scale(1.03); }
         }
       `}</style>
+      {isBubbleEditorOpen ? (
+        <div className="fixed inset-0 z-[80] flex flex-col bg-[#F7F7F7] text-[#111]">
+          <div className="flex shrink-0 items-center justify-between border-b border-gray-200 bg-[#F7F7F7] px-2 pb-2.5 pt-12">
+            <button type="button" onClick={() => setIsBubbleEditorOpen(false)} className="min-w-14 px-2 text-left text-[14px] text-[#333] active:opacity-60">
+              取消
+            </button>
+            <div className="text-[17px] font-medium">编辑气泡</div>
+            <button
+              type="button"
+              disabled={!generatedBubbleCss}
+              onClick={() => {
+                if (!generatedBubbleCss) return;
+                onAddCustomBubbleStyle(bubbleEditorName || '自定义气泡', generatedBubbleCss);
+                setIsBubbleEditorOpen(false);
+              }}
+              className="min-w-14 px-2 text-right text-[14px] text-[#07C160] active:opacity-60 disabled:text-gray-300"
+            >
+              完成
+            </button>
+          </div>
+          <div className="min-h-0 flex-1 overflow-y-auto px-5 py-5">
+            <div className="mb-4">
+              <div className="mb-2 text-[16px] font-semibold">定义拉伸区域</div>
+              <div className="text-[13px] leading-relaxed text-[#666]">
+                橙色线定义拉伸区域的起点，蓝色线定义内容显示边缘。拖动短线调整位置。
+              </div>
+            </div>
+            <div className="mb-4 rounded-xl bg-white p-4 shadow-sm">
+              {bubbleEditorImage ? (
+                <div
+                  ref={bubbleEditorImageBoxRef}
+                  className="relative mx-auto max-w-full overflow-hidden rounded-md bg-[#E5E5E5]"
+                  style={{ aspectRatio: `${bubbleEditorSize.width || 1}/${bubbleEditorSize.height || 1}` }}
+                >
+                  <img src={bubbleEditorImage} alt="气泡素材" className="h-full w-full object-contain" />
+                  {(['top', 'right', 'bottom', 'left'] as const).map((edge) => (
+                    <button
+                      key={`stretch-${edge}`}
+                      type="button"
+                      onPointerDown={(event) => {
+                        event.preventDefault();
+                        setActiveBubbleHandle({ group: 'stretch', edge });
+                      }}
+                      className="absolute z-20 touch-none"
+                      style={bubbleHandleLineStyle('stretch', edge)}
+                      aria-label={`调整拉伸区域${edge}`}
+                    />
+                  ))}
+                  {(['top', 'right', 'bottom', 'left'] as const).map((edge) => (
+                    <button
+                      key={`content-${edge}`}
+                      type="button"
+                      onPointerDown={(event) => {
+                        event.preventDefault();
+                        setActiveBubbleHandle({ group: 'content', edge });
+                      }}
+                      className="absolute z-30 touch-none"
+                      style={bubbleHandleLineStyle('content', edge)}
+                      aria-label={`调整内容区域${edge}`}
+                    />
+                  ))}
+                </div>
+              ) : (
+                <button
+                  type="button"
+                  onClick={() => customBubbleImageInputRef.current?.click()}
+                  className="flex h-44 w-full flex-col items-center justify-center rounded-xl border border-dashed border-[#999] text-[#555] active:bg-black/5"
+                >
+                  <ImageIcon size={32} strokeWidth={1.6} />
+                  <span className="mt-2 text-[14px]">上传气泡图片</span>
+                </button>
+              )}
+              {bubbleEditorImage ? (
+                <div className="mt-3 flex items-center justify-between text-[13px] text-[#666]">
+                  <span>图片尺寸: {bubbleEditorSize.width} x {bubbleEditorSize.height}px</span>
+                  <button type="button" onClick={() => customBubbleImageInputRef.current?.click()} className="text-[#07C160] active:opacity-60">
+                    更换图片
+                  </button>
+                </div>
+              ) : null}
+            </div>
+            <div className="mb-4 rounded-xl bg-white p-4 shadow-sm">
+              <div className="mb-3 text-[16px] font-semibold">配置参数</div>
+              <div className="grid grid-cols-2 gap-2 text-[12px] text-[#666]">
+                <div>拉伸 上: {bubbleStretchInsets.top}px</div>
+                <div>拉伸 右: {bubbleStretchInsets.right}px</div>
+                <div>拉伸 下: {bubbleStretchInsets.bottom}px</div>
+                <div>拉伸 左: {bubbleStretchInsets.left}px</div>
+                <div>内容 上: {bubbleContentInsets.top}px</div>
+                <div>内容 右: {bubbleContentInsets.right}px</div>
+                <div>内容 下: {bubbleContentInsets.bottom}px</div>
+                <div>内容 左: {bubbleContentInsets.left}px</div>
+              </div>
+              <input
+                value={bubbleEditorName}
+                onChange={(event) => setBubbleEditorName(event.target.value)}
+                className="mt-3 h-9 w-full rounded-md border border-gray-200 px-3 text-[14px] outline-none"
+                placeholder="气泡名称"
+              />
+            </div>
+            <div className="rounded-xl bg-white p-4 shadow-sm">
+              <div className="mb-1 text-[16px] font-semibold">效果预览</div>
+              <div className="mb-4 text-[13px] text-[#666]">查看不同文字长度下的拉伸效果</div>
+              {['你好', '这是一条测试消息', '这是一条比较长的测试消息，用来查看气泡的拉伸效果是否正常'].map((text) => (
+                <div key={text} className="mb-4">
+                  <div className="mb-1 text-[13px] text-[#777]">{text.length <= 2 ? '短文本' : text.length < 10 ? '中等文本' : '长文本'}</div>
+                  <div
+                    className="inline-block max-w-full text-[16px] leading-[1.4]"
+                    style={generatedBubbleCss ? parseCssPreviewStyle(generatedBubbleCss) : undefined}
+                  >
+                    {text}
+                  </div>
+                </div>
+              ))}
+            </div>
+          </div>
+        </div>
+      ) : null}
       <div className="px-1.5 py-2 flex flex-col">
         <div className="flex items-end gap-1 w-full min-w-0">
           <div className="flex flex-col justify-end shrink-0 mb-0.5 w-[42px] sm:w-[52px] items-start">
@@ -563,7 +1071,7 @@ export const WeChatChatInputBar: React.FC<WeChatChatInputBarProps> = ({
               role="textbox"
               aria-multiline="true"
               onInput={syncEditorValue}
-              onKeyDown={onKeyDown}
+              onKeyDown={handleEditorKeyDown}
               onKeyUp={saveEditorSelection}
               onMouseUp={saveEditorSelection}
               onFocus={() => {
@@ -1060,7 +1568,7 @@ export const WeChatChatInputBar: React.FC<WeChatChatInputBarProps> = ({
                       />
                     </div>
                     <div className="mt-4">
-                      <div className="mb-2 text-[12px] text-[#777]">自定义气泡 CSS</div>
+                      <div className="mb-2 text-[12px] text-[#777]">自定义气泡</div>
                       {customBubbleStyles.length > 0 ? (
                         <div className="mb-3 grid grid-cols-2 gap-2">
                           {customBubbleStyles.map((item) => (
@@ -1068,7 +1576,6 @@ export const WeChatChatInputBar: React.FC<WeChatChatInputBarProps> = ({
                               <button
                                 type="button"
                                 onClick={() => {
-                                  setCustomBubbleDraftCss(item.css);
                                   onSelectCustomBubbleStyle(item.id, item.css);
                                 }}
                                 className={`w-full rounded-lg border bg-white p-2 text-left text-[12px] active:opacity-80 ${
@@ -1092,7 +1599,7 @@ export const WeChatChatInputBar: React.FC<WeChatChatInputBarProps> = ({
                                 <button
                                   type="button"
                                   onClick={() => onDeleteCustomBubbleStyle(item.id)}
-                                  className="absolute -right-2 -top-2 flex h-6 w-6 items-center justify-center rounded-full bg-black/65 text-white shadow"
+                                  className="absolute -right-2 -top-2 z-50 flex h-6 w-6 items-center justify-center rounded-full bg-black/65 text-white shadow"
                                   aria-label={`删除${item.name}`}
                                 >
                                   <Trash2 size={13} strokeWidth={2} />
@@ -1102,36 +1609,19 @@ export const WeChatChatInputBar: React.FC<WeChatChatInputBarProps> = ({
                           ))}
                         </div>
                       ) : null}
-                      <div className="mb-2 flex items-center justify-between gap-2">
+                      <div className="mb-2 flex items-center gap-2">
                         <button
                           type="button"
                           onClick={() => {
-                            const name = window.prompt('给这个气泡样式起个名字', '自定义气泡')?.trim();
-                            if (!name) return;
-                            const css = customBubbleDraftCss.trim();
-                            if (!css) return;
-                            onAddCustomBubbleStyle(name, css);
+                            setBubbleEditorName('自定义气泡');
+                            setIsBubbleEditorOpen(true);
                           }}
                           className="flex h-12 w-12 items-center justify-center rounded-xl border border-dashed border-[#999] text-[#333] active:bg-black/5"
-                          aria-label="自定义气泡"
+                          aria-label="制作气泡"
                         >
                           <Plus size={26} strokeWidth={1.6} />
                         </button>
-                        <button
-                          type="button"
-                          onClick={() => setCustomBubbleDraftCss('')}
-                          disabled={!customBubbleDraftCss}
-                          className="h-8 rounded-md px-3 text-[12px] text-[#666] active:bg-black/5 disabled:text-[#BBB]"
-                        >
-                          清空
-                        </button>
                       </div>
-                      <textarea
-                        value={customBubbleDraftCss}
-                        onChange={(event) => setCustomBubbleDraftCss(event.target.value)}
-                        placeholder="border-radius: 18px; box-shadow: 0 6px 14px rgba(0,0,0,.08);"
-                        className="h-20 w-full resize-none rounded-md border border-gray-200 bg-white px-3 py-2 text-[12px] text-[#111] outline-none"
-                      />
                     </div>
                   </div>
                 </>

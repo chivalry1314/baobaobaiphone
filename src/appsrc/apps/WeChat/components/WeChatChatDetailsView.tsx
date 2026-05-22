@@ -35,6 +35,11 @@ const WeChatSwitch: React.FC<{
 
 const defaultChatBackgrounds = [
   {
+    id: 'none',
+    name: '无背景',
+    image: '',
+  },
+  {
     id: 'mist',
     name: '浅灰',
     image: `data:image/svg+xml;utf8,${encodeURIComponent(`
@@ -118,18 +123,19 @@ export const WeChatChatDetailsView: React.FC<WeChatChatDetailsViewProps> = ({
   const characters = useWeChatCharactersFromContacts();
   const sessions = useWeChatStore((state) => state.wechatSessions);
   const updateWeChatSessionSettings = useWeChatStore((state) => state.updateWeChatSessionSettings);
+  const ensureWeChatSession = useWeChatStore((state) => state.ensureWeChatSession);
   const fileInputRef = useRef<HTMLInputElement | null>(null);
   const [backgroundStep, setBackgroundStep] = useState<'details' | 'settings' | 'defaults'>('details');
   const [backgroundPreview, setBackgroundPreview] = useState<string | null>(null);
   const character = characters.find((item) => item.id === characterId);
   const session = sessions.find((item) => item.characterId === characterId);
+  const effectiveSessionId = session?.id || '';
 
   const handleChooseBackground = () => {
     fileInputRef.current?.click();
   };
 
   const handleOpenPreview = (image: string) => {
-    if (!session) return;
     setBackgroundPreview(image);
   };
 
@@ -142,14 +148,18 @@ export const WeChatChatDetailsView: React.FC<WeChatChatDetailsViewProps> = ({
   };
 
   const handleConfirmBackground = () => {
-    if (!backgroundPreview || !session) return;
-    updateWeChatSessionSettings(session.id, { chatBackgroundImage: backgroundPreview });
+    if (backgroundPreview === null) return;
+    const sessionId = ensureWeChatSession(characterId, { switchCurrent: true }) || session?.id || '';
+    if (!sessionId) return;
+    updateWeChatSessionSettings(sessionId, { chatBackgroundImage: backgroundPreview });
     setBackgroundPreview(null);
     setBackgroundStep('details');
-    onDone?.();
+    window.requestAnimationFrame(() => {
+      onDone?.();
+    });
   };
 
-  if (!character || !session) return null;
+  if (!character) return null;
 
   const renderHeader = (title: string, back: () => void, right?: React.ReactNode) => (
     <div className="shrink-0 border-b border-[#DCDCDC] bg-[#F7F7F7] px-2 pb-3 pt-12">
@@ -222,8 +232,11 @@ export const WeChatChatDetailsView: React.FC<WeChatChatDetailsViewProps> = ({
           <div className="flex h-[58px] items-center justify-between border-b border-[#EEEEEE] px-5">
             <span className="text-[14px] text-[#111]">置顶聊天</span>
             <WeChatSwitch
-              checked={Boolean(session.isPinned)}
-              onChange={(checked) => updateWeChatSessionSettings(session.id, { isPinned: checked })}
+              checked={Boolean(session?.isPinned)}
+              onChange={(checked) => {
+                const sessionId = effectiveSessionId || ensureWeChatSession(characterId, { switchCurrent: false });
+                updateWeChatSessionSettings(sessionId, { isPinned: checked });
+              }}
               label="置顶聊天"
             />
           </div>
@@ -300,7 +313,7 @@ export const WeChatChatDetailsView: React.FC<WeChatChatDetailsViewProps> = ({
         <div className="flex-1 overflow-y-auto bg-[#EDEDED] px-5 py-5">
           <div className="grid grid-cols-2 gap-4">
             {defaultChatBackgrounds.map((background) => {
-              const isSelected = session.chatBackgroundImage === background.image;
+              const isSelected = (session?.chatBackgroundImage || '') === background.image;
               return (
                 <button
                   key={background.id}
@@ -309,7 +322,13 @@ export const WeChatChatDetailsView: React.FC<WeChatChatDetailsViewProps> = ({
                   className="overflow-hidden rounded-md bg-white text-left active:opacity-80"
                 >
                   <div className="relative aspect-[9/14] overflow-hidden bg-[#F7F7F7]">
-                    <img src={background.image} alt={background.name} className="h-full w-full object-cover" />
+                    {background.image ? (
+                      <img src={background.image} alt={background.name} className="h-full w-full object-cover" />
+                    ) : (
+                      <div className="flex h-full w-full items-center justify-center bg-[#EDEDED] text-[14px] text-[#8A8A8A]">
+                        无背景
+                      </div>
+                    )}
                     {isSelected ? (
                       <span className="absolute right-2 top-2 flex h-6 w-6 items-center justify-center rounded-full bg-[#07C160] text-white">
                         <Check size={16} strokeWidth={2.2} />
@@ -332,7 +351,7 @@ export const WeChatChatDetailsView: React.FC<WeChatChatDetailsViewProps> = ({
         onChange={handleBackgroundFileChange}
       />
 
-      {backgroundPreview ? (
+      {backgroundPreview !== null ? (
         <div className="absolute inset-0 z-[120] flex flex-col bg-black">
           <div className="flex h-[118px] shrink-0 items-end justify-between bg-black/82 px-5 pb-4 text-white">
             <button
@@ -352,7 +371,13 @@ export const WeChatChatDetailsView: React.FC<WeChatChatDetailsViewProps> = ({
             </button>
           </div>
           <div className="relative flex-1 overflow-hidden bg-black">
-            <img src={backgroundPreview} alt="聊天背景预览" className="h-full w-full object-cover" />
+            {backgroundPreview ? (
+              <img src={backgroundPreview} alt="聊天背景预览" className="h-full w-full object-cover" />
+            ) : (
+              <div className="flex h-full w-full items-center justify-center bg-[#EDEDED] text-[15px] text-[#777]">
+                无背景
+              </div>
+            )}
           </div>
         </div>
       ) : null}

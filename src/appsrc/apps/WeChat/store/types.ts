@@ -54,7 +54,7 @@ export interface WeChatState extends WeChatRoleScopedState {
   deleteWeChatMessages: (sessionId: string, messageIds: string[]) => void;
   updateWeChatSessionSettings: (
     sessionId: string,
-    settings: Pick<Partial<WeChatSession>, 'isPinned' | 'chatBackgroundImage'>
+    settings: Partial<Omit<WeChatSession, 'id' | 'characterId' | 'messages' | 'lastUpdated' | 'unreadCount'>>
   ) => void;
   topUpWeChatBalance: (amount: number, meta?: WeChatBillMutationMeta) => void;
   withdrawWeChatBalance: (amount: number, meta?: WeChatBillMutationMeta) => void;

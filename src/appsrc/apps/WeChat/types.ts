@@ -119,6 +119,15 @@ export interface WeChatSession {
   unreadCount: number;
   isPinned?: boolean;
   chatBackgroundImage?: string;
+  selfBubblePreset?: WeChatBubblePreset;
+  peerBubblePreset?: WeChatBubblePreset;
+  selfBubbleColor?: string;
+  customBubbleCss?: string;
+  customBubbleStyleId?: string;
+  chatFontFamily?: string;
+  chatFontData?: string;
+  customBubbleStyles?: WeChatCustomBubbleStyle[];
+  customChatFonts?: WeChatCustomFontStyle[];
 }
 
 export interface WeChatMoment {
