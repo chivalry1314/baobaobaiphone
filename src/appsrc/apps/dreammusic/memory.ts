@@ -5,7 +5,8 @@ import { getActiveRoleId } from '../contacts/activeRole';
 export type DreamMusicMemorySourceType =
   | 'favorite-track'
   | 'comment-track'
-  | 'recent-play-summary';
+  | 'recent-play-summary'
+  | 'listen-together-duration';
 
 export interface DreamMusicMemoryRecord extends AppMemoryRecord {
   appId: 'dreammusic';

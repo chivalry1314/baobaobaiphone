@@ -158,6 +158,14 @@ const formatOrderPreviewForMemory = (message: Pick<WeChatMessage, 'orderPreview'
   return ` 商品：${itemText}${moreText}${storeText}`;
 };
 
+const formatListenTogetherMinutesForMemory = (durationMs: number | undefined): string => {
+  const totalMinutes = Math.max(1, Math.floor(Math.max(0, durationMs || 0) / 60000));
+  if (totalMinutes < 60) return `${totalMinutes}分钟`;
+  const hours = Math.floor(totalMinutes / 60);
+  const minutes = totalMinutes % 60;
+  return minutes > 0 ? `${hours}小时${minutes}分钟` : `${hours}小时`;
+};
+
 const normalizeMessageContentForMemory = (
   message: Omit<WeChatMessage, 'id' | 'timestamp'>
 ): string => {
@@ -192,6 +200,20 @@ const normalizeMessageContentForMemory = (
     return `分享菜谱：${recipe.title}，${recipe.subtitle}，${recipe.time}，${recipe.servings}，食材：${ingredientText}`;
   }
 
+  if (message.type === 'dream_music_invite') {
+    const inviterName = message.dreamMusicInvite?.inviterName?.trim() || '用户';
+    const statusText =
+      message.orderRequestStatus === 'accepted'
+        ? '已同意加入'
+        : message.orderRequestStatus === 'rejected'
+          ? '已拒绝加入'
+          : '等待回应';
+    const trackText = message.dreamMusicInvite?.trackTitle
+      ? `，歌曲：${message.dreamMusicInvite.trackTitle}${message.dreamMusicInvite.trackArtist ? ` - ${message.dreamMusicInvite.trackArtist}` : ''}`
+      : '';
+    return `一起听歌邀请：${inviterName}邀请你一起听歌，状态：${statusText}${trackText}`;
+  }
+
   if (message.type === 'image') {
     const caption = message.content.trim();
     if (caption && caption !== WECHAT_IMAGE_PLACEHOLDER) {
@@ -207,6 +229,10 @@ const normalizeMessageContentForMemory = (
   if (message.type === 'voice') {
     const transcript = message.voiceTranscriptText?.trim();
     if (transcript) return transcript;
+  }
+
+  if (message.type === 'dream_music_listen_summary') {
+    return `分享一起听歌记录：我们一起听了${formatListenTogetherMinutesForMemory(message.dreamMusicListenSummary?.durationMs)}`;
   }
 
   if (message.type === 'transfer' && typeof message.amount === 'number') {

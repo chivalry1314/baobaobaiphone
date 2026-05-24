@@ -4,6 +4,7 @@ import { Check, ArrowRightLeft, User, Pause, Volume2 } from 'lucide-react';
 import type { CSSProperties } from 'react';
 import type { WeChatBubblePreset, WeChatMessage, WeChatUiRenderConfig } from '../types';
 import { decodeWeChatOnlineStickerToken, wechatGifStickers } from '../emojiStickers';
+import { PUSH_OPEN_APP_MESSAGE_TYPE } from '../../../../core/push/webPush';
 import { DELIVERY_STORAGE_KEY } from '../../delivery/data';
 import { DELIVERY_ORDERS_CHANGED_EVENT } from '../../delivery/paymentBridge';
 import type { DeliveryOrderRecord, DeliveryTrackingRecord } from '../../delivery/types';
@@ -305,6 +306,14 @@ const createLiveDeliveryTracking = (
   };
 };
 
+const formatDreamMusicSummaryDuration = (durationMs: number | undefined): string => {
+  const totalMinutes = Math.max(1, Math.floor(Math.max(0, durationMs || 0) / 60000));
+  if (totalMinutes < 60) return `${totalMinutes}分钟`;
+  const hours = Math.floor(totalMinutes / 60);
+  const minutes = totalMinutes % 60;
+  return minutes > 0 ? `${hours}小时${minutes}分钟` : `${hours}小时`;
+};
+
 export const WeChatChatMessageItem: React.FC<WeChatChatMessageItemProps> = ({
   message, isUser, userAvatar, characterAvatar, characterName,
   selfBubblePreset, peerBubblePreset, selfBubbleColor, customBubbleCss, chatFontFamily, customRenderConfig,
@@ -314,6 +323,8 @@ export const WeChatChatMessageItem: React.FC<WeChatChatMessageItemProps> = ({
   const isTransfer = message.type === 'transfer' || message.type === 'transfer_accepted';
   const isOrderRequest = message.type === 'order_request';
   const isShoppingInvite = message.type === 'shopping_invite';
+  const isDreamMusicInvite = message.type === 'dream_music_invite';
+  const isDreamMusicListenSummary = message.type === 'dream_music_listen_summary';
   const isMovieTicket = message.type === 'movie_ticket' && Boolean(message.movieTicket);
   const isGiftDelivery = message.type === 'gift_delivery' && Boolean(message.giftDelivery);
   const isRecipeCard = message.type === 'recipe_card' && Boolean(message.recipeCard);
@@ -362,6 +373,8 @@ export const WeChatChatMessageItem: React.FC<WeChatChatMessageItemProps> = ({
     bubblePreset === 'wechat' &&
     !isOrderRequest &&
     !isShoppingInvite &&
+    !isDreamMusicInvite &&
+    !isDreamMusicListenSummary &&
     !isMovieTicket &&
     !isGiftDelivery &&
     !isRecipeCard &&
@@ -555,20 +568,22 @@ export const WeChatChatMessageItem: React.FC<WeChatChatMessageItemProps> = ({
                   ? `bg-[#F39B3A] text-white overflow-hidden ${message.type === 'transfer_accepted' ? 'opacity-95' : ''}` 
                   : isOrderRequest || isShoppingInvite || isMovieTicket || isGiftDelivery || isRecipeCard
                     ? 'overflow-hidden rounded-[18px] border border-[#EAECEF] bg-white shadow-[0_8px_20px_rgba(15,23,42,0.06)]'
+                  : isDreamMusicInvite || isDreamMusicListenSummary
+                    ? 'bg-transparent p-0'
                   : isSticker
                     ? 'bg-transparent p-0'
                     : `${bubblePresetClass} ${isImage ? 'p-1.5' : 'px-3.5 py-2.5'}`
                 }`}
               style={
-                !isTransfer && !isOrderRequest && !isShoppingInvite && !isMovieTicket && !isGiftDelivery && !isRecipeCard && !isSticker
+                !isTransfer && !isOrderRequest && !isShoppingInvite && !isDreamMusicInvite && !isDreamMusicListenSummary && !isMovieTicket && !isGiftDelivery && !isRecipeCard && !isSticker
                   ? mergedBubbleStyle
                   : undefined
               }
             >
-              {!isTransfer && !isOrderRequest && !isShoppingInvite && !isMovieTicket && !isGiftDelivery && !isRecipeCard && !isSticker && customCssBubbleBeforeStyle ? (
+              {!isTransfer && !isOrderRequest && !isShoppingInvite && !isDreamMusicInvite && !isDreamMusicListenSummary && !isMovieTicket && !isGiftDelivery && !isRecipeCard && !isSticker && customCssBubbleBeforeStyle ? (
                 <span className="pointer-events-none absolute" style={customCssBubbleBeforeStyle} />
               ) : null}
-              {!isTransfer && !isOrderRequest && !isShoppingInvite && !isMovieTicket && !isGiftDelivery && !isRecipeCard && !isSticker && customCssBubbleAfterStyle ? (
+              {!isTransfer && !isOrderRequest && !isShoppingInvite && !isDreamMusicInvite && !isDreamMusicListenSummary && !isMovieTicket && !isGiftDelivery && !isRecipeCard && !isSticker && customCssBubbleAfterStyle ? (
                 <span className="pointer-events-none absolute" style={customCssBubbleAfterStyle} />
               ) : null}
               {isTransfer ? (
@@ -696,6 +711,74 @@ export const WeChatChatMessageItem: React.FC<WeChatChatMessageItemProps> = ({
                     </div>
                   )}
                 </div>
+              ) : isDreamMusicInvite ? (
+                <div className="flex w-[284px] max-w-full flex-col overflow-hidden rounded-[10px] border border-[#F1F1F1] bg-white p-3 text-[12px] text-[#2F3035] shadow-[0_6px_18px_rgba(15,23,42,0.08)]">
+                  <div className="text-[12px] font-medium leading-[1.35] text-[#2F3035]">
+                    我的耳机分你一半，和我一起听歌吧~
+                  </div>
+                  {message.orderRequestStatus === 'accepted' ? (
+                    <div className="mt-2 rounded-[8px] bg-[#F7F7F7] px-3 py-3 text-center text-[12px] font-medium text-[#16A34A]">已加入一起听</div>
+                  ) : message.orderRequestStatus === 'rejected' ? (
+                    <div className="mt-2 rounded-[8px] bg-[#F7F7F7] px-3 py-3 text-center text-[12px] font-medium text-[#DC2626]">已拒绝一起听</div>
+                  ) : (
+                    <button
+                      type="button"
+                      onClick={(event) => handleOrderRequestAction(event, 'accepted')}
+                      className="mt-2 flex h-[58px] items-center gap-3 rounded-[8px] bg-[#F7F7F7] px-3 text-left text-[12px] font-medium text-[#2F3035] active:bg-[#EFEFEF]"
+                      aria-label="加入一起听"
+                    >
+                      <span className="relative h-[46px] w-[46px] shrink-0 overflow-hidden rounded-[8px] bg-[#F9E7E9]">
+                        {message.dreamMusicInvite?.inviterAvatar ? (
+                          <img src={message.dreamMusicInvite.inviterAvatar} alt={message.dreamMusicInvite.inviterName} className="h-full w-full object-cover" />
+                        ) : (
+                          <>
+                            <span className="absolute left-1/2 top-[10px] h-[14px] w-[14px] -translate-x-1/2 rounded-full bg-[#F6C7CD]" />
+                            <span className="absolute bottom-[-10px] left-1/2 h-[34px] w-[48px] -translate-x-1/2 rounded-t-full bg-[#F6C7CD]" />
+                          </>
+                        )}
+                      </span>
+                      <span>加入一起听</span>
+                    </button>
+                  )}
+                </div>
+              ) : isDreamMusicListenSummary ? (
+                <button
+                  type="button"
+                  onClick={(event) => {
+                    event.stopPropagation();
+                    window.dispatchEvent(
+                      new CustomEvent(PUSH_OPEN_APP_MESSAGE_TYPE, {
+                        detail: { appId: 'dreammusic' },
+                      })
+                    );
+                  }}
+                  className="relative flex h-[84px] w-[282px] max-w-full overflow-hidden rounded-[12px] bg-[#FF5856] px-5 py-4 text-left text-white shadow-[0_10px_22px_rgba(255,88,86,0.22)] active:brightness-95"
+                  aria-label="打开一起听歌记录"
+                >
+                  <div className="relative z-10 min-w-0">
+                    <div className="text-[12px] font-medium leading-tight text-white/72">我们一起听了</div>
+                    <div className="mt-3 flex items-center gap-1.5 text-[12px] font-bold leading-none">
+                      <span>{formatDreamMusicSummaryDuration(message.dreamMusicListenSummary?.durationMs)}</span>
+                      <span className="text-[16px] font-light leading-none text-white/88">›</span>
+                    </div>
+                  </div>
+                  <svg className="pointer-events-none absolute right-[22px] top-[18px] h-[76px] w-[122px]" viewBox="0 0 122 76" aria-hidden="true">
+                    <g>
+                      <circle cx="48" cy="25" r="22" fill="rgba(255,245,245,0.96)" stroke="rgba(255,255,255,0.96)" strokeWidth="3" />
+                      <circle cx="48" cy="19" r="7.2" fill="rgba(244,213,214,0.82)" />
+                      <path d="M34 42 C37 33 42 30 48 30 C54 30 59 33 62 42 C54 46 42 46 34 42Z" fill="rgba(244,213,214,0.82)" />
+                    </g>
+                    <g>
+                      <circle cx="78" cy="25" r="22" fill="rgba(255,245,245,0.96)" stroke="rgba(255,255,255,0.96)" strokeWidth="3" />
+                      <circle cx="78" cy="19" r="7.2" fill="rgba(244,213,214,0.82)" />
+                      <path d="M64 42 C67 33 72 30 78 30 C84 30 89 33 92 42 C84 46 72 46 64 42Z" fill="rgba(244,213,214,0.82)" />
+                    </g>
+                    <path d="M25 20 C13 35 16 55 26 76" fill="none" stroke="rgba(255,255,255,0.52)" strokeWidth="1.05" strokeLinecap="round" />
+                    <path d="M101 20 C113 35 110 55 100 76" fill="none" stroke="rgba(255,255,255,0.52)" strokeWidth="1.05" strokeLinecap="round" />
+                    <path d="M24 20 C26 21 27 21 29 21" fill="none" stroke="rgba(255,255,255,0.94)" strokeWidth="4" strokeLinecap="round" />
+                    <path d="M97 21 C99 21 101 21 102 20" fill="none" stroke="rgba(255,255,255,0.94)" strokeWidth="4" strokeLinecap="round" />
+                  </svg>
+                </button>
               ) : isGiftDelivery && giftDelivery ? (
                 <div
                   className="flex w-[244px] max-w-full flex-col overflow-hidden rounded-[16px] border border-[#EAECEF] bg-white shadow-[0_8px_20px_rgba(15,23,42,0.06)]"

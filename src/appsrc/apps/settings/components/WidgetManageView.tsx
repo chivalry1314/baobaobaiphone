@@ -85,6 +85,18 @@ const systemParamSections = [
 
 const builtInTemplateItems: WidgetItem[] = [
   {
+    id: 'template:listen-together',
+    name: '一起听歌',
+    type: 'MUSIC',
+    size: '4x2',
+    previewTitle: '一起听歌播放组件',
+    previewValue: '可控制上一首、播放暂停、下一首',
+    templateId: 'listen-together',
+    data: { name: '一起听歌', subtitle: '双人音乐播放器', cornerRadius: 22, frosted: 6, shadow: 12 },
+    w: 4,
+    h: 2,
+  },
+  {
     id: 'template:ins-photo',
     name: 'ins照片',
     type: 'PHOTO',

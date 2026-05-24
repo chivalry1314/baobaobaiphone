@@ -38,6 +38,18 @@ const widgetTemplateCode: Record<string, string> = {
     </div>
   );
 }`,
+  'listen-together': `export default function ListenTogetherWidget({ system }) {
+  return (
+    <div className="h-full w-full rounded-[22px] border border-white/35 bg-white/16 p-3 text-slate-900 backdrop-blur-xl">
+      <div className="text-[12px] text-slate-500">一起听歌</div>
+      <div className="mt-2 text-[18px] font-bold">{system.music.currentTrack?.title || 'Only One'}</div>
+      <div className="text-[13px] text-slate-500">{system.music.currentTrack?.artist || 'BoA'}</div>
+      <button onClick={system.music.togglePlayback} className="mt-3 rounded-full bg-white/70 px-4 py-2 text-[13px] font-semibold">
+        {system.music.isPlaying ? '暂停' : '播放'}
+      </button>
+    </div>
+  );
+}`,
   'clock-card': `export default function ClockWidget({ system }) {
   return (
     <div className="flex h-full w-full flex-col items-center justify-center rounded-[18px] bg-zinc-400/60 text-white">
@@ -95,6 +107,7 @@ const templateNameMap: Record<string, string> = {
   'ins-photo': 'ins照片',
   'calendar-card': '日历',
   'vinyl-record': '唱片',
+  'listen-together': '一起听歌',
   'clock-card': '时钟',
   'text-card': '文字',
   'custom-code': '自定义组件',
@@ -104,9 +117,9 @@ export const WidgetEditorView: React.FC<WidgetEditorViewProps> = ({ widgetId, in
   const templateFromId = widgetId?.startsWith('template:') ? widgetId.slice('template:'.length) : undefined;
   const templateId = initialConfig?.templateId || templateFromId;
   const [widgetName, setWidgetName] = useState<string>(templateId ? templateNameMap[templateId] || '组件' : '自定义组件');
-  const [gridW, setGridW] = useState<number>(initialConfig?.width || (templateId === 'clock-card' ? 4 : 2));
+  const [gridW, setGridW] = useState<number>(initialConfig?.width || (templateId === 'clock-card' || templateId === 'listen-together' ? 4 : 2));
   const [gridH, setGridH] = useState<number>(initialConfig?.height || (templateId === 'clock-card' ? 1 : 2));
-  const [gridWInput, setGridWInput] = useState<string>(String(initialConfig?.width || (templateId === 'clock-card' ? 4 : 2)));
+  const [gridWInput, setGridWInput] = useState<string>(String(initialConfig?.width || (templateId === 'clock-card' || templateId === 'listen-together' ? 4 : 2)));
   const [gridHInput, setGridHInput] = useState<string>(String(initialConfig?.height || (templateId === 'clock-card' ? 1 : 2)));
   const [cornerRadius, setCornerRadius] = useState<number>(initialConfig?.cornerRadius ?? 22);
   const [frosted, setFrosted] = useState<number>(initialConfig?.frosted ?? 8);

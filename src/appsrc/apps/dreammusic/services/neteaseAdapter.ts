@@ -56,6 +56,17 @@ const METING_PLAYLIST_ENDPOINTS: Record<PlaylistProvider, string[]> = {
   ],
 };
 
+const METING_TRACK_ENDPOINTS: Record<PlaylistProvider, string[]> = {
+  netease: [
+    'https://metingapi.nanorocky.top/?server=netease&type=song&id=',
+    'https://metingapi.mo-app.cn/?server=netease&type=song&id=',
+  ],
+  qq: [
+    'https://metingapi.nanorocky.top/?server=tencent&type=song&id=',
+    'https://metingapi.mo-app.cn/?server=tencent&type=song&id=',
+  ],
+};
+
 const FETCH_TIMEOUT_MS = 15000;
 
 const safeDecode = (value: string): string => {
@@ -178,6 +189,31 @@ const extractPlaylistIdByProvider = (
           /\/playlist\/(\d{3,})(?:[/?#]|$)/i,
           /\/playsquare\/(\d{3,})(?:[/?#]|$)/i,
           /\/taoge(?:\.html)?\?[^#\s]*?(?:id|disstid)=(\d{3,})/i,
+        ];
+
+  for (const pattern of patterns) {
+    const match = decoded.match(pattern);
+    if (match?.[1]) return match[1];
+  }
+  return null;
+};
+
+const extractTrackIdByProvider = (
+  input: string,
+  provider: PlaylistProvider
+): string | null => {
+  const decoded = safeDecode(input);
+  const patterns =
+    provider === 'netease'
+      ? [
+          /song\?[^#\s]*?id=(\d{4,})/i,
+          /#\/song\?id=(\d{4,})/i,
+          /music\.163\.com\/song\/(\d{4,})/i,
+        ]
+      : [
+          /\/songDetail\/([A-Za-z0-9]+)/i,
+          /[?&]songmid=([A-Za-z0-9]+)(?:[&#]|$)/i,
+          /[?&]songid=(\d{3,})(?:[&#]|$)/i,
         ];
 
   for (const pattern of patterns) {
@@ -477,12 +513,59 @@ const tryFetchFromMetingApis = async (
   return null;
 };
 
+const tryFetchTrackFromMetingApis = async (
+  provider: PlaylistProvider,
+  trackId: string,
+  fallbackName?: string
+): Promise<NeteaseImportResult | null> => {
+  const endpoints = METING_TRACK_ENDPOINTS[provider] ?? [];
+  for (const endpoint of endpoints) {
+    try {
+      const payload = await fetchJsonWithTimeout<unknown>(`${endpoint}${encodeURIComponent(trackId)}`);
+      const rawTracks = Array.isArray(payload) ? payload : [payload];
+      const tracks = rawTracks
+        .map((item, index) => mapMetingTrack(provider, `single-${trackId}`, item, index))
+        .filter((item): item is DreamTrack => item !== null);
+      if (tracks.length === 0) continue;
+
+      const firstTrack = tracks[0];
+      return {
+        playlist: createPlaylist({
+          provider,
+          playlistId: `single-${trackId}`,
+          trackIds: tracks.map((item) => item.id),
+          name: fallbackName || firstTrack.title || `${provider === 'netease' ? '网易云' : 'QQ音乐'}单曲 ${trackId}`,
+          coverUrl: firstTrack.coverUrl,
+        }),
+        tracks,
+      };
+    } catch {
+      // ignore and continue fallback
+    }
+  }
+  return null;
+};
+
 export const importNeteasePlaylistFromShareUrl = async (
   shareUrl: string
 ): Promise<NeteaseImportResult> => {
   const normalizedShareUrl = shareUrl.trim();
   if (!normalizedShareUrl) {
     throw new Error('请先粘贴网易云或 QQ 音乐歌单分享内容。');
+  }
+
+  const normalized = safeDecode(normalizedShareUrl);
+  const urls = extractUrlsFromText(normalized);
+  const providerHint = normalizeProviderFromText(normalized) ?? normalizeProviderFromText(urls.join(' ')) ?? 'netease';
+  const candidates = [normalized, ...urls];
+  const sharedTrackId = candidates
+    .map((item) => extractTrackIdByProvider(item, providerHint))
+    .find((item): item is string => Boolean(item));
+  if (sharedTrackId) {
+    const playlistName = extractPlaylistNameFromShareText(normalizedShareUrl);
+    const trackResult = await tryFetchTrackFromMetingApis(providerHint, sharedTrackId, playlistName);
+    if (trackResult?.tracks.length) return trackResult;
+    throw new Error('单曲解析失败：未获取到可播放歌曲，请稍后重试。');
   }
 
   const { provider, playlistId } = await resolveSharedPlaylistTarget(normalizedShareUrl);

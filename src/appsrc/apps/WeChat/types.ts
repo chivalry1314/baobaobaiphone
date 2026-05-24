@@ -33,7 +33,9 @@ export interface WeChatMessage {
     | 'movie_ticket'
     | 'gift_delivery'
     | 'recipe_card'
-    | 'shopping_invite';
+    | 'shopping_invite'
+    | 'dream_music_invite'
+    | 'dream_music_listen_summary';
   amount?: number;
   appSource?: 'shopping' | 'delivery';
   orderRequestStatus?: 'pending' | 'accepted' | 'rejected';
@@ -51,6 +53,18 @@ export interface WeChatMessage {
     mode: 'together';
     inviterName?: string;
     inviteText?: string;
+  };
+  dreamMusicInvite?: {
+    inviterName: string;
+    inviterAvatar?: string;
+    trackTitle?: string;
+    trackArtist?: string;
+    trackCoverUrl?: string;
+  };
+  dreamMusicListenSummary?: {
+    durationMs: number;
+    selfAvatar?: string;
+    companionAvatar?: string;
   };
   movieTicket?: {
     orderId: string;

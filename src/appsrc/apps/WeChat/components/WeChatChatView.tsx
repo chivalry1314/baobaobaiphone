@@ -18,6 +18,7 @@ import { patchPersistedDeliveryOrders, updatePersistedDeliveryOrders } from '../
 import type { DeliveryOrderRecord } from '../../delivery/types';
 import { useShoppingStore } from '../../shopping/store';
 import { updateShoppingOrdersInStorage } from '../../../shared/business/commerce/domain/ordersStorage';
+import { useDreamMusicStore } from '../../dreammusic/store';
 
 import { WeChatChatHeader } from './WeChatChatHeader';
 import { WeChatChatMessageItem } from './WeChatChatMessageItem';
@@ -203,6 +204,31 @@ const formatOrderPreviewForMemory = (message: Pick<WeChatMessage, 'orderPreview'
   return ` 商品：${itemText}${moreText}${storeText}`;
 };
 
+const formatListenTogetherMinutes = (durationMs: number | undefined): string => {
+  const totalMinutes = Math.max(1, Math.floor(Math.max(0, durationMs || 0) / 60000));
+  if (totalMinutes < 60) return `${totalMinutes}分钟`;
+  const hours = Math.floor(totalMinutes / 60);
+  const minutes = totalMinutes % 60;
+  return minutes > 0 ? `${hours}小时${minutes}分钟` : `${hours}小时`;
+};
+
+const formatDreamMusicInviteForAi = (message: Pick<WeChatMessage, 'dreamMusicInvite' | 'orderRequestStatus'>): string => {
+  const inviterName = message.dreamMusicInvite?.inviterName?.trim() || '用户';
+  const trackText = message.dreamMusicInvite?.trackTitle
+    ? `；歌曲：${message.dreamMusicInvite.trackTitle}${message.dreamMusicInvite.trackArtist ? ` - ${message.dreamMusicInvite.trackArtist}` : ''}`
+    : '';
+  const statusText =
+    message.orderRequestStatus === 'accepted'
+      ? '已同意加入'
+      : message.orderRequestStatus === 'rejected'
+        ? '已拒绝加入'
+        : '等待你决定是否加入';
+  return `一起听歌邀请：${inviterName}邀请你加入一起听歌；状态：${statusText}${trackText}`;
+};
+
+const formatDreamMusicListenSummaryForAi = (message: Pick<WeChatMessage, 'dreamMusicListenSummary'>): string =>
+  `一起听歌记录：我们一起听了${formatListenTogetherMinutes(message.dreamMusicListenSummary?.durationMs)}`;
+
 const normalizeMessageContentForMemoryComparison = (message: WeChatMessage): string => {
   if (message.type === 'order_request' && typeof message.amount === 'number') {
     const actionText =
@@ -233,6 +259,14 @@ const normalizeMessageContentForMemoryComparison = (message: WeChatMessage): str
     const ingredients = Array.isArray(recipe.ingredients) ? recipe.ingredients : [];
     const ingredientText = ingredients.map((item) => `${item.name}${item.amount}`).join('、');
     return `分享菜谱：${recipe.title}，${recipe.subtitle}，${recipe.time}，${recipe.servings}，食材：${ingredientText}`;
+  }
+
+  if (message.type === 'dream_music_invite') {
+    return formatDreamMusicInviteForAi(message);
+  }
+
+  if (message.type === 'dream_music_listen_summary') {
+    return formatDreamMusicListenSummaryForAi(message);
   }
 
   if (message.type === 'image') {
@@ -310,7 +344,7 @@ const parseAssistantOrderDecision = (
   rawReply: string
 ): { action: 'accepted' | 'rejected' | null; content: string } => {
   const normalized = rawReply.trim();
-  const match = normalized.match(/^\[(?:ORDER_REQUEST|代付决策)\s*:\s*(accepted|rejected|同意|拒绝)\]\s*/i);
+  const match = normalized.match(/^\[(?:ORDER_REQUEST|代付决策|LISTEN_TOGETHER|一起听歌)\s*:\s*(accepted|rejected|同意|拒绝)\]\s*/i);
   if (!match) {
     return {
       action: null,
@@ -1846,6 +1880,12 @@ export const WeChatChatView: React.FC<WeChatChatViewProps> = ({
         const ingredientText = ingredients.map((item) => `${item.name}${item.amount}`).join('、');
         content = `[系统记录：收到一张菜谱卡片；菜名：${m.recipeCard.title}；说明：${m.recipeCard.subtitle}；用时：${m.recipeCard.time}；份量：${m.recipeCard.servings}；食材：${ingredientText}]`;
       }
+      if (m.type === 'dream_music_invite') {
+        content = `[系统记录：${formatDreamMusicInviteForAi(m)}]`;
+      }
+      if (m.type === 'dream_music_listen_summary') {
+        content = `[系统记录：${formatDreamMusicListenSummaryForAi(m)}]`;
+      }
       if (m.type === 'transfer') content = `[系统记录：用户向你发起了转账 ¥${m.amount}]`;
       if (m.type === 'transfer_accepted') content = `[系统记录：你已接收转账 ¥${m.amount}]`;
       if (m.type === 'pat') content = `[系统记录：${m.content}]`;
@@ -1930,6 +1970,12 @@ export const WeChatChatView: React.FC<WeChatChatViewProps> = ({
         '- 如果不愿意代付，就在回复最前面输出 [ORDER_REQUEST:rejected]。',
         '- 尽量给出明确决定，不要只因为“信息不足”就回避；只有真的需要继续追问时才不要输出标签。',
         '- 标签后面继续正常聊天回复，不要解释标签本身。',
+        '',
+        '一起听歌邀请规则：',
+        '- 如果聊天上下文里出现“一起听歌/加入一起听”的邀请卡，请结合最近聊天内容、熟悉程度、对话语气、当前心情和人物关系，判断是否愿意加入。',
+        '- 如果愿意加入，就在回复最前面输出 [LISTEN_TOGETHER:accepted]。',
+        '- 如果不愿意加入，就在回复最前面输出 [LISTEN_TOGETHER:rejected]。',
+        '- 标签后面继续正常聊天回复，不要解释标签本身。',
       ].join('\n'));
 
       const response = await fetch(`${settings.baseUrl}/chat/completions`, {
@@ -1967,16 +2013,16 @@ export const WeChatChatView: React.FC<WeChatChatViewProps> = ({
               : '');
 
         if (action) {
-          const latestPendingOrderRequest = [...(useWeChatStore.getState().wechatSessions.find((item) => item.id === sessionId)?.messages || [])]
+          const latestPendingActionMessage = [...(useWeChatStore.getState().wechatSessions.find((item) => item.id === sessionId)?.messages || [])]
             .reverse()
             .find(
               (message) =>
                 message.role === 'user' &&
-                message.type === 'order_request' &&
+                (message.type === 'order_request' || message.type === 'dream_music_invite') &&
                 message.orderRequestStatus === 'pending'
             );
-          if (latestPendingOrderRequest) {
-            await applyOrderRequestAction(sessionId, latestPendingOrderRequest, action, { silent: true });
+          if (latestPendingActionMessage) {
+            await applyOrderRequestAction(sessionId, latestPendingActionMessage, action, { silent: true });
           }
         }
 
@@ -2469,6 +2515,31 @@ export const WeChatChatView: React.FC<WeChatChatViewProps> = ({
 
         if (!options?.silent) {
           setToastMessage(action === 'accepted' ? '已同意一起购物' : '已拒绝一起购物');
+          window.setTimeout(() => setToastMessage(null), 1800);
+        }
+        return;
+      }
+
+      if (message.type === 'dream_music_invite') {
+        if (action === 'accepted' && character) {
+          const invite = message.dreamMusicInvite;
+          useDreamMusicStore.getState().acceptListenTogether({
+            companionId: character.id,
+            companionName: character.name,
+            companionAvatar: character.avatar || '',
+            inviterName: invite?.inviterName || '我',
+          });
+          window.dispatchEvent(
+            new CustomEvent(PUSH_OPEN_APP_MESSAGE_TYPE, {
+              detail: {
+                appId: 'dreammusic',
+              },
+            })
+          );
+        }
+
+        if (!options?.silent) {
+          setToastMessage(action === 'accepted' ? '已同意一起听' : '已拒绝一起听');
           window.setTimeout(() => setToastMessage(null), 1800);
         }
         return;

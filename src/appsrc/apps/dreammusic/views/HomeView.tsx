@@ -7,10 +7,18 @@ import {
   Play,
   SkipBack,
   SkipForward,
+  UserPlus,
+  X,
 } from 'lucide-react';
 import { PLAY_MODE_LABEL } from '../constants';
-import type { DreamTrack, PlayMode } from '../types';
+import type { DreamListenTogetherState, DreamTrack, PlayMode } from '../types';
 import { formatDuration, renderPlayModeIcon } from '../utils';
+
+interface ListenTogetherContactOption {
+  id: string;
+  name: string;
+  avatar?: string;
+}
 
 interface HomeViewProps {
   currentTrack: DreamTrack | null;
@@ -24,8 +32,18 @@ interface HomeViewProps {
   playableTracks: DreamTrack[];
   playableTrackIds: string[];
   uiMessage: string | null;
+  listenTogether: DreamListenTogetherState | null;
+  listenTogetherDurationsByCompanionId: Record<string, number>;
+  selfName: string;
+  selfAvatar?: string;
+  inviteContacts: ListenTogetherContactOption[];
+  isInviteSheetOpen: boolean;
   onOpenLyrics: () => void;
   onOpenComment: () => void;
+  onOpenInviteSheet: () => void;
+  onCloseInviteSheet: () => void;
+  onInviteContact: (contactId: string) => void;
+  onClearListenTogether: () => void;
   onToggleFavorite: (trackId: string) => void;
   onSeek: (value: string) => void;
   onPlayPrev: () => void;
@@ -35,6 +53,14 @@ interface HomeViewProps {
   onVolumeChange: (value: number) => void;
   onPlayTrack: (trackId: string) => void;
 }
+
+const formatListenTogetherElapsed = (totalMs: number): string => {
+  const totalMinutes = Math.max(0, Math.floor(totalMs / 60000));
+  const hours = Math.floor(totalMinutes / 60);
+  const minutes = totalMinutes % 60;
+  if (hours <= 0) return `${minutes}分钟`;
+  return `${hours}小时${minutes}分钟`;
+};
 
 export const HomeView: React.FC<HomeViewProps> = ({
   currentTrack,
@@ -48,8 +74,18 @@ export const HomeView: React.FC<HomeViewProps> = ({
   playableTracks,
   playableTrackIds,
   uiMessage,
+  listenTogether,
+  listenTogetherDurationsByCompanionId,
+  selfName,
+  selfAvatar,
+  inviteContacts,
+  isInviteSheetOpen,
   onOpenLyrics,
   onOpenComment,
+  onOpenInviteSheet,
+  onCloseInviteSheet,
+  onInviteContact,
+  onClearListenTogether,
   onToggleFavorite,
   onSeek,
   onPlayPrev,
@@ -58,12 +94,98 @@ export const HomeView: React.FC<HomeViewProps> = ({
   onCyclePlayMode,
   onVolumeChange,
   onPlayTrack,
-}) => (
-  <section className="pt-2">
+}) => {
+  const isTogetherActive = listenTogether?.status === 'active';
+  const isTogetherPending = listenTogether?.status === 'pending';
+  const [listenNow, setListenNow] = React.useState(() => Date.now());
+  const listenStartedAt = listenTogether?.acceptedAt || listenTogether?.invitedAt || listenNow;
+  const settledListenMs = listenTogether?.companionId
+    ? Math.max(0, listenTogetherDurationsByCompanionId[listenTogether.companionId] || 0)
+    : 0;
+  const activeListenMs = isTogetherActive ? Math.max(0, listenNow - listenStartedAt) : 0;
+  const listenTogetherText = isTogetherActive
+    ? `音乐传递心声，一起听歌${formatListenTogetherElapsed(settledListenMs + activeListenMs)}`
+    : isTogetherPending
+      ? '音乐传递心声，等待对方一起听'
+      : '';
+
+  React.useEffect(() => {
+    if (!listenTogether) return undefined;
+    setListenNow(Date.now());
+    const timer = window.setInterval(() => setListenNow(Date.now()), 30000);
+    return () => window.clearInterval(timer);
+  }, [listenTogether?.status, listenTogether?.acceptedAt, listenTogether?.invitedAt]);
+
+  return (
+  <section className="relative pt-2">
+    {listenTogether ? (
+      <div className="mx-auto mb-8 mt-2 flex max-w-[330px] flex-col items-center text-center">
+        <div className="relative h-[78px] w-[214px]">
+          <button
+            type="button"
+            onClick={onClearListenTogether}
+            className="absolute right-[-8px] top-[-10px] z-20 grid h-7 w-7 shrink-0 place-items-center rounded-full bg-black/12 text-[#EADFCC]/70"
+            aria-label="结束一起听"
+          >
+            <X size={14} />
+          </button>
+          <svg
+            className="pointer-events-none absolute inset-0 h-full w-full overflow-visible"
+            viewBox="0 0 214 78"
+            aria-hidden="true"
+          >
+            <path
+              d="M31 33 C20 37 20 49 26 56"
+              fill="none"
+              stroke="rgba(235,220,205,0.5)"
+              strokeWidth="1.8"
+              strokeLinecap="round"
+            />
+            <path
+              d="M26 56 C28 69 37 82 49 92"
+              fill="none"
+              stroke="rgba(235,220,205,0.5)"
+              strokeWidth="1.8"
+              strokeLinecap="round"
+            />
+            <path
+              d="M183 33 C194 37 194 49 188 56"
+              fill="none"
+              stroke="rgba(235,220,205,0.5)"
+              strokeWidth="1.8"
+              strokeLinecap="round"
+            />
+            <path
+              d="M188 56 C186 69 177 82 165 92"
+              fill="none"
+              stroke="rgba(235,220,205,0.5)"
+              strokeWidth="1.8"
+              strokeLinecap="round"
+            />
+          </svg>
+          <div className="absolute left-[31px] top-0 grid h-16 w-16 place-items-center overflow-hidden rounded-full border-2 border-[#F7EFE7] bg-[#F6EFE6] text-[#7A5840] shadow-[0_8px_18px_rgba(0,0,0,0.18)]">
+            {selfAvatar ? (
+              <img src={selfAvatar} alt={selfName || '我'} className="h-full w-full object-cover" />
+            ) : null}
+          </div>
+          <div className="absolute right-[31px] top-0 grid h-16 w-16 place-items-center overflow-hidden rounded-full border-2 border-[#F7EFE7] bg-[#F6EFE6] text-[#7A5840] shadow-[0_8px_18px_rgba(0,0,0,0.18)]">
+            {listenTogether.companionAvatar ? (
+              <img src={listenTogether.companionAvatar} alt={listenTogether.companionName} className="h-full w-full object-cover" />
+            ) : null}
+          </div>
+        </div>
+        <div className="flex max-w-full items-center justify-center gap-2 text-[12px] font-semibold text-[#EADFCC]/72">
+          <span className="min-w-0 truncate">
+            {listenTogetherText}
+          </span>
+        </div>
+      </div>
+    ) : null}
+
     <button
       type="button"
       onClick={onOpenLyrics}
-      className="relative mx-auto mt-10 w-[74vw] max-w-[360px] aspect-square block"
+      className={`relative mx-auto ${listenTogether ? 'mt-0' : 'mt-10'} w-[74vw] max-w-[360px] aspect-square block`}
       aria-label="打开歌词页"
     >
       <div className="pointer-events-none absolute -top-10 right-[-3%] h-36 w-44 z-10">
@@ -126,6 +248,14 @@ export const HomeView: React.FC<HomeViewProps> = ({
           </button>
           <button type="button" onClick={onOpenComment} className="opacity-75" aria-label="进入评论页">
             <MessageCircleMore size={23} />
+          </button>
+          <button
+            type="button"
+            onClick={onOpenInviteSheet}
+            className={isTogetherPending || isTogetherActive ? 'text-[#FFD9B0]' : 'opacity-75'}
+            aria-label="邀请一起听"
+          >
+            <UserPlus size={23} />
           </button>
           <button type="button" className="opacity-75" aria-label="更多功能">
             <MoreVertical size={23} />
@@ -226,6 +356,64 @@ export const HomeView: React.FC<HomeViewProps> = ({
       )}
     </div>
 
+    {isInviteSheetOpen ? (
+      <div className="absolute inset-x-0 top-[265px] z-30 mx-auto w-[min(94vw,360px)] overflow-hidden rounded-[22px] bg-white text-[#272A33] shadow-[0_24px_60px_rgba(15,23,42,0.22)]">
+        <div className="mx-auto mt-2 h-1.5 w-8 rounded-full bg-[#E5E7EB]" />
+        <div className="flex items-center justify-between px-5 pb-2 pt-5">
+          <div className="text-[12px] font-semibold leading-none">邀请一起听歌</div>
+          <button
+            type="button"
+            onClick={onCloseInviteSheet}
+            className="grid h-7 w-7 place-items-center rounded-full bg-[#F3F4F6] text-[#8A8F99]"
+            aria-label="关闭"
+          >
+            <X size={15} />
+          </button>
+        </div>
+        <div className="overflow-x-auto px-5 pb-3.5">
+          {inviteContacts.length === 0 ? (
+            <div className="rounded-[16px] bg-[#F6F7F9] px-3 py-4 text-center text-[12px] text-[#8A8F99]">
+              暂无可邀请的微信联系人
+            </div>
+          ) : (
+            <div className="flex items-start gap-7">
+              {inviteContacts.slice(0, 4).map((contact) => (
+                <button
+                  key={contact.id}
+                  type="button"
+                  onClick={() => onInviteContact(contact.id)}
+                  className="w-[62px] shrink-0 text-center active:opacity-70"
+                >
+                  <div className="mx-auto grid h-[48px] w-[48px] place-items-center overflow-hidden rounded-full border border-[#E3E5EA] bg-[#F9E7E9] text-[15px] font-semibold text-[#C98A92]">
+                    {contact.avatar ? (
+                      <img src={contact.avatar} alt={contact.name} className="h-full w-full object-cover" />
+                    ) : (
+                      <div className="relative h-full w-full">
+                        <span className="absolute left-1/2 top-[15px] h-[13px] w-[13px] -translate-x-1/2 rounded-full bg-[#F4C7CD]" />
+                        <span className="absolute bottom-[3px] left-1/2 h-[18px] w-[34px] -translate-x-1/2 rounded-t-full bg-[#F4C7CD]" />
+                      </div>
+                    )}
+                  </div>
+                  <div className="mt-2 truncate text-[12px] leading-tight text-[#343741]">{contact.name}</div>
+                </button>
+              ))}
+              <button
+                type="button"
+                className="w-[62px] shrink-0 text-center active:opacity-70"
+                aria-label="更多联系人"
+              >
+                <div className="mx-auto grid h-[48px] w-[48px] place-items-center rounded-full bg-[#F6F7F9] text-[22px] font-semibold tracking-[4px] text-[#30323A]">
+                  ...
+                </div>
+                <div className="mt-2 truncate text-[12px] leading-tight text-[#343741]">更多</div>
+              </button>
+            </div>
+          )}
+        </div>
+      </div>
+    ) : null}
+
     <style>{`@keyframes dream-record-spin { from { transform: rotate(0deg); } to { transform: rotate(360deg); } }`}</style>
   </section>
-);
+  );
+};

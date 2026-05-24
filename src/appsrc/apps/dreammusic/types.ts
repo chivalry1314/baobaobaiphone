@@ -52,6 +52,16 @@ export interface DreamPlayHistoryItem {
   playedAt: number;
 }
 
+export interface DreamListenTogetherState {
+  status: 'idle' | 'pending' | 'active';
+  companionId: string;
+  companionName: string;
+  companionAvatar?: string;
+  inviterName?: string;
+  invitedAt: number;
+  acceptedAt?: number;
+}
+
 export interface DreamMusicState {
   tracks: DreamTrack[];
   playlists: DreamPlaylist[];
@@ -65,6 +75,9 @@ export interface DreamMusicState {
   playMode: PlayMode;
   volume: number;
   currentTimeSec: number;
+  listenTogether: DreamListenTogetherState | null;
+  listenTogetherDurationsByCompanionId: Record<string, number>;
+  listenTogetherCompanionNamesById: Record<string, string>;
 }
 
 export interface NeteaseImportResult {

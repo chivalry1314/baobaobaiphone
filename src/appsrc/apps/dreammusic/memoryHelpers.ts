@@ -5,6 +5,7 @@ const FAVORITE_MEMORY_SESSION_ID = 'dreammusic-favorite-track';
 const COMMENT_MEMORY_SESSION_PREFIX = 'dreammusic-comment-track';
 const RECENT_MEMORY_SESSION_ID = 'dreammusic-recent-summary';
 const RECENT_MEMORY_SOURCE_ID = 'recent-summary:latest';
+const LISTEN_TOGETHER_SESSION_ID = 'dreammusic-listen-together';
 const DAY_MS = 24 * 60 * 60 * 1000;
 
 interface RankedTrackItem {
@@ -32,6 +33,16 @@ const buildFavoriteSourceId = (trackId: string): string => `favorite-track:${tra
 const buildCommentSessionId = (trackId: string): string =>
   `${COMMENT_MEMORY_SESSION_PREFIX}:${trackId}`;
 const buildCommentSourceId = (commentId: string): string => `comment:${commentId}`;
+const buildListenTogetherSourceId = (companionId: string): string =>
+  `listen-together:${companionId}`;
+
+const formatListenTogetherDuration = (durationMs: number): string => {
+  const totalMinutes = Math.max(0, Math.floor(durationMs / 60000));
+  const hours = Math.floor(totalMinutes / 60);
+  const minutes = totalMinutes % 60;
+  if (hours <= 0) return `${minutes}分钟`;
+  return `${hours}小时${minutes}分钟`;
+};
 
 const rankTracksFromHistory = (params: {
   playHistory: DreamPlayHistoryItem[];
@@ -222,4 +233,26 @@ export const upsertDreamMusicRecentSummaryMemory = (params: {
 
 export const clearDreamMusicRecentSummaryMemory = (): void => {
   dreamMusicMemoryController.removeBySessionSources(RECENT_MEMORY_SESSION_ID, [RECENT_MEMORY_SOURCE_ID]);
+};
+
+export const upsertDreamMusicListenTogetherMemory = (params: {
+  contactId: string;
+  companionId: string;
+  companionName: string;
+  durationMs: number;
+}): void => {
+  const normalizedCompanionId = params.companionId.trim();
+  if (!normalizedCompanionId) return;
+  const sourceId = buildListenTogetherSourceId(normalizedCompanionId);
+  dreamMusicMemoryController.removeBySessionSources(LISTEN_TOGETHER_SESSION_ID, [sourceId]);
+
+  const durationText = formatListenTogetherDuration(params.durationMs);
+  dreamMusicMemoryController.record({
+    contactId: params.contactId,
+    role: 'user',
+    sourceType: 'listen-together-duration',
+    sessionId: LISTEN_TOGETHER_SESSION_ID,
+    sourceId,
+    content: `我和${params.companionName || '对方'}一起听歌累计${durationText}。`,
+  });
 };

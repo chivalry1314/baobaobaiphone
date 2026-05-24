@@ -1,9 +1,12 @@
 import React, { useEffect, useMemo, useRef, useState } from 'react';
 import { motion } from 'motion/react';
 import { APP_CLOSE_MOTION, APP_OPEN_MOTION } from '../../../core/appOpenMotion';
+import { PUSH_OPEN_APP_MESSAGE_TYPE } from '../../../core/push/webPush';
 import type { BottomTabId } from './constants';
 import { DEFAULT_ACTIVE_ROLE_ID, useActiveRoleId } from '../contacts/activeRole';
+import { useContactsStore } from '../contacts/store';
 import { useRoleDisplayNameBridge } from '../../shared/business/contacts/roleDisplayNameBridge';
+import { useWeChatStore } from '../WeChat/store';
 import { getDreamMusicBackgroundAudio } from './backgroundAudio';
 import { AppDock, AppHeader } from './components';
 import { useDreamMusicCommentsStore } from './commentsStore';
@@ -18,6 +21,7 @@ import {
   removeDreamMusicFavoriteMemory,
   upsertDreamMusicCommentMemory,
   upsertDreamMusicFavoriteMemory,
+  upsertDreamMusicListenTogetherMemory,
   upsertDreamMusicRecentSummaryMemory,
 } from './memoryHelpers';
 import type { DreamMusicAppProps, DreamTrack } from './types';
@@ -51,6 +55,8 @@ export const DreamMusicApp: React.FC<DreamMusicAppProps> = ({ onClose }) => {
     return trimmedName || activeRoleId;
   }, [activeRoleId, roleDisplayName]);
 
+  const wechatUserProfile = useWeChatStore((state) => state.wechatUserProfile);
+
   const {
     tracks,
     playlists,
@@ -62,6 +68,9 @@ export const DreamMusicApp: React.FC<DreamMusicAppProps> = ({ onClose }) => {
     playMode,
     volume,
     currentTimeSec,
+    listenTogether,
+    listenTogetherDurationsByCompanionId,
+    listenTogetherCompanionNamesById,
     setQueueAndPlay,
     togglePlayback,
     setPlaying,
@@ -70,6 +79,8 @@ export const DreamMusicApp: React.FC<DreamMusicAppProps> = ({ onClose }) => {
     cyclePlayMode,
     playNext,
     playPrev,
+    setListenTogetherPending,
+    clearListenTogether,
     upsertTracks,
     upsertImportedPlaylist,
     removePlaylist,
@@ -94,6 +105,7 @@ export const DreamMusicApp: React.FC<DreamMusicAppProps> = ({ onClose }) => {
   const [isNeteaseParsing, setIsNeteaseParsing] = useState(false);
   const [neteaseParseError, setNeteaseParseError] = useState<string | null>(null);
   const [openedPlaylistId, setOpenedPlaylistId] = useState<string | null>(null);
+  const [isInviteSheetOpen, setIsInviteSheetOpen] = useState(false);
   const backgroundAudio = useMemo(() => getDreamMusicBackgroundAudio(), []);
   const audioRef = useRef<HTMLAudioElement | null>(backgroundAudio);
   audioRef.current = backgroundAudio;
@@ -101,6 +113,7 @@ export const DreamMusicApp: React.FC<DreamMusicAppProps> = ({ onClose }) => {
   const recentMemoryTimestampRef = useRef<number>(0);
   const recentMemoryInitializedRef = useRef(false);
   const recentMemoryRoleRef = useRef<string>('');
+  const listenTogetherMemorySignatureRef = useRef<string>('');
 
   const {
     trackById,
@@ -145,6 +158,19 @@ export const DreamMusicApp: React.FC<DreamMusicAppProps> = ({ onClose }) => {
   const myCommentCount = useMemo(
     () => comments.filter((item) => item.authorRoleId === activeRoleId).length,
     [comments, activeRoleId]
+  );
+
+  const contacts = useContactsStore((state) => state.contacts);
+  const inviteContacts = useMemo(
+    () =>
+      contacts
+        .filter((contact) => contact.wechatRelation === 'friend' || typeof contact.wechatRelation === 'undefined')
+        .map((contact) => ({
+          id: contact.id,
+          name: contact.name,
+          avatar: contact.avatar,
+        })),
+    [contacts]
   );
 
   useEffect(() => {
@@ -210,6 +236,24 @@ export const DreamMusicApp: React.FC<DreamMusicAppProps> = ({ onClose }) => {
     markTrackPlayed,
     onPlaybackError: () => setUiMessage('播放失败，可能是链接失效或被限制。'),
   });
+
+  useEffect(() => {
+    const entries = Object.entries(listenTogetherDurationsByCompanionId)
+      .filter(([, durationMs]) => durationMs >= 60 * 1000)
+      .sort(([leftId], [rightId]) => leftId.localeCompare(rightId));
+    const signature = entries.map(([id, durationMs]) => `${id}:${Math.floor(durationMs / 60000)}`).join('|');
+    if (!signature || signature === listenTogetherMemorySignatureRef.current) return;
+
+    entries.forEach(([companionId, durationMs]) => {
+      upsertDreamMusicListenTogetherMemory({
+        contactId: activeRoleId,
+        companionId,
+        companionName: listenTogetherCompanionNamesById[companionId] || companionId,
+        durationMs,
+      });
+    });
+    listenTogetherMemorySignatureRef.current = signature;
+  }, [activeRoleId, listenTogetherCompanionNamesById, listenTogetherDurationsByCompanionId]);
 
   const { lyricLines, activeLyricIndex, isLyricLoading } = useTrackLyrics({
     currentTrack,
@@ -341,6 +385,100 @@ export const DreamMusicApp: React.FC<DreamMusicAppProps> = ({ onClose }) => {
       contactId: activeRoleId,
       track,
     });
+  };
+
+  const handleInviteContact = (contactId: string) => {
+    const contact = inviteContacts.find((item) => item.id === contactId);
+    if (!contact) {
+      setUiMessage('未找到可邀请的联系人。');
+      return;
+    }
+
+    const store = useWeChatStore.getState();
+    const sessionId = store.ensureWeChatSession(contact.id, { switchCurrent: true });
+    if (!sessionId) {
+      setUiMessage('微信会话创建失败。');
+      return;
+    }
+
+    const inviterName = wechatUserProfile.name?.trim() || commentAuthorName || '我';
+    store.addWeChatMessage(sessionId, {
+      role: 'user',
+      type: 'dream_music_invite',
+      content: `${inviterName} 邀请你一起听歌`,
+      assistantReplyPending: true,
+      orderRequestStatus: 'pending',
+      dreamMusicInvite: {
+        inviterName,
+        inviterAvatar: wechatUserProfile.avatar || '',
+        trackTitle: currentTrack?.title,
+        trackArtist: currentTrack?.artist,
+        trackCoverUrl: currentTrack?.coverUrl,
+      },
+    });
+    setListenTogetherPending({
+      companionId: contact.id,
+      companionName: contact.name,
+      companionAvatar: contact.avatar,
+      inviterName,
+    });
+    setIsInviteSheetOpen(false);
+    setUiMessage(`已发送一起听邀请给 ${contact.name}`);
+    window.dispatchEvent(
+      new CustomEvent(PUSH_OPEN_APP_MESSAGE_TYPE, {
+        detail: {
+          appId: 'wechat',
+          params: {
+            openChatCharacterId: contact.id,
+            returnAppId: 'dreammusic',
+          },
+        },
+      })
+    );
+  };
+
+  const handleClearListenTogether = () => {
+    if (!listenTogether) {
+      clearListenTogether();
+      return;
+    }
+
+    const now = Date.now();
+    const startedAt = listenTogether.acceptedAt || listenTogether.invitedAt || now;
+    const activeDurationMs = listenTogether.status === 'active' ? Math.max(0, now - startedAt) : 0;
+    const durationMs =
+      Math.max(0, listenTogetherDurationsByCompanionId[listenTogether.companionId] || 0) + activeDurationMs;
+
+    if (listenTogether.companionId) {
+      const store = useWeChatStore.getState();
+      const sessionId = store.ensureWeChatSession(listenTogether.companionId, { switchCurrent: true });
+      if (sessionId) {
+        store.addWeChatMessage(sessionId, {
+          role: 'user',
+          type: 'dream_music_listen_summary',
+          content: '我们一起听了',
+          dreamMusicListenSummary: {
+            durationMs,
+            selfAvatar: wechatUserProfile.avatar || '',
+            companionAvatar: listenTogether.companionAvatar || '',
+          },
+        });
+      }
+    }
+
+    clearListenTogether();
+    setUiMessage('已分享一起听记录到微信');
+    window.dispatchEvent(
+      new CustomEvent(PUSH_OPEN_APP_MESSAGE_TYPE, {
+        detail: {
+          appId: 'wechat',
+          params: {
+            openChatCharacterId: listenTogether.companionId,
+            returnAppId: 'dreammusic',
+          },
+        },
+      })
+    );
   };
 
   const handleRemovePlaylist = (playlistId: string) => {
@@ -532,8 +670,18 @@ export const DreamMusicApp: React.FC<DreamMusicAppProps> = ({ onClose }) => {
               playableTracks={playableTracks}
               playableTrackIds={playableTrackIds}
               uiMessage={uiMessage}
+              listenTogether={listenTogether}
+              listenTogetherDurationsByCompanionId={listenTogetherDurationsByCompanionId}
+              selfName={wechatUserProfile.name?.trim() || '我'}
+              selfAvatar={wechatUserProfile.avatar || ''}
+              inviteContacts={inviteContacts}
+              isInviteSheetOpen={isInviteSheetOpen}
               onOpenLyrics={() => setActiveView('lyrics')}
               onOpenComment={() => setActiveView('comment')}
+              onOpenInviteSheet={() => setIsInviteSheetOpen(true)}
+              onCloseInviteSheet={() => setIsInviteSheetOpen(false)}
+              onInviteContact={handleInviteContact}
+              onClearListenTogether={handleClearListenTogether}
               onToggleFavorite={handleToggleFavoriteTrack}
               onSeek={handleSeek}
               onPlayPrev={playPrev}

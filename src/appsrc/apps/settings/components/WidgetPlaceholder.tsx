@@ -1,6 +1,7 @@
 import React from 'react';
-import { Clock } from 'lucide-react';
+import { Clock, Pause, Play, SkipBack, SkipForward } from 'lucide-react';
 import { useDreamMusicStore } from '../../dreammusic/store';
+import { useWeChatStore } from '../../WeChat/store';
 
 const escapeHtml = (value: string) =>
   value
@@ -361,6 +362,18 @@ const normalizeCustomWidgetImageUrl = (url: string | undefined): string | undefi
   return value;
 };
 
+const LISTEN_TOGETHER_BAR_COUNT = 12;
+
+const clampListenTogetherBarHeight = (value: number): number => Math.max(10, Math.min(38, value));
+
+const buildListenTogetherBarHeights = (isPlaying: boolean, tick: number): number[] =>
+  Array.from({ length: LISTEN_TOGETHER_BAR_COUNT }, (_, index) => {
+    if (!isPlaying) return [16, 22, 14, 28, 18, 34, 20, 30, 12, 24, 18, 26][index] || 16;
+    const wave = Math.sin(tick * 0.85 + index * 0.9);
+    const alternate = Math.cos(tick * 0.45 + index * 1.35);
+    return clampListenTogetherBarHeight(20 + wave * 12 + alternate * 5);
+  });
+
 const normalizeMusicActionClickHandlers = (source: string): string =>
   source.replace(/\s+onClick=\{([^{}]+|\([^{}]*\)\s*=>\s*[^{}]+)\}/g, (match, expression: string) => {
     const compactExpression = expression.replace(/\s+/g, '');
@@ -491,6 +504,10 @@ export const WidgetPlaceholder: React.FC<WidgetPlaceholderProps> = ({
   const dreamPlayNext = useDreamMusicStore((state) => state.playNext);
   const dreamPlayPrev = useDreamMusicStore((state) => state.playPrev);
   const dreamSetQueueAndPlay = useDreamMusicStore((state) => state.setQueueAndPlay);
+  const dreamListenTogether = useDreamMusicStore((state) => state.listenTogether);
+  const dreamClearListenTogether = useDreamMusicStore((state) => state.clearListenTogether);
+  const wechatUserProfile = useWeChatStore((state) => state.wechatUserProfile);
+  const [listenTogetherTick, setListenTogetherTick] = React.useState(0);
   const dreamCurrentTrack = React.useMemo(
     () => dreamTracks.find((track) => track.id === dreamCurrentTrackId) ?? null,
     [dreamCurrentTrackId, dreamTracks]
@@ -533,6 +550,19 @@ export const WidgetPlaceholder: React.FC<WidgetPlaceholderProps> = ({
     dreamSetQueueAndPlay,
     dreamTogglePlayback,
   ]);
+  const listenTogetherBarHeights = React.useMemo(
+    () => buildListenTogetherBarHeights(dreamIsPlaying, listenTogetherTick),
+    [dreamIsPlaying, listenTogetherTick]
+  );
+  const handleListenTogetherMusicAction = React.useCallback((action: 'togglePlayback' | 'playPrev' | 'playNext') => {
+    runDreamMusicAction(action);
+  }, [runDreamMusicAction]);
+
+  React.useEffect(() => {
+    if (templateId !== 'listen-together' || !dreamIsPlaying) return undefined;
+    const timer = window.setInterval(() => setListenTogetherTick((value) => value + 1), 220);
+    return () => window.clearInterval(timer);
+  }, [dreamIsPlaying, templateId]);
 
   React.useEffect(() => {
     if (!['calendar-card', 'clock-card', 'custom-code', 'text-card'].includes(templateId || '')) return undefined;
@@ -595,6 +625,29 @@ export const WidgetPlaceholder: React.FC<WidgetPlaceholderProps> = ({
   const frostedOpacity = Math.min(0.6, resolvedFrosted / 40);
   const isWideVinyl = templateId === 'vinyl-record' && width > height;
   const isTransparentTemplate = templateId === 'calendar-card' || templateId === 'clock-card' || templateId === 'text-card';
+  const listenTogetherCompanionName = dreamListenTogether?.companionName || '哥哥';
+  const listenTogetherInviterName =
+    wechatUserProfile.name?.trim() || dreamListenTogether?.inviterName?.trim() || '我';
+  const listenTogetherInviterInitial = listenTogetherInviterName[0] || '我';
+  const listenTogetherCompanionInitial = dreamListenTogether?.companionName?.trim()?.[0] || 'TA';
+  const listenTogetherLyricLines = React.useMemo(() => {
+    const inlineLyrics = dreamCurrentTrack?.lyrics?.map((line) => line.trim()).filter(Boolean) || [];
+    return inlineLyrics.length > 0 ? inlineLyrics : ['音乐传递心声，一起听见此刻'];
+  }, [dreamCurrentTrack?.lyrics]);
+  const [listenTogetherLyricIndex, setListenTogetherLyricIndex] = React.useState(0);
+  const listenTogetherLyricText =
+    listenTogetherLyricLines[listenTogetherLyricIndex % listenTogetherLyricLines.length] ||
+    '音乐传递心声，一起听见此刻';
+
+  React.useEffect(() => {
+    if (templateId !== 'listen-together') return undefined;
+    setListenTogetherLyricIndex(0);
+    if (listenTogetherLyricLines.length <= 1) return undefined;
+    const timer = window.setInterval(() => {
+      setListenTogetherLyricIndex((index) => (index + 1) % listenTogetherLyricLines.length);
+    }, 4200);
+    return () => window.clearInterval(timer);
+  }, [listenTogetherLyricLines.length, templateId]);
   const customWidgetSystem = React.useMemo(() => ({
     date: {
       now: now.toISOString(),
@@ -985,6 +1038,123 @@ window.addEventListener('message',function(event){
                   <div className="truncate text-white/65">{dreamCurrentTrack?.artist || musicArtist}</div>
                 </div>
               ) : null}
+            </div>
+          ) : templateId === 'listen-together' ? (
+            <div
+              className="relative h-full w-full overflow-hidden rounded-[inherit] border border-white/70 bg-white/28 text-[#111827] shadow-[inset_0_1px_0_rgba(255,255,255,0.96),inset_0_-18px_38px_rgba(255,255,255,0.2),0_12px_30px_rgba(148,163,184,0.12)] backdrop-blur-2xl"
+              onPointerDown={stopDesktopPointer}
+            >
+              <div className="pointer-events-none absolute inset-0 rounded-[inherit] bg-[linear-gradient(135deg,rgba(255,255,255,0.72)_0%,rgba(255,255,255,0.08)_42%,rgba(255,255,255,0.34)_100%)]" />
+              <div className="pointer-events-none absolute -inset-3 rounded-[inherit] border border-white/35 blur-[6px]" />
+              {dreamListenTogether ? (
+                <button
+                  type="button"
+                  onClick={(event) => {
+                    event.stopPropagation();
+                    dreamClearListenTogether();
+                  }}
+                  className="absolute right-1.5 top-1.5 z-30 grid h-5 w-5 place-items-center rounded-full bg-white/62 text-[13px] font-semibold leading-none text-[#8A9099] shadow-[0_6px_14px_rgba(15,23,42,0.08)] active:bg-white/78"
+                  aria-label="退出一起听"
+                >
+                  ×
+                </button>
+              ) : null}
+              <div
+                className={`absolute left-9 flex h-10 items-end gap-[4px] transition-[top] duration-300 ${dreamListenTogether ? 'top-3' : 'top-[54px]'}`}
+                aria-hidden="true"
+              >
+                {listenTogetherBarHeights.map((barHeight, index) => (
+                  <span
+                    key={index}
+                    className="w-[3px] rounded-full bg-[#30323A] transition-[height] duration-200 ease-out"
+                    style={{ height: `${barHeight}px` }}
+                  />
+                ))}
+              </div>
+              {dreamListenTogether ? (
+                <div className="absolute left-[30px] top-1.5 max-w-[42%] rounded-full bg-white/62 px-3 py-1.5 text-[10px] font-semibold text-[#7A7F8B] shadow-[0_8px_18px_rgba(15,23,42,0.08)] backdrop-blur">
+                  <div className="truncate">与 {listenTogetherCompanionName} 一起听</div>
+                </div>
+              ) : null}
+              {dreamListenTogether ? (
+                <div className="absolute bottom-1.5 left-1.5 flex items-center">
+                  <div className="grid h-12 w-12 place-items-center overflow-hidden rounded-full bg-[#E9F5FF] text-[17px] font-bold text-[#5B6C80] shadow-[inset_0_0_0_1px_rgba(148,163,184,0.16)]">
+                    {wechatUserProfile.avatar ? (
+                      <img src={wechatUserProfile.avatar} alt={listenTogetherInviterName} className="h-full w-full object-cover" />
+                    ) : null}
+                  </div>
+                  <div className="relative mx-[-1px] h-8 w-12">
+                    <svg
+                      className="absolute inset-x-0 top-1/2 h-6 w-full -translate-y-1/2 overflow-visible"
+                      viewBox="0 0 48 24"
+                      aria-hidden="true"
+                    >
+                      <path
+                        d="M0 13 H9 L12 6 L15 22 L19 2 L22 13 H28 L32 7 L36 13 H48"
+                        fill="none"
+                        stroke="rgba(75,85,99,0.72)"
+                        strokeWidth="1.25"
+                        strokeLinecap="round"
+                        strokeLinejoin="round"
+                      />
+                    </svg>
+                    <div className="absolute left-1/2 top-1/2 h-7 w-7 -translate-x-1/2 -translate-y-1/2 animate-[dream-heart-float_2.8s_linear_infinite] text-center text-[22px] leading-7 text-[#FF4B55]">
+                      ♥
+                    </div>
+                  </div>
+                  <div className="grid h-12 w-12 place-items-center overflow-hidden rounded-full bg-[#EAF8F1] text-[17px] font-bold text-[#5B7168] shadow-[inset_0_0_0_1px_rgba(148,163,184,0.16)]">
+                    {dreamListenTogether.companionAvatar ? (
+                      <img src={dreamListenTogether.companionAvatar} alt={listenTogetherCompanionName} className="h-full w-full object-cover" />
+                    ) : null}
+                  </div>
+                </div>
+              ) : null}
+              <div className="absolute right-3 top-[22px] w-[48%] min-w-[136px]">
+                <div className="truncate text-center text-[14px] font-black leading-tight">{dreamCurrentTrack?.title || musicTitle || '孙行者'}</div>
+                <div className="relative mt-1 h-3 overflow-hidden text-center text-[9px] leading-3 text-[#6B7280]">
+                  <div key={listenTogetherLyricText} className="truncate animate-[dream-lyric-swap_420ms_ease-out]">
+                    {listenTogetherLyricText}
+                  </div>
+                </div>
+                <div className="mt-2 flex items-center justify-between gap-2">
+                  <button
+                    type="button"
+                    onClick={() => handleListenTogetherMusicAction('playPrev')}
+                    className="grid h-8 w-8 shrink-0 place-items-center rounded-full text-[#1F2937] active:bg-slate-200/70"
+                    aria-label="上一首"
+                  >
+                    <SkipBack size={18} fill="currentColor" />
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => handleListenTogetherMusicAction('togglePlayback')}
+                    className="grid h-10 w-10 shrink-0 place-items-center rounded-full bg-[#ECECF0] text-[#111827] shadow-[0_8px_18px_rgba(15,23,42,0.08)] active:scale-95"
+                    aria-label={dreamIsPlaying ? '暂停' : '播放'}
+                  >
+                    {dreamIsPlaying ? <Pause size={20} fill="currentColor" /> : <Play size={20} fill="currentColor" className="ml-0.5" />}
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => handleListenTogetherMusicAction('playNext')}
+                    className="grid h-8 w-8 shrink-0 place-items-center rounded-full text-[#1F2937] active:bg-slate-200/70"
+                    aria-label="下一首"
+                  >
+                    <SkipForward size={18} fill="currentColor" />
+                  </button>
+                </div>
+              </div>
+              <style>{`
+                @keyframes dream-heart-float {
+                  0% { transform: translate(-14px, -50%) scale(0.72); opacity: 0; }
+                  18% { opacity: 1; }
+                  50% { transform: translate(-50%, -58%) scale(1); opacity: 1; }
+                  100% { transform: translate(10px, -50%) scale(0.78); opacity: 0; }
+                }
+                @keyframes dream-lyric-swap {
+                  0% { opacity: 0; transform: translateY(4px); }
+                  100% { opacity: 1; transform: translateY(0); }
+                }
+              `}</style>
             </div>
           ) : templateId === 'clock-card' ? (
             <div className="flex h-full flex-col items-center justify-center text-white/82">

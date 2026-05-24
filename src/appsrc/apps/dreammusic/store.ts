@@ -3,6 +3,7 @@ import { persist } from 'zustand/middleware';
 import { createDreamMusicPersistOptions } from './data/repositories/storePersistRepo';
 import type {
   DreamMusicState,
+  DreamListenTogetherState,
   DreamPlaylist,
   DreamPlayHistoryItem,
   DreamTrack,
@@ -28,6 +29,9 @@ interface DreamMusicStore extends DreamMusicState {
   cyclePlayMode: () => void;
   playNext: () => void;
   playPrev: () => void;
+  setListenTogetherPending: (payload: Omit<DreamListenTogetherState, 'status' | 'invitedAt' | 'acceptedAt'>) => void;
+  acceptListenTogether: (payload: Omit<DreamListenTogetherState, 'status' | 'invitedAt' | 'acceptedAt'>) => void;
+  clearListenTogether: () => void;
 }
 
 const DEFAULT_STATE: DreamMusicState = {
@@ -43,6 +47,9 @@ const DEFAULT_STATE: DreamMusicState = {
   playMode: 'sequence',
   volume: 0.85,
   currentTimeSec: 0,
+  listenTogether: null,
+  listenTogetherDurationsByCompanionId: {},
+  listenTogetherCompanionNamesById: {},
 };
 
 const PLAY_MODE_ORDER: PlayMode[] = ['sequence', 'shuffle', 'single_loop'];
@@ -224,6 +231,26 @@ const cleanupPlaybackAfterTrackRemoval = (input: {
     currentTrackId: nextCurrentTrackId,
     isPlaying: nextCurrentTrackId ? input.isPlaying : false,
     currentTimeSec: nextCurrentTrackId ? undefined : 0,
+  };
+};
+
+const normalizeCompanionId = (value: string): string => value.trim();
+
+const settleListenTogetherDuration = (
+  durations: Record<string, number>,
+  listenTogether: DreamListenTogetherState | null,
+  now = Date.now()
+): Record<string, number> => {
+  if (!listenTogether || listenTogether.status !== 'active') return durations;
+  const companionId = normalizeCompanionId(listenTogether.companionId);
+  const startedAt = listenTogether.acceptedAt || listenTogether.invitedAt;
+  if (!companionId || !startedAt || !Number.isFinite(startedAt)) return durations;
+
+  const elapsed = Math.max(0, now - startedAt);
+  if (elapsed <= 0) return durations;
+  return {
+    ...durations,
+    [companionId]: Math.max(0, durations[companionId] || 0) + elapsed,
   };
 };
 
@@ -508,9 +535,76 @@ export const useDreamMusicStore = create<DreamMusicStore>()(
             currentTimeSec: 0,
           };
         }),
+
+      setListenTogetherPending: (payload) =>
+        set((state) => {
+          const now = Date.now();
+          const companionId = normalizeCompanionId(payload.companionId);
+          return {
+            listenTogetherDurationsByCompanionId: settleListenTogetherDuration(
+              state.listenTogetherDurationsByCompanionId,
+              state.listenTogether,
+              now
+            ),
+            listenTogetherCompanionNamesById: companionId
+              ? {
+                  ...state.listenTogetherCompanionNamesById,
+                  [companionId]: payload.companionName,
+                }
+              : state.listenTogetherCompanionNamesById,
+            listenTogether: {
+              ...payload,
+              companionId: companionId || payload.companionId,
+              status: 'pending',
+              invitedAt: now,
+            },
+          };
+        }),
+
+      acceptListenTogether: (payload) =>
+        set((state) => {
+          const now = Date.now();
+          const nextCompanionId = normalizeCompanionId(payload.companionId);
+          const currentCompanionId = normalizeCompanionId(state.listenTogether?.companionId || '');
+          const durations =
+            currentCompanionId && currentCompanionId !== nextCompanionId
+              ? settleListenTogetherDuration(state.listenTogetherDurationsByCompanionId, state.listenTogether, now)
+              : state.listenTogetherDurationsByCompanionId;
+
+          return {
+            listenTogetherDurationsByCompanionId: durations,
+            listenTogetherCompanionNamesById: nextCompanionId
+              ? {
+                  ...state.listenTogetherCompanionNamesById,
+                  [nextCompanionId]: payload.companionName,
+                }
+              : state.listenTogetherCompanionNamesById,
+            listenTogether: {
+              ...payload,
+              companionId: nextCompanionId || payload.companionId,
+              inviterName: payload.inviterName || state.listenTogether?.inviterName,
+              status: 'active',
+              invitedAt:
+                currentCompanionId === nextCompanionId
+                  ? state.listenTogether?.invitedAt || now
+                  : now,
+              acceptedAt: now,
+            },
+          };
+        }),
+
+      clearListenTogether: () =>
+        set((state) => ({
+          listenTogetherDurationsByCompanionId: settleListenTogetherDuration(
+            state.listenTogetherDurationsByCompanionId,
+            state.listenTogether
+          ),
+          listenTogether: null,
+        })),
+
     }),
     createDreamMusicPersistOptions<DreamMusicStore, DreamMusicState>({
-      partialize: (state) => ({
+      partialize: (state): DreamMusicState => ({
         tracks: state.tracks,
         playlists: state.playlists,
         selectedPlaylistId: state.selectedPlaylistId,
@@ -523,6 +617,9 @@ export const useDreamMusicStore = create<DreamMusicStore>()(
         playMode: state.playMode,
         volume: state.volume,
         currentTimeSec: 0,
+        listenTogether: state.listenTogether,
+        listenTogetherDurationsByCompanionId: state.listenTogetherDurationsByCompanionId,
+        listenTogetherCompanionNamesById: state.listenTogetherCompanionNamesById,
       }),
     })
   )

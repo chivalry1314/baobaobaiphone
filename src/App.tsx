@@ -5,7 +5,6 @@ import { StatusBar } from './components/StatusBar';
 import { HomeDock } from './components/HomeDock';
 import { AppIcon } from './components/AppIcon';
 import { HtmlRuntimeApp } from './components/HtmlRuntimeApp';
-import { Widget } from './components/Widget';
 import { LockScreen } from './components/LockScreen';
 import { SystemBootScreen } from './components/SystemBootScreen';
 import { getAppComponent, localApps } from './core/registry';
@@ -253,6 +252,7 @@ const desktopWidgetSizes = [
 
 const desktopFrameWidgetTemplates = [
   { id: 'ins-photo', name: 'ins照片', icon: ImageIcon, subtitle: '点击上传照片' },
+  { id: 'listen-together', name: '一起听歌', icon: Disc3, subtitle: '双人音乐播放器' },
   { id: 'calendar-card', name: '日历', icon: CalendarDays, subtitle: '半透明日历' },
   { id: 'vinyl-record', name: '唱片', icon: Disc3, subtitle: '复古唱片' },
   { id: 'clock-card', name: '时钟', icon: Clock3, subtitle: '大号时间' },
@@ -1163,6 +1163,13 @@ export default function App() {
         frosted: 8,
         shadow: 12,
       },
+      'listen-together': {
+        subtitle: '双人音乐播放器',
+        backgroundImage: '',
+        cornerRadius: 22,
+        frosted: 6,
+        shadow: 12,
+      },
       'calendar-card': {
         subtitle: 'February',
         backgroundImage: '',
@@ -1197,6 +1204,7 @@ export default function App() {
       },
     };
     updateDesktopItem(instanceId, {
+      ...(templateId === 'listen-together' ? { w: 4, h: 2 } : {}),
       data: {
         name: template.name,
         templateId,
@@ -2144,15 +2152,7 @@ export default function App() {
                         </>
                       ) : null}
                       <div className="h-full w-full overflow-hidden rounded-2xl">
-                        {widgetConfig?.component ? (
-                          <Widget
-                            size={widgetItem.w && widgetItem.h ? `${widgetItem.w}x${widgetItem.h}` as any : 'medium'}
-                            title={widgetConfig.name}
-                          >
-                            {React.createElement(widgetConfig.component, { ...widgetItem.data })}
-                          </Widget>
-                        ) : (
-                          <WidgetPlaceholder
+                        <WidgetPlaceholder
                             name={widgetItem.data?.name || widgetConfig?.name || 'Widget'}
                             backgroundImage={widgetItem.data?.backgroundImage || widgetItem.data?.placeholderIcon || ''}
                             defaultIcon={widgetConfig?.defaultIcon || ''}
@@ -2180,7 +2180,6 @@ export default function App() {
                             width={w}
                             height={h}
                           />
-                        )}
                       </div>
                       {isDesktopEditing &&
                       widgetItem.data?.templateId === 'glass-frame' &&
