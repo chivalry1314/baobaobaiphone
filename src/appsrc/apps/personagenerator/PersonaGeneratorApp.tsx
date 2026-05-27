@@ -23,6 +23,7 @@ import {
   addPersonaGeneratedWorldBookEntry,
   type PersonaGeneratedContactPayload,
 } from '../../shared/business/personagenerator/importBridge';
+import { renderPaperMagicText } from '../papermagic/promptCatalog';
 import { renderSkillArtifacts } from './skillTemplates';
 
 interface PersonaGeneratorAppProps {
@@ -760,11 +761,8 @@ const buildModelExtractionPrompt = (params: {
   }));
 
   return [
-    '你是 baobaobaiphone 的人设生成器，任务是理解导入文件，并按内置 skill 模板生成“活人感强”的角色资料。',
+    renderPaperMagicText('persona.extract.profile'),
     '',
-    '你必须基于导入内容提取，不要凭空编造重大身份、家庭、疾病、财务、亲密关系或剧情事实。',
-    '先区分消息方向：direction=sent 表示“我/本机发送”，direction=received 表示“对方发来/我接收”。目标人物是接收方/对方，不是发送方/我。',
-    '人物画像、通讯录、persona、世界书中的角色性格、背景和说话方式必须主要基于 received 消息；sent 消息只用于理解关系、上下文和用户偏好。',
     '如果存在 isSend 字段：isSend=1 是我发出的消息，isSend=0 是对方发来的消息。不要把我发出的内容当成目标人物的口吻。',
     'contact.name 必须优先使用 received 消息里的 speaker/senderDisplayName 或资料字段候选名；不要使用 sent 消息里的发送者姓名。',
     '人物性别不确定时，不要使用有性别指向的第三人称代词；除目标角色名外，避免写“和某某”这种具体人名关系，改用“和用户”“和对方”等概括表达。',
@@ -856,11 +854,11 @@ const requestPersonaExtractionFromModel = async (params: {
       temperature: Math.min(0.9, Math.max(0.2, settings.temperature ?? 0.55)),
       max_tokens: Math.max(1800, settings.maxTokens || 3000),
       response_format: { type: 'json_object' },
-      messages: [
-        {
-          role: 'system',
-          content: '你是专业角色档案与长期记忆提取器。严格输出合法 JSON。',
-        },
+        messages: [
+          {
+            role: 'system',
+            content: renderPaperMagicText('persona.extract.system', {}, 'system'),
+          },
         {
           role: 'user',
           content: buildModelExtractionPrompt(params),

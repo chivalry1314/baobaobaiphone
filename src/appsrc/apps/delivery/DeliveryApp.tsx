@@ -41,6 +41,7 @@ import { useContactsSnapshot } from '../contacts/selectors';
 import type { Contact } from '../contacts/types';
 import { useWeChatStore } from '../WeChat/store';
 import type { WeChatMessage } from '../WeChat/types';
+import { renderPaperMagicPrompt } from '../papermagic/promptCatalog';
 import type {
   DeliveryAppPage,
   DeliveryCartEntry,
@@ -1669,30 +1670,11 @@ export const DeliveryApp: React.FC<AppProps> = ({ onClose, context }) => {
 
     const existingNames = kitchenRecipes.slice(0, 12).map((recipe) => recipe.name).join('、');
     const promptText = userPrompt.trim();
-    const prompt = [
-      '你是一个资深家常菜谱编辑，请严格只输出 JSON 数组，不要输出任何解释、标题、markdown 或代码块。',
-      '请生成 3 个全新的、随机的、适合外卖App私家厨房的中文家常菜谱。',
-      promptText ? `用户补充要求：${promptText}` : '用户没有额外要求，请自由发挥。',
-      `菜谱名称不要与这些重复：${existingNames || '无'}`,
-      '每个菜谱对象必须包含以下字段：',
-      '{',
-      '  "name": "菜谱名",',
-      '  "subtitle": "一句话简介",',
-      '  "accent": "#fb7185",',
-      '  "time": "15 分钟",',
-      '  "servings": "2 人份",',
-      '  "shareText": "分享文案",',
-      '  "steps": ["步骤1", "步骤2", "步骤3"],',
-      '  "ingredients": [',
-      '    { "name": "食材名", "amount": "2 个", "qty": 2, "price": 3.5 }',
-      '  ]',
-      '}',
-      '要求：',
-      '1. ingredients 至少 3 个，最多 6 个。',
-      '2. qty 必须是正整数，price 必须是正数单价。',
-      '3. 菜谱要随机，风格尽量不同。',
-      '4. 食材和做法都要用中文。',
-    ].join('\n');
+    const recipePrompt = renderPaperMagicPrompt('delivery.kitchenRecipes', {
+      userRequirementLine: promptText ? `用户补充要求：${promptText}` : '用户没有额外要求，请自由发挥。',
+      existingNames: existingNames || '无',
+    });
+    const prompt = recipePrompt.user || '';
 
     try {
       const response = await fetch(`${baseUrl}/chat/completions`, {
@@ -1706,7 +1688,7 @@ export const DeliveryApp: React.FC<AppProps> = ({ onClose, context }) => {
           temperature: 1,
           max_tokens: 1800,
           messages: [
-            { role: 'system', content: '你只返回符合要求的 JSON。' },
+            { role: 'system', content: recipePrompt.system || '' },
             { role: 'user', content: prompt },
           ],
         }),

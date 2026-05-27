@@ -1,6 +1,7 @@
 import type { AppMemoryRecord, AppMemoryRole } from '../../../core/appMemory';
 import { queryMemoryCenterRecords } from '../../../core/appMemoryCenter';
 import { getGlobalSettingsSnapshot } from '@baobaobaiOS/sdk';
+import { renderPaperMagicPrompt } from '../papermagic/promptCatalog';
 import { parseDateInput } from './utils';
 const MODEL_BATCH_SIZE = 24;
 const MIN_IMPORTANCE_SCORE = 60;
@@ -218,6 +219,10 @@ const requestImportantEventsFromModel = async (
     timestamp: item.timestamp,
     content: item.content,
   }));
+  const extractionPrompt = renderPaperMagicPrompt('lovespace.importantTimeline.extract', {
+    contactId,
+    inputRecordsJson: JSON.stringify(inputRecords, null, 2),
+  });
 
   const response = await fetch(`${baseUrl}/chat/completions`, {
     method: 'POST',
@@ -232,16 +237,11 @@ const requestImportantEventsFromModel = async (
       messages: [
         {
           role: 'system',
-          content:
-            '你是关系重要事件提取器。只输出 JSON。格式：{"events":[{"recordId":"","title":"","summary":"","importanceScore":0,"happenedAt":0}]}。recordId 必须来自输入记录。仅保留对时间线足够重要的事件。',
+          content: extractionPrompt.system || '',
         },
         {
           role: 'user',
-          content: `请从以下记录中提取重要事件。\n联系人 ID：${contactId}\n记录 JSON：\n${JSON.stringify(
-            inputRecords,
-            null,
-            2
-          )}`,
+          content: extractionPrompt.user || '',
         },
       ],
     }),

@@ -1,6 +1,7 @@
 ﻿import type { GlobalSettings } from '../../../../../core/sdk/types';
 import type { WeChatMoment } from '../../types';
 import { parseAiMomentDrafts, pickModelId } from './momentsUtils';
+import { renderPaperMagicPrompt, renderPaperMagicText } from '../../../papermagic/promptCatalog';
 
 const DEFAULT_BASE_URL = 'https://api.openai.com/v1';
 const IMAGE_MODEL_FALLBACKS = ['gpt-image-1', 'dall-e-3', 'dall-e-2'];
@@ -75,15 +76,13 @@ const requestAiMoments = async ({
     greeting: (author.greeting || '').slice(0, 80),
   }));
 
-  const systemPrompt = '你是微信朋友圈文案生成器。只输出 JSON，不要任何解释。';
-  const userPrompt = `请生成 ${count} 条朋友圈动态，作者只能从以下作者中选择：${JSON.stringify(
-    authorPayload
-  )}。返回 JSON 数组，每个元素结构为：{"authorId":"作者ID","content":"文案","imagePrompt":"图片提示词"}。
-要求：
-1) content 为自然中文，15-45字。
-2) authorId 必须来自给定作者。
-3) ${includeImages ? '尽量提供 imagePrompt 用于配图。' : 'imagePrompt 置为空字符串。'}
-4) 只返回 JSON 数组。`;
+  const momentsPrompt = renderPaperMagicPrompt('wechat.moments.generateDrafts', {
+    count,
+    authorPayloadJson: JSON.stringify(authorPayload),
+    imageInstruction: includeImages ? '尽量提供 imagePrompt 用于配图。' : 'imagePrompt 置为空字符串。',
+  });
+  const systemPrompt = momentsPrompt.system || '';
+  const userPrompt = momentsPrompt.user || '';
 
   const response = await fetch(`${baseUrl}/chat/completions`, {
     method: 'POST',
@@ -285,7 +284,10 @@ export const appendAiMoments = async ({
 
     if (includeImages) {
       const imagePrompt =
-        draft.imagePrompt || `${author.name} 的微信朋友圈配图，生活感，内容：${draft.content}`;
+        draft.imagePrompt || renderPaperMagicText('wechat.moments.fallbackImage', {
+          authorName: author.name,
+          content: draft.content,
+        });
       const generatedImage = await requestAiImage({ settings, prompt: imagePrompt });
       if (generatedImage) {
         images.push(generatedImage);

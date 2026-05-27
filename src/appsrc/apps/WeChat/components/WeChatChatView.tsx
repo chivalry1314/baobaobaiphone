@@ -19,6 +19,7 @@ import type { DeliveryOrderRecord } from '../../delivery/types';
 import { useShoppingStore } from '../../shopping/store';
 import { updateShoppingOrdersInStorage } from '../../../shared/business/commerce/domain/ordersStorage';
 import { useDreamMusicStore } from '../../dreammusic/store';
+import { renderPaperMagicText } from '../../papermagic/promptCatalog';
 
 import { WeChatChatHeader } from './WeChatChatHeader';
 import { WeChatChatMessageItem } from './WeChatChatMessageItem';
@@ -223,7 +224,11 @@ const formatDreamMusicInviteForAi = (message: Pick<WeChatMessage, 'dreamMusicInv
       : message.orderRequestStatus === 'rejected'
         ? '已拒绝加入'
         : '等待你决定是否加入';
-  return `一起听歌邀请：${inviterName}邀请你加入一起听歌；状态：${statusText}${trackText}`;
+  return renderPaperMagicText('wechat.chat.specialMessage.listenInvite', {
+    inviterName,
+    statusText,
+    trackText,
+  }).replace(/^\[系统记录：/, '').replace(/\]$/, '');
 };
 
 const formatDreamMusicListenSummaryForAi = (message: Pick<WeChatMessage, 'dreamMusicListenSummary'>): string =>
@@ -344,7 +349,7 @@ const parseAssistantOrderDecision = (
   rawReply: string
 ): { action: 'accepted' | 'rejected' | null; content: string } => {
   const normalized = rawReply.trim();
-  const match = normalized.match(/^\[(?:ORDER_REQUEST|代付决策|LISTEN_TOGETHER|一起听歌)\s*:\s*(accepted|rejected|同意|拒绝)\]\s*/i);
+  const match = normalized.match(/^\[(ORDER_REQUEST|代付决策|LISTEN_TOGETHER|一起听歌|MOVIE_TICKET|电影票|GIFT|礼物|RECIPE_CARD|菜谱|IMAGE_MESSAGE|图片)\s*:\s*(accepted|rejected|同意|拒绝)\]\s*/i);
   if (!match) {
     return {
       action: null,
@@ -352,14 +357,17 @@ const parseAssistantOrderDecision = (
     };
   }
 
-  const token = match[1].toLowerCase();
+  const label = match[1].toUpperCase();
+  const actionToken = match[2].toLowerCase();
+  const shouldApplyUiAction = ['ORDER_REQUEST', 'LISTEN_TOGETHER'].includes(label) || match[1] === '代付决策' || match[1] === '一起听歌';
   return {
-    action:
-      token === 'accepted' || token === '同意'
+    action: shouldApplyUiAction
+      ? actionToken === 'accepted' || actionToken === '同意'
         ? 'accepted'
-        : token === 'rejected' || token === '拒绝'
+        : actionToken === 'rejected' || actionToken === '拒绝'
           ? 'rejected'
-          : null,
+          : null
+      : null,
     content: normalized.slice(match[0].length).trim(),
   };
 };
@@ -1731,7 +1739,9 @@ export const WeChatChatView: React.FC<WeChatChatViewProps> = ({
     if (relevantWorldBookLines.length > 0) {
       apiMessages.push({
         role: 'system',
-        content: `以下是低优先级世界书片段，只能在和当前最后一轮消息直接相关时辅助理解设定；不要主动扩写片段里的旧事件：\n${relevantWorldBookLines.map((line) => `- ${line}`).join('\n')}`,
+        content: renderPaperMagicText('wechat.chat.context.worldBook', {
+          relevantWorldBookLines: relevantWorldBookLines.map((line) => `- ${line}`).join('\n'),
+        }),
       });
     }
 
@@ -1773,7 +1783,9 @@ export const WeChatChatView: React.FC<WeChatChatViewProps> = ({
     if (memoryLines.length > 0) {
       apiMessages.push({
         role: 'system',
-        content: `以下是极少量低优先级长期记忆，只能在和当前最后一轮消息强相关时辅助判断偏好；不要复述，不要主动拉回旧事件，不要为了使用记忆而改变当前话题：\n${memoryLines.join('\n')}`,
+        content: renderPaperMagicText('wechat.chat.context.memory', {
+          memoryLines: memoryLines.join('\n'),
+        }),
       });
     }
 
@@ -1813,15 +1825,16 @@ export const WeChatChatView: React.FC<WeChatChatViewProps> = ({
     if (personalProfileLines.length > 0) {
       apiMessages.push({
         role: 'system',
-        content: `以下是用户在其他应用中沉淀的个人信息，请仅在相关时自然参考，不要生硬复述：\n${personalProfileLines.join('\n')}`,
+        content: renderPaperMagicText('wechat.chat.context.personalProfile', {
+          personalProfileLines: personalProfileLines.join('\n'),
+        }),
       });
     }
 
     if (sessionContextMessages.length > 0) {
       apiMessages.push({
         role: 'system',
-        content:
-          '下面是当前微信会话，请按时间顺序理解对话推进。上面的世界书、长期记忆和个人信息只用于背景、口吻、偏好参考，不要替代当前话题，也不要主动续写旧事件。',
+        content: renderPaperMagicText('wechat.chat.context.sessionIntro'),
       });
     }
 
@@ -1833,7 +1846,9 @@ export const WeChatChatView: React.FC<WeChatChatViewProps> = ({
         const normalizedCaption = caption && caption !== '[图片]' ? caption : '';
 
         if (m.role === 'user' && m.imageDataUrl) {
-          const textPrompt = normalizedCaption || '请根据这张图片内容回复。';
+          const textPrompt = normalizedCaption || renderPaperMagicText('wechat.chat.specialMessage.image', {
+            normalizedCaption: '请根据这张图片内容回复。',
+          });
           apiMessages.push({
             role: 'user',
             content: [
@@ -1867,27 +1882,53 @@ export const WeChatChatView: React.FC<WeChatChatViewProps> = ({
             ? `；订单号：${m.orderIds.join('、')}`
             : '';
         const orderPreviewText = formatOrderPreviewForMemory(m).replace(/^ /, '；');
-        content = `[系统记录：${actionText}；金额：¥${Number(m.amount || 0).toFixed(2)}${orderIdsText}${orderPreviewText}]`;
+        content = renderPaperMagicText('wechat.chat.specialMessage.order', {
+          actionText,
+          amount: Number(m.amount || 0).toFixed(2),
+          orderIdsText,
+          orderPreviewText,
+        });
       }
       if (m.type === 'movie_ticket' && m.movieTicket) {
-        content = `[系统记录：分享了一张电影票；电影：${m.movieTicket.movieTitle}；影院：${m.movieTicket.cinema}；时间：${m.movieTicket.date} ${m.movieTicket.time}；影厅：${m.movieTicket.hall}；座位：${m.movieTicket.seat}；数量：${m.movieTicket.qty}张；取票码：${m.movieTicket.pickupCode}]`;
+        content = renderPaperMagicText('wechat.chat.specialMessage.movieTicket', {
+          title: m.movieTicket.movieTitle,
+          cinema: m.movieTicket.cinema,
+          date: m.movieTicket.date,
+          time: m.movieTicket.time,
+          hall: m.movieTicket.hall,
+          seat: m.movieTicket.seat,
+          qty: m.movieTicket.qty,
+          pickupCode: m.movieTicket.pickupCode,
+        });
       }
       if (m.type === 'gift_delivery' && m.giftDelivery) {
-        content = `[系统记录：收到一份礼物；名称：${m.giftDelivery.productName}；金额：¥${Number(m.amount || 0).toFixed(2)}；订单号：${m.giftDelivery.orderId}]`;
+        content = renderPaperMagicText('wechat.chat.specialMessage.gift', {
+          productName: m.giftDelivery.productName,
+          amount: Number(m.amount || 0).toFixed(2),
+          orderId: m.giftDelivery.orderId,
+        });
       }
       if (m.type === 'recipe_card' && m.recipeCard) {
         const ingredients = Array.isArray(m.recipeCard.ingredients) ? m.recipeCard.ingredients : [];
         const ingredientText = ingredients.map((item) => `${item.name}${item.amount}`).join('、');
-        content = `[系统记录：收到一张菜谱卡片；菜名：${m.recipeCard.title}；说明：${m.recipeCard.subtitle}；用时：${m.recipeCard.time}；份量：${m.recipeCard.servings}；食材：${ingredientText}]`;
+        content = renderPaperMagicText('wechat.chat.specialMessage.recipe', {
+          title: m.recipeCard.title,
+          subtitle: m.recipeCard.subtitle,
+          time: m.recipeCard.time,
+          servings: m.recipeCard.servings,
+          ingredientText,
+        });
       }
       if (m.type === 'dream_music_invite') {
         content = `[系统记录：${formatDreamMusicInviteForAi(m)}]`;
       }
       if (m.type === 'dream_music_listen_summary') {
-        content = `[系统记录：${formatDreamMusicListenSummaryForAi(m)}]`;
+        content = renderPaperMagicText('wechat.chat.specialMessage.listenSummary', {
+          durationText: formatListenTogetherMinutes(m.dreamMusicListenSummary?.durationMs),
+        });
       }
-      if (m.type === 'transfer') content = `[系统记录：用户向你发起了转账 ¥${m.amount}]`;
-      if (m.type === 'transfer_accepted') content = `[系统记录：你已接收转账 ¥${m.amount}]`;
+      if (m.type === 'transfer') content = renderPaperMagicText('wechat.chat.specialMessage.transfer', { amount: m.amount });
+      if (m.type === 'transfer_accepted') content = renderPaperMagicText('wechat.chat.specialMessage.transferAccepted', { amount: m.amount });
       if (m.type === 'pat') content = `[系统记录：${m.content}]`;
       if (m.type === 'voice') content = m.voiceTranscriptText?.trim() || m.content;
       if (m.quoteText) content = `[引用："${m.quoteText}"]\n${content}`;
@@ -1906,12 +1947,7 @@ export const WeChatChatView: React.FC<WeChatChatViewProps> = ({
         .join('\n');
       apiMessages.push({
         role: 'system',
-        content: [
-          '请基于以上上下文自然承接最后一轮用户连续消息，而不是只看最后一句，也不要重新开启前面已经说过的话题。',
-          '核对事实归属：用户消息只能证明用户说过/做过的事；角色消息只能证明你说过/做过的事。不要把你自己的邀约、请求或玩笑说成是用户提出的。',
-          '最近角色已回复过的内容就在上方会话里；不要复用其中的梗、关键词或整句。用户如果在确认、拒绝、结束或收尾，就顺着收住，不要继续上一话题。',
-          `最后一轮用户连续消息：\n${latestUserContent}`,
-        ].filter(Boolean).join('\n'),
+        content: renderPaperMagicText('wechat.chat.context.latestTurn', { latestUserContent }),
       });
     }
 
@@ -1924,8 +1960,7 @@ export const WeChatChatView: React.FC<WeChatChatViewProps> = ({
   ): string => {
     if (!character) return extraInstruction;
     const personality = character.personality?.trim();
-
-    return [
+    const promptText = [
       `你正在微信里扮演「${character.name}」和我聊天。`,
       `人物简介：${character.description || '暂无'}`,
       personality ? `性格与说话方式：${personality}` : '',
@@ -1955,6 +1990,13 @@ export const WeChatChatView: React.FC<WeChatChatViewProps> = ({
         : '- 文字微信优先只输出 1 句，短一点、像真人顺手回；直接输出聊天内容，不带姓名前缀。',
       extraInstruction,
     ].filter(Boolean).join('\n');
+    return renderPaperMagicText('wechat.chat.characterSystem', {
+      characterName: character.name,
+      description: character.description || '暂无',
+      personality: personality || '',
+      greeting: character.greeting || '自然打招呼',
+      extraInstruction,
+    }) || promptText;
   };
 
   const requestAssistantReply = async (sessionId: string) => {
@@ -1963,20 +2005,17 @@ export const WeChatChatView: React.FC<WeChatChatViewProps> = ({
     const requestStartedAt = Date.now();
     beginAssistantReply();
     try {
-      const systemPrompt = buildCharacterSystemPrompt('chat', [
-        '代付订单规则：',
-        '- 如果聊天上下文里出现待支付的代付订单，请结合最近聊天内容、熟悉程度、对话语气、对方是否经常找你帮忙、金额大小和当前语境，判断是否愿意代付。',
-        '- 如果愿意代付，就在回复最前面输出 [ORDER_REQUEST:accepted]。',
-        '- 如果不愿意代付，就在回复最前面输出 [ORDER_REQUEST:rejected]。',
-        '- 尽量给出明确决定，不要只因为“信息不足”就回避；只有真的需要继续追问时才不要输出标签。',
-        '- 标签后面继续正常聊天回复，不要解释标签本身。',
-        '',
-        '一起听歌邀请规则：',
-        '- 如果聊天上下文里出现“一起听歌/加入一起听”的邀请卡，请结合最近聊天内容、熟悉程度、对话语气、当前心情和人物关系，判断是否愿意加入。',
-        '- 如果愿意加入，就在回复最前面输出 [LISTEN_TOGETHER:accepted]。',
-        '- 如果不愿意加入，就在回复最前面输出 [LISTEN_TOGETHER:rejected]。',
-        '- 标签后面继续正常聊天回复，不要解释标签本身。',
-      ].join('\n'));
+      const systemPrompt = buildCharacterSystemPrompt(
+        'chat',
+        [
+          renderPaperMagicText('wechat.chat.orderRequestDecision'),
+          renderPaperMagicText('wechat.chat.listenTogetherDecision'),
+          renderPaperMagicText('wechat.chat.movieTicketDecision'),
+          renderPaperMagicText('wechat.chat.giftDecision'),
+          renderPaperMagicText('wechat.chat.recipeDecision'),
+          renderPaperMagicText('wechat.chat.imageDecision'),
+        ].filter(Boolean).join('\n\n')
+      );
 
       const response = await fetch(`${settings.baseUrl}/chat/completions`, {
         method: 'POST',
@@ -2284,7 +2323,7 @@ export const WeChatChatView: React.FC<WeChatChatViewProps> = ({
     try {
       const systemPrompt = buildCharacterSystemPrompt(
         'chat',
-        `[系统紧急提示：用户刚刚向你发起了一笔转账，金额：¥${amount}。如果你选择接收这笔钱，请必须在回复中包含“【接收转账】”这四个字；如果不接收或想忽略，请正常回复其他内容即可。]`
+        renderPaperMagicText('wechat.chat.transferDecision', { amount })
       );
 
       const response = await fetch(`${settings.baseUrl}/chat/completions`, {

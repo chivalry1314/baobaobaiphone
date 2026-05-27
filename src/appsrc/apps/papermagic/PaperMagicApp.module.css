@@ -1,0 +1,1118 @@
+.appShell {
+  position: absolute;
+  inset: 0;
+  z-index: 50;
+  overflow: hidden;
+  background: #050408;
+  color: #f7f4ff;
+  font-family: "PingFang SC", "SF Pro Display", "Microsoft YaHei", sans-serif;
+}
+
+.cover,
+.tarotPage,
+.page,
+.editorPage {
+  position: absolute;
+  inset: 0;
+}
+
+.cover {
+  overflow: hidden;
+  background:
+    radial-gradient(circle at 52% 22%, rgba(83, 165, 255, 0.24), transparent 16%),
+    radial-gradient(circle at 46% 78%, rgba(243, 156, 18, 0.18), transparent 14%),
+    radial-gradient(circle at 50% 52%, rgba(31, 86, 150, 0.42), transparent 34%),
+    linear-gradient(180deg, #050408 0%, #080711 48%, #030205 100%);
+}
+
+.cover::before,
+.cover::after {
+  content: "";
+  position: absolute;
+  inset: 0;
+  pointer-events: none;
+}
+
+.cover::before {
+  opacity: 0.58;
+  background-image:
+    radial-gradient(circle, rgba(255, 255, 255, 0.72) 0 1px, transparent 1.6px),
+    radial-gradient(circle, rgba(126, 190, 255, 0.78) 0 1px, transparent 1.8px),
+    radial-gradient(circle, rgba(255, 210, 90, 0.68) 0 1px, transparent 1.7px);
+  background-size: 74px 98px, 112px 146px, 164px 128px;
+  background-position: 8px 18px, 42px 6px, 18px 72px;
+  animation: starDrift 20s linear infinite;
+}
+
+.cover::after {
+  background:
+    linear-gradient(90deg, rgba(0, 0, 0, 0.52), transparent 30%, transparent 68%, rgba(0, 0, 0, 0.36)),
+    radial-gradient(ellipse at center, transparent 0 42%, rgba(0, 0, 0, 0.52) 100%);
+}
+
+.closeButton,
+.iconButton {
+  width: 44px;
+  height: 44px;
+  border: 0;
+  border-radius: 999px;
+  color: #f7f4ff;
+  background: rgba(255, 255, 255, 0.08);
+  box-shadow: 0 12px 30px rgba(0, 0, 0, 0.2);
+  backdrop-filter: blur(18px);
+  display: grid;
+  place-items: center;
+}
+
+.closeButton {
+  position: absolute;
+  top: 46px;
+  left: 14px;
+  z-index: 3;
+}
+
+@keyframes twinkle {
+  0%, 100% { opacity: 0.38; transform: scale(0.86); }
+  50% { opacity: 1; transform: scale(1.16); }
+}
+
+@keyframes starDrift {
+  from { transform: translateY(0); }
+  to { transform: translateY(-96px); }
+}
+
+.orbitHeader {
+  position: relative;
+  z-index: 2;
+  min-height: 220px;
+  padding: 112px 24px 0;
+  display: grid;
+  grid-template-columns: 1fr 116px;
+  align-items: start;
+  gap: 14px;
+}
+
+.coverTitle {
+  text-align: left;
+}
+
+.coverTitle h1 {
+  margin: 0;
+  font-size: 34px;
+  line-height: 0.94;
+  font-weight: 300;
+  letter-spacing: 6px;
+  text-transform: uppercase;
+}
+
+.coverTitle p {
+  width: 130px;
+  margin: 22px 0 0;
+  color: rgba(196, 217, 255, 0.76);
+  font-size: 18px;
+  line-height: 1.3;
+  text-transform: uppercase;
+}
+
+.promptBadge {
+  justify-self: end;
+  margin-top: -34px;
+  width: 112px;
+  height: 112px;
+  border-radius: 50%;
+  color: #111015;
+  background: rgba(255, 255, 255, 0.92);
+  display: grid;
+  place-items: center;
+  align-content: center;
+  gap: 2px;
+  box-shadow: 0 18px 48px rgba(255, 255, 255, 0.16);
+}
+
+.promptBadge span {
+  font-size: 30px;
+  font-weight: 700;
+}
+
+.promptBadge small {
+  font-size: 13px;
+}
+
+.starScroll {
+  position: absolute;
+  z-index: 2;
+  inset: 172px 0 0;
+  overflow-y: auto;
+  padding-bottom: 96px;
+  scrollbar-width: none;
+}
+
+.starScroll::-webkit-scrollbar {
+  display: none;
+}
+
+.starRail {
+  position: absolute;
+  left: 48%;
+  top: 0;
+  width: 3px;
+  height: 850px;
+  border-radius: 999px;
+  background: linear-gradient(180deg, transparent, rgba(120, 190, 255, 0.74), rgba(255, 210, 60, 0.72), transparent);
+  box-shadow: 0 0 28px rgba(87, 172, 255, 0.7), 0 0 80px rgba(87, 172, 255, 0.36);
+}
+
+.starModule {
+  position: absolute;
+  min-height: 112px;
+  width: min(48%, 252px);
+  border: 0;
+  padding: 0;
+  text-align: left;
+  color: #f7f4ff;
+  background: transparent;
+  display: grid;
+  grid-template-columns: 48px 1fr;
+  align-items: center;
+  gap: 14px;
+}
+
+.starModuleRight {
+  left: calc(48% - 22px);
+}
+
+.starModuleLeft {
+  right: calc(52% - 22px);
+  grid-template-columns: 1fr 48px;
+  text-align: right;
+}
+
+.starModuleLeft .starCore {
+  order: 2;
+}
+
+.starCore {
+  position: relative;
+  width: 44px;
+  height: 44px;
+  border-radius: 50%;
+  display: grid;
+  place-items: center;
+  color: #fff;
+  background: #8ecbff;
+  box-shadow: 0 0 16px rgba(142, 203, 255, 0.95), 0 0 54px rgba(55, 142, 255, 0.76);
+  animation: starPulse 2.8s ease-in-out infinite;
+}
+
+.starModule:nth-of-type(3) .starCore,
+.starModule:nth-of-type(5) .starCore {
+  background: #ffd633;
+  box-shadow: 0 0 16px rgba(255, 214, 51, 0.95), 0 0 58px rgba(243, 156, 18, 0.76);
+}
+
+.starCore::after {
+  content: "";
+  position: absolute;
+  inset: -12px;
+  border-radius: 50%;
+  background: radial-gradient(circle, currentColor, transparent 62%);
+  opacity: 0.18;
+}
+
+.starText {
+  display: block;
+  min-width: 0;
+}
+
+.starText small {
+  display: block;
+  color: rgba(247, 244, 255, 0.46);
+  font-size: 15px;
+  letter-spacing: 3px;
+  text-transform: uppercase;
+}
+
+.starText strong {
+  display: block;
+  margin-top: 6px;
+  color: rgba(255, 255, 255, 0.96);
+  font-size: 22px;
+  font-weight: 700;
+  line-height: 1.18;
+}
+
+.starText em {
+  display: block;
+  margin-top: 8px;
+  color: rgba(247, 244, 255, 0.54);
+  font-style: normal;
+  font-size: 14px;
+  line-height: 1.35;
+}
+
+.scrollEnd {
+  position: absolute;
+  top: 812px;
+  left: 0;
+  right: 0;
+  color: rgba(247, 244, 255, 0.4);
+  text-align: center;
+  font-size: 13px;
+  letter-spacing: 3px;
+}
+
+@keyframes starPulse {
+  0%, 100% { transform: scale(0.84); filter: brightness(0.86); }
+  50% { transform: scale(1.16); filter: brightness(1.25); }
+}
+
+.page,
+.tarotPage,
+.editorPage {
+  display: flex;
+  flex-direction: column;
+  background: #fafafa;
+}
+
+.tarotPage {
+  overflow: hidden;
+  color: #f8efe1;
+  background:
+    radial-gradient(circle at 50% 24%, rgba(218, 166, 86, 0.2), transparent 24%),
+    radial-gradient(circle at 18% 86%, rgba(98, 55, 28, 0.42), transparent 28%),
+    linear-gradient(180deg, #1a100b 0%, #2a1810 48%, #120b08 100%);
+}
+
+.tarotPage::before {
+  content: "";
+  position: absolute;
+  inset: 0;
+  opacity: 0.42;
+  pointer-events: none;
+  background-image:
+    linear-gradient(rgba(255, 226, 179, 0.05) 1px, transparent 1px),
+    linear-gradient(90deg, rgba(255, 226, 179, 0.04) 1px, transparent 1px),
+    radial-gradient(circle, rgba(255, 214, 146, 0.3) 0 1px, transparent 1.8px);
+  background-size: 36px 36px, 36px 36px, 96px 128px;
+}
+
+.tarotHeader {
+  position: relative;
+  z-index: 2;
+  padding: 44px 14px 12px;
+  display: grid;
+  grid-template-columns: 44px 1fr 44px;
+  align-items: center;
+  gap: 10px;
+}
+
+.tarotHeader h1 {
+  margin: 0;
+  text-align: center;
+  color: #fff7ea;
+  font-size: 19px;
+  font-weight: 700;
+  letter-spacing: 0;
+}
+
+.tarotHeader p {
+  margin: 4px 0 0;
+  text-align: center;
+  color: rgba(248, 239, 225, 0.56);
+  font-size: 12px;
+}
+
+.tarotHeaderMark {
+  width: 44px;
+  height: 44px;
+  border-radius: 50%;
+  color: #f7c46b;
+  background: rgba(255, 246, 232, 0.08);
+  display: grid;
+  place-items: center;
+  box-shadow: inset 0 0 0 1px rgba(255, 232, 188, 0.12), 0 12px 32px rgba(0, 0, 0, 0.22);
+}
+
+.tarotDeck {
+  position: relative;
+  z-index: 2;
+  flex: 1;
+  min-height: 0;
+  overflow-x: auto;
+  overflow-y: hidden;
+  display: flex;
+  align-items: center;
+  gap: 18px;
+  padding: 22px 22px 64px;
+  scroll-snap-type: x mandatory;
+  scrollbar-width: none;
+}
+
+.tarotDeck::-webkit-scrollbar {
+  display: none;
+}
+
+.tarotCard {
+  position: relative;
+  flex: 0 0 min(72vw, 286px);
+  height: min(62vh, 470px);
+  min-height: 390px;
+  border: 1px solid rgba(255, 226, 178, 0.24);
+  border-radius: 22px;
+  padding: 18px;
+  color: #fff5e5;
+  background:
+    radial-gradient(circle at 50% 25%, rgba(246, 190, 99, 0.28), transparent 28%),
+    linear-gradient(155deg, rgba(124, 76, 39, 0.96), rgba(55, 30, 18, 0.98) 48%, rgba(31, 18, 13, 0.98));
+  box-shadow: 0 28px 58px rgba(0, 0, 0, 0.38), inset 0 0 0 1px rgba(255, 255, 255, 0.04);
+  scroll-snap-align: center;
+  display: flex;
+  flex-direction: column;
+  text-align: center;
+}
+
+.tarotCardActive {
+  box-shadow: 0 30px 64px rgba(0, 0, 0, 0.42), 0 0 0 2px rgba(255, 208, 113, 0.26), inset 0 0 0 1px rgba(255, 255, 255, 0.06);
+}
+
+.tarotCard::before,
+.tarotCard::after {
+  content: "";
+  position: absolute;
+  inset: 12px;
+  border-radius: 16px;
+  pointer-events: none;
+}
+
+.tarotCard::before {
+  border: 1px solid rgba(255, 224, 173, 0.28);
+}
+
+.tarotCard::after {
+  inset: 20px;
+  border: 1px dashed rgba(255, 224, 173, 0.18);
+}
+
+.tarotNumber {
+  position: relative;
+  z-index: 1;
+  align-self: flex-start;
+  color: rgba(255, 231, 190, 0.62);
+  font-size: 13px;
+  letter-spacing: 3px;
+}
+
+.tarotFrame {
+  position: relative;
+  z-index: 1;
+  width: 150px;
+  height: 178px;
+  margin: 28px auto 24px;
+  border-radius: 999px 999px 18px 18px;
+  border: 1px solid rgba(255, 226, 178, 0.34);
+  color: #ffd071;
+  background:
+    radial-gradient(circle at center, rgba(255, 208, 113, 0.2), transparent 54%),
+    rgba(30, 18, 12, 0.36);
+  display: grid;
+  place-items: center;
+  box-shadow: inset 0 0 30px rgba(255, 208, 113, 0.1), 0 0 42px rgba(255, 185, 72, 0.14);
+}
+
+.tarotMoon {
+  position: absolute;
+  top: 24px;
+  width: 42px;
+  height: 42px;
+  border-radius: 50%;
+  box-shadow: -12px 0 0 #f6c66f;
+  transform: translateX(8px);
+}
+
+.tarotLine {
+  position: absolute;
+  bottom: 30px;
+  width: 76px;
+  height: 1px;
+  background: rgba(255, 226, 178, 0.36);
+}
+
+.tarotCard strong {
+  position: relative;
+  z-index: 1;
+  display: block;
+  min-height: 56px;
+  color: #fff7e9;
+  font-size: 22px;
+  line-height: 1.25;
+  font-weight: 700;
+}
+
+.tarotCard em {
+  position: relative;
+  z-index: 1;
+  margin-top: 10px;
+  color: #f1b85f;
+  font-style: normal;
+  font-size: 13px;
+  letter-spacing: 3px;
+  text-transform: uppercase;
+}
+
+.tarotCard small {
+  position: relative;
+  z-index: 1;
+  margin-top: auto;
+  color: rgba(255, 239, 214, 0.58);
+  font-size: 13px;
+  line-height: 1.5;
+}
+
+.editorHeader {
+  padding: 44px 14px 12px;
+  display: grid;
+  grid-template-columns: 44px 1fr 44px;
+  align-items: center;
+  gap: 10px;
+  background: rgba(250, 250, 250, 0.72);
+  backdrop-filter: blur(20px);
+  z-index: 2;
+}
+
+.editorHeader h1 {
+  margin: 0;
+  text-align: center;
+  font-size: 17px;
+  font-weight: 700;
+  letter-spacing: 0;
+}
+
+.editorHeader {
+  grid-template-columns: 44px minmax(0, 1fr) 76px;
+}
+
+.editorHeader h1 {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.saveButton {
+  height: 38px;
+  border: 0;
+  border-radius: 16px;
+  background: #f39c12;
+  color: #fff;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 5px;
+  font-size: 13px;
+  font-weight: 700;
+}
+
+.bookStage {
+  position: relative;
+  flex: 1;
+  min-height: 0;
+  padding: 18px 18px 96px;
+  perspective: 1400px;
+  display: grid;
+  place-items: center;
+}
+
+.magicBook {
+  position: relative;
+  width: min(92vw, 520px);
+  height: min(68vh, 620px);
+  min-height: 520px;
+  transform-style: preserve-3d;
+  perspective: 1300px;
+  filter: drop-shadow(0 26px 38px rgba(72, 43, 24, 0.22));
+}
+
+.bookSpineShadow {
+  position: absolute;
+  left: 4px;
+  top: 12px;
+  bottom: 12px;
+  width: 30px;
+  border-radius: 20px 4px 4px 20px;
+  background: linear-gradient(90deg, #81522c, #3d2416);
+  box-shadow: inset -10px 0 16px rgba(0, 0, 0, 0.25);
+  z-index: 4;
+}
+
+.bookBackPage {
+  position: absolute;
+  inset: 10px 4px 10px 28px;
+  border-radius: 16px 24px 24px 16px;
+  background:
+    linear-gradient(90deg, rgba(92, 58, 33, 0.18), transparent 12%),
+    linear-gradient(145deg, #ead2a9, #d5b789);
+  box-shadow:
+    7px 8px 0 rgba(123, 83, 47, 0.22),
+    13px 15px 28px rgba(80, 45, 24, 0.18),
+    inset 0 0 0 1px rgba(94, 59, 34, 0.12);
+}
+
+.bookPageSheet {
+  position: absolute;
+  inset: 0 0 0 18px;
+  overflow-y: auto;
+  border-radius: 18px 26px 26px 18px;
+  padding: 24px 22px 28px 30px;
+  color: #4b3524;
+  background:
+    linear-gradient(90deg, rgba(92, 58, 33, 0.16), transparent 10%),
+    repeating-linear-gradient(0deg, transparent 0 31px, rgba(139, 99, 59, 0.08) 32px),
+    linear-gradient(145deg, #fff8ea, #ecd8b6);
+  box-shadow:
+    inset 10px 0 18px rgba(94, 59, 34, 0.16),
+    inset -2px 0 8px rgba(255, 255, 255, 0.48),
+    0 20px 42px rgba(80, 45, 24, 0.18);
+  transform-style: preserve-3d;
+  backface-visibility: hidden;
+  will-change: transform, opacity, filter;
+  z-index: 3;
+}
+
+.turnForward {
+  transform-origin: left center;
+}
+
+.turnBackward {
+  transform-origin: right center;
+}
+
+.bookPageSheet::after {
+  content: "";
+  position: absolute;
+  top: 12px;
+  right: 10px;
+  bottom: 12px;
+  width: 10px;
+  border-radius: 999px;
+  background: linear-gradient(90deg, rgba(119, 75, 39, 0.1), rgba(255, 255, 255, 0.28));
+  pointer-events: none;
+}
+
+.bookPageSheet::before {
+  content: "";
+  position: sticky;
+  top: -24px;
+  display: block;
+  height: 0;
+  margin: -24px -22px 0 -30px;
+  pointer-events: none;
+  box-shadow: 0 0 0 0 transparent;
+}
+
+.turnForward .pageCurl,
+.turnBackward .pageCurl {
+  position: absolute;
+  top: 0;
+  bottom: 0;
+  width: 44%;
+  pointer-events: none;
+  opacity: 0.72;
+  animation: pageSheen 560ms ease-out both;
+}
+
+.turnForward .pageCurl {
+  right: 0;
+  background:
+    linear-gradient(105deg, transparent 0 48%, rgba(255, 255, 255, 0.48) 52%, rgba(92, 58, 33, 0.18) 62%, transparent 74%),
+    radial-gradient(circle at 100% 0, rgba(255, 255, 255, 0.5), transparent 26%);
+}
+
+.turnBackward .pageCurl {
+  left: 0;
+  background:
+    linear-gradient(255deg, transparent 0 48%, rgba(255, 255, 255, 0.48) 52%, rgba(92, 58, 33, 0.18) 62%, transparent 74%),
+    radial-gradient(circle at 0 0, rgba(255, 255, 255, 0.5), transparent 26%);
+}
+
+@keyframes pageSheen {
+  0% { transform: translateX(0); opacity: 0; }
+  36% { opacity: 0.82; }
+  100% { transform: translateX(var(--page-sheen-x, 0)); opacity: 0; }
+}
+
+.turnForward .pageCurl {
+  --page-sheen-x: -46px;
+}
+
+.turnBackward .pageCurl {
+  --page-sheen-x: 46px;
+}
+
+.bookPageHeader {
+  display: flex;
+  justify-content: space-between;
+  gap: 10px;
+  color: rgba(75, 53, 36, 0.58);
+  font-size: 12px;
+  letter-spacing: 2px;
+  text-transform: uppercase;
+}
+
+.bookPageHeader em {
+  font-style: normal;
+}
+
+.bookPartLabel {
+  display: inline-flex;
+  align-items: center;
+  margin-top: 2px;
+  margin-bottom: 10px;
+  border-radius: 999px;
+  padding: 5px 10px;
+  color: #8a541f;
+  background: rgba(255, 183, 77, 0.18);
+  font-size: 12px;
+  font-weight: 700;
+  letter-spacing: 2px;
+  text-transform: uppercase;
+}
+
+.bookPageSheet h2 {
+  margin: 18px 0 8px;
+  color: #392516;
+  font-size: 24px;
+  line-height: 1.22;
+  letter-spacing: 0;
+}
+
+.bookMeta {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  color: rgba(75, 53, 36, 0.58);
+  font-size: 11px;
+  line-height: 1.4;
+}
+
+.bookUsage {
+  margin: 12px 0 14px;
+  color: rgba(75, 53, 36, 0.72);
+  font-size: 13px;
+  line-height: 1.55;
+}
+
+.variableGuide {
+  margin: 14px 0 16px;
+  padding: 12px 12px 10px;
+  border-radius: 14px;
+  background: rgba(112, 72, 38, 0.07);
+  box-shadow: inset 0 0 0 1px rgba(112, 72, 38, 0.1);
+}
+
+.variableGuide h3 {
+  margin: 0 0 8px;
+  color: #7b4b21;
+  font-size: 13px;
+  line-height: 1.3;
+}
+
+.variableGuide p {
+  margin: 0;
+  color: rgba(75, 53, 36, 0.62);
+  font-size: 12px;
+}
+
+.variableGuideList {
+  display: grid;
+  gap: 7px;
+}
+
+.variableGuideList button {
+  border: 0;
+  border-radius: 10px;
+  padding: 8px 9px;
+  background: rgba(255, 248, 234, 0.48);
+  color: #4b3524;
+  text-align: left;
+}
+
+.variableGuideList span {
+  display: block;
+  color: #b66b00;
+  font-size: 12px;
+  font-weight: 700;
+}
+
+.variableGuideList small {
+  display: block;
+  margin-top: 3px;
+  color: rgba(75, 53, 36, 0.64);
+  font-size: 12px;
+  line-height: 1.35;
+}
+
+.bookDescription {
+  margin: 12px 0 16px;
+  color: rgba(75, 53, 36, 0.72);
+  font-size: 13px;
+  line-height: 1.55;
+}
+
+.bookTextarea {
+  width: 100%;
+  min-height: 320px;
+  margin-top: 16px;
+  border: 0;
+  border-radius: 12px;
+  padding: 12px 0;
+  outline: 0;
+  resize: vertical;
+  color: #3f2b1f;
+  background: transparent;
+  font: inherit;
+  line-height: 1.6;
+}
+
+.variablePicker {
+  position: sticky;
+  bottom: 12px;
+  z-index: 6;
+  margin-top: -6px;
+  max-height: 190px;
+  overflow-y: auto;
+  border-radius: 16px;
+  padding: 8px;
+  background: rgba(58, 35, 21, 0.92);
+  box-shadow: 0 18px 34px rgba(58, 35, 21, 0.28);
+}
+
+.variablePicker button {
+  width: 100%;
+  border: 0;
+  border-radius: 12px;
+  padding: 9px 10px;
+  background: transparent;
+  color: #fff7ea;
+  text-align: left;
+}
+
+.variablePicker button:hover,
+.variablePicker button:active {
+  background: rgba(255, 208, 113, 0.16);
+}
+
+.variablePicker span {
+  display: block;
+  color: #ffd071;
+  font-size: 12px;
+  font-weight: 700;
+}
+
+.variablePicker small {
+  display: block;
+  margin-top: 3px;
+  color: rgba(255, 247, 234, 0.68);
+  font-size: 12px;
+  line-height: 1.35;
+}
+
+.variableToken {
+  display: inline;
+  border: 0;
+  border-radius: 8px;
+  padding: 1px 5px;
+  color: #b66b00;
+  background: rgba(255, 183, 77, 0.24);
+  font: inherit;
+}
+
+.pageTurnLeft,
+.pageTurnRight {
+  position: absolute;
+  top: 48%;
+  z-index: 3;
+  width: 42px;
+  height: 58px;
+  border: 0;
+  border-radius: 999px;
+  color: #704826;
+  background: rgba(255, 248, 234, 0.86);
+  box-shadow: 0 14px 26px rgba(80, 45, 24, 0.14);
+  display: grid;
+  place-items: center;
+}
+
+.pageTurnLeft {
+  left: 8px;
+}
+
+.pageTurnRight {
+  right: 8px;
+  transform: rotate(180deg);
+}
+
+.pageTurnLeft:disabled,
+.pageTurnRight:disabled {
+  opacity: 0.28;
+}
+
+.bottomToolbar {
+  position: absolute;
+  left: 18px;
+  right: 98px;
+  bottom: 18px;
+  height: 52px;
+  border-radius: 24px;
+  background: rgba(255, 255, 255, 0.78);
+  backdrop-filter: blur(22px);
+  box-shadow: 0 16px 42px rgba(51, 51, 51, 0.12);
+  display: grid;
+  grid-template-columns: repeat(2, 1fr);
+  overflow: hidden;
+}
+
+.bottomToolbar button {
+  border: 0;
+  background: transparent;
+  color: #333333;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 6px;
+  font-size: 12px;
+}
+
+.fab {
+  position: absolute;
+  right: 18px;
+  bottom: 18px;
+  width: 54px;
+  height: 54px;
+  border: 0;
+  border-radius: 50%;
+  color: #fff;
+  background: #f39c12;
+  box-shadow: 0 0 0 8px rgba(243, 156, 18, 0.15), 0 16px 36px rgba(243, 156, 18, 0.36);
+  display: grid;
+  place-items: center;
+  animation: glow 2.4s infinite ease-in-out;
+}
+
+@keyframes glow {
+  0%, 100% { box-shadow: 0 0 0 6px rgba(243, 156, 18, 0.12), 0 16px 36px rgba(243, 156, 18, 0.32); }
+  50% { box-shadow: 0 0 0 12px rgba(243, 156, 18, 0.08), 0 18px 44px rgba(243, 156, 18, 0.42); }
+}
+
+.familiarPanel {
+  position: absolute;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  height: 60%;
+  border-radius: 24px 24px 0 0;
+  background: rgba(250, 250, 250, 0.76);
+  backdrop-filter: blur(28px);
+  box-shadow: 0 -20px 50px rgba(51, 51, 51, 0.16);
+  padding: 10px 16px 16px;
+  display: flex;
+  flex-direction: column;
+  z-index: 5;
+  color: #333333;
+  transition: height 220ms ease, left 220ms ease, right 220ms ease, border-radius 220ms ease, padding 220ms ease;
+}
+
+.familiarGrip {
+  border: 0;
+  background: transparent;
+  padding: 0;
+  display: grid;
+  place-items: center;
+}
+
+.familiarHandle {
+  width: 44px;
+  height: 5px;
+  border-radius: 999px;
+  background: rgba(142, 142, 147, 0.28);
+}
+
+.familiarTitle {
+  width: 100%;
+  margin-top: 12px;
+  border: 0;
+  background: transparent;
+  padding: 0;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  color: #333333;
+  font-weight: 700;
+  font-size: 16px;
+  text-align: left;
+}
+
+.familiarMessages {
+  flex: 1;
+  overflow-y: auto;
+  padding: 12px 0;
+}
+
+.bubbleRow {
+  display: flex;
+  align-items: flex-start;
+  gap: 8px;
+  margin-bottom: 10px;
+}
+
+.bubbleRowUser {
+  flex-direction: row-reverse;
+}
+
+.aiOrb,
+.userDot {
+  width: 24px;
+  height: 24px;
+  border-radius: 50%;
+  flex: 0 0 auto;
+}
+
+.aiOrb {
+  background: radial-gradient(circle, #fff 0 28%, #ffb74d 58%, rgba(243, 156, 18, 0.1) 100%);
+  box-shadow: 0 0 22px rgba(243, 156, 18, 0.42);
+}
+
+.userDot {
+  background: #f39c12;
+}
+
+.bubble {
+  max-width: 76%;
+  border-radius: 18px;
+  padding: 10px 12px;
+  background: #fff;
+  color: #333333;
+  font-size: 13px;
+  line-height: 1.45;
+}
+
+.userBubble {
+  color: #fff;
+  background: #ffb74d;
+}
+
+.bubble button {
+  margin-top: 8px;
+  width: 100%;
+  border: 0;
+  border-radius: 14px;
+  padding: 8px;
+  color: #b66b00;
+  background: rgba(255, 183, 77, 0.18);
+  display: inline-flex;
+  justify-content: center;
+  align-items: center;
+  gap: 6px;
+}
+
+.familiarInput {
+  display: grid;
+  grid-template-columns: 1fr 42px;
+  gap: 8px;
+}
+
+.familiarInput input,
+.variableCard input {
+  min-width: 0;
+  border: 0;
+  border-radius: 18px;
+  padding: 0 14px;
+  outline: 0;
+  background: #fff;
+  color: #333333;
+}
+
+.familiarInput button {
+  border: 0;
+  border-radius: 16px;
+  color: #fff;
+  background: #f39c12;
+}
+
+.variableDialog {
+  position: absolute;
+  inset: 0;
+  z-index: 8;
+  display: grid;
+  place-items: center;
+  background: rgba(250, 250, 250, 0.32);
+  backdrop-filter: blur(16px);
+}
+
+.variableCard {
+  width: min(310px, calc(100% - 40px));
+  border-radius: 24px;
+  padding: 18px;
+  background: rgba(255, 255, 255, 0.92);
+  box-shadow: 0 24px 60px rgba(51, 51, 51, 0.18);
+}
+
+.variableCard h2 {
+  margin: 0 0 14px;
+  font-size: 18px;
+}
+
+.variableCard input {
+  width: 100%;
+  height: 44px;
+  box-sizing: border-box;
+  border: 1px solid rgba(243, 156, 18, 0.18);
+}
+
+.variableCard button {
+  width: 100%;
+  height: 42px;
+  margin-top: 12px;
+  border: 0;
+  border-radius: 16px;
+  color: #fff;
+  background: #f39c12;
+  font-weight: 700;
+}
+
+@media (max-width: 390px) {
+  .coverTitle h1 {
+    font-size: 30px;
+    letter-spacing: 5px;
+  }
+
+  .promptBadge {
+    width: 96px;
+    height: 96px;
+  }
+
+  .starScroll {
+    top: 212px;
+  }
+
+  .starText strong {
+    font-size: 19px;
+  }
+
+  .starText em {
+    font-size: 12px;
+  }
+
+  .bookStage {
+    padding-left: 10px;
+    padding-right: 10px;
+  }
+
+  .magicBook {
+    width: 94vw;
+    min-height: 500px;
+  }
+
+  .bookPageSheet {
+    padding-left: 24px;
+    padding-right: 18px;
+  }
+}

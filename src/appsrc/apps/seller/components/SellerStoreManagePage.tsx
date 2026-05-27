@@ -43,6 +43,7 @@ import {
   type SellerInboxMessage,
 } from '../../../shared/business/commerce/messageBridge';
 import { getGlobalSettingsSnapshot } from '@baobaobaiOS/sdk';
+import { renderPaperMagicPrompt } from '../../papermagic/promptCatalog';
 import styles from '../SellerApp.module.css';
 
 type SellerStoreManagePageProps = {
@@ -882,6 +883,10 @@ export const SellerStoreManagePage: React.FC<SellerStoreManagePageProps> = ({
     const recentConversation = payload.recentConversation.slice(-12).join('\n');
     const sellerMessage = payload.sellerMessage.trim();
     if (!sellerMessage) return null;
+    const buyerReplyPrompt = renderPaperMagicPrompt('seller.buyerAutoReply', {
+      recentConversation,
+      sellerMessage,
+    });
 
     const response = await fetch(`${baseUrl}/chat/completions`, {
       method: 'POST',
@@ -896,11 +901,11 @@ export const SellerStoreManagePage: React.FC<SellerStoreManagePageProps> = ({
         messages: [
           {
             role: 'system',
-            content: 'You are a buyer in a shopping platform chat. Reply naturally and avoid repeated questions. If context contains order id, product name, or amount, mention them explicitly and avoid ambiguous pronouns like this/that/it. Keep within 80 Chinese characters.',
+            content: buyerReplyPrompt.system || '',
           },
           {
             role: 'user',
-            content: `Recent conversation:\n${recentConversation}\n\nLatest seller message: ${sellerMessage}\n\nReply as the buyer with clear and unambiguous wording.`, 
+            content: buyerReplyPrompt.user || '', 
           },        ],
       }),
     }).catch(() => null);

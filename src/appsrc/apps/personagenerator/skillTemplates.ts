@@ -1,3 +1,5 @@
+import { renderPaperMagicText } from '../papermagic/promptCatalog';
+
 export const SKILL_SOURCE = {
   name: 'skill',
   url: 'https://github.com/perkfly/ex-skill',
@@ -36,11 +38,7 @@ const bulletList = (items: string[], fallback: string): string =>
 
 export const renderPersonaAnalyzerPrompt = (input: SkillRenderInput): string =>
   [
-    '# 人设分析器',
-    '',
-    '在写入角色档案之前，先分析导入聊天记录中的证据。',
-    '把明确出现过的事实和根据语气推断出的模式分开记录。',
-    '优先关注重复行为、语言习惯、关系边界、情绪触发点和矛盾信息。',
+    renderPaperMagicText('persona.skill.personaAnalyzer'),
     '语言习惯要具体到短句/长句比例、语气词、表情包、标点、追问、拒绝、玩笑、自我解释等可复现模式。',
     '不要只写泛泛性格词；每个判断都应能对应到聊天里的重复表达方式。',
     '',
@@ -52,7 +50,7 @@ export const renderPersonaAnalyzerPrompt = (input: SkillRenderInput): string =>
 
 export const renderPersonaBuilderPrompt = (input: SkillRenderInput): string =>
   [
-    `# ${input.name}`,
+    renderPaperMagicText('persona.skill.personaBuilder', { name: input.name }),
     '',
     `## ${SKILL_PERSONA_LAYERS[0]}`,
     `${input.name} 由导入聊天记录生成。只有下方证据可以作为稳定设定；不确定的信息保持开放，不主动补完。`,
@@ -79,10 +77,7 @@ export const renderPersonaBuilderPrompt = (input: SkillRenderInput): string =>
 
 export const renderMemoriesAnalyzerPrompt = (input: SkillRenderInput): string =>
   [
-    '# 记忆分析器',
-    '',
-    '从导入聊天记录中提取简洁、可复用的记忆候选。',
-    '每条候选记忆都应能对应到一条或多条聊天证据，并对后续扮演或对话连续性有帮助。',
+    renderPaperMagicText('persona.skill.memoriesAnalyzer'),
     '删除泛泛而谈、重复情绪、没有关系价值的一次性事实。',
     '',
     `目标角色：${input.name}`,
@@ -91,7 +86,7 @@ export const renderMemoriesAnalyzerPrompt = (input: SkillRenderInput): string =>
 
 export const renderMemoriesBuilderPrompt = (input: SkillRenderInput): string =>
   [
-    `# ${input.name} 的记忆`,
+    renderPaperMagicText('persona.skill.memoriesBuilder', { name: input.name }),
     '',
     '## 关系证据',
     bulletList(input.samples.slice(0, 16), '未提取到稳定的关系证据。'),

@@ -7,6 +7,7 @@ import {
   useKeyboardViewportStabilizer,
   useKeyboardViewportInset,
 } from '../../../../core/mobileViewport';
+import { renderPaperMagicText } from '../../papermagic/promptCatalog';
 
 const VISION_TEST_IMAGE_DATA_URL =
   'data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAACAAAAAgCAYAAABzenr0AAAAAXNSR0IArs4c6QAAAARnQU1BAACxjwv8YQUAAAAJcEhZcwAADsMAAA7DAcdvqGQAAAAtSURBVFhH7c6hAQAACMOw/f80+B0AJpVVyTyXHtcBAAAAAAAAAAAAAAAAAAAsl/rw4k5bXakAAAAASUVORK5CYII=';
@@ -364,7 +365,7 @@ export const ApiSettingsView: React.FC<ApiSettingsViewProps> = ({
             {
               role: 'user',
               content: [
-                { type: 'text', text: '请识别图片并回复“支持图片”。' },
+                { type: 'text', text: renderPaperMagicText('settings.vision.probe') },
                 { type: 'image_url', image_url: { url: VISION_TEST_IMAGE_DATA_URL } },
               ],
             },

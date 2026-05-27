@@ -19,6 +19,7 @@ import { useWeChatStore } from '../WeChat/store';
 import type { WeChatGiftDeliveryCard, WeChatMessage, WeChatOrderPreview } from '../WeChat/types';
 import { PUSH_OPEN_APP_MESSAGE_TYPE } from '../../../core/push/webPush';
 import type { GlobalSettings } from '../../../core/sdk/types';
+import { renderPaperMagicPrompt } from '../papermagic/promptCatalog';
 import styles from './ShoppingApp.module.css';
 import { toMovie, toMovieStoreProducts } from './movies';
 import { addDays, formatDate, formatMoney, getOrderStatus, groupCartLines } from './utils';
@@ -274,6 +275,15 @@ const requestShoppingCompanionModelReply = async (
     .join('\n');
 
   const promptMode = params.userInput ? 'reply' : 'observe';
+  const companionPrompt = renderPaperMagicPrompt('shopping.companionReply', {
+    companionName: params.companionName,
+    screen: params.screen,
+    latestTopic: params.latestTopic || params.triggerLabel || '暂无',
+    recentTranscript: recentTranscript || '暂无',
+    modeLine: promptMode === 'observe'
+      ? `用户刚刚在购物页面点了：${params.triggerLabel || '某个内容'}\n请像陪着一起逛街的人那样，自然接一句。`
+      : `用户刚刚对你说：${params.userInput || ''}\n请直接接话回复。`,
+  });
   const response = await fetch(`${baseUrl}/chat/completions`, {
     method: 'POST',
     headers: {
@@ -287,22 +297,11 @@ const requestShoppingCompanionModelReply = async (
       messages: [
         {
           role: 'system',
-          content:
-            `你是用户正在一起购物的陪伴搭子，名字叫${params.companionName}。` +
-            '你在购物过程中陪聊、夸赞、给情绪价值，也可以轻微调侃，但语气要自然、亲近、像微信聊天。' +
-            '不要提自己是AI，不要提模型，不要写分析过程，不要使用列表，不要加引号。' +
-            '输出只要1到2句中文，总长度控制在18到60字，口语化、温柔、有陪伴感。' +
-            '如果用户在看具体商品、电影、订单或礼物，要结合那个对象来回应，不要空泛。',
+          content: companionPrompt.system || '',
         },
         {
           role: 'user',
-          content:
-            `当前页面：${params.screen}\n` +
-            `最近关注的对象：${params.latestTopic || params.triggerLabel || '暂无'}\n` +
-            `最近聊天：\n${recentTranscript || '暂无'}\n` +
-            (promptMode === 'observe'
-              ? `用户刚刚在购物页面点了：${params.triggerLabel || '某个内容'}\n请像陪着一起逛街的人那样，自然接一句。`
-              : `用户刚刚对你说：${params.userInput || ''}\n请直接接话回复。`),
+          content: companionPrompt.user || '',
         },
       ],
     }),

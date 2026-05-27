@@ -12,6 +12,7 @@ import type {
   DailyScriptWeChatActionPayload,
 } from './types';
 import { parseTagsInput } from './utils';
+import { renderPaperMagicPrompt } from '../papermagic/promptCatalog';
 
 const DEFAULT_CHAT_BASE_URL = 'https://api.openai.com/v1';
 
@@ -588,29 +589,18 @@ export const requestDailyScriptAiPlans = async ({
       artist: item.artist,
     }));
 
-  const systemPrompt =
-    'You are a daily script planner assistant. Output JSON only.' +
-    ' Return shape: {"plans":[{"name":"","enabled":true,"steps":[{"name":"","time":"09:00","actionType":"","enabled":true,"payload":{}}]}]}.' +
-    ' actionType must be one of "dailywords.writeDiary", "wechat.sendMessageToUser", "dreammusic.commentTrack", "lovespace.addMoment", "lovespace.completeCheckInTask".' +
-    ' For dailywords.writeDiary payload: title/content/mood/tags/syncToMemory.' +
-    ' For wechat.sendMessageToUser payload: content/targetUserRoleId.' +
-    ' For dreammusic.commentTrack payload: targetTrackId/targetTrackTitle (optional, empty means auto-pick song at runtime).' +
-    ' For lovespace.addMoment payload: targetRelationId/targetOwnerRoleId/targetBondId/content/imageDataUrl.' +
-    ' For lovespace.completeCheckInTask payload: targetRelationId/targetOwnerRoleId/targetBondId/owner/taskId/templateId/title.' +
-    ' lovespace.completeCheckInTask owner must be "partner".' +
-    ' time must be HH:mm (24-hour), and every step must include time.';
-
-  const userPrompt =
-    `Generate daily scripts for the role below.\n` +
-    `executorRoleId: ${roleId}\n` +
-    `executorRoleLabel: ${roleLabel || roleId}\n` +
-    `targetDate: ${dateKey}\n` +
-    `available targetUserRoleId: ${JSON.stringify([...new Set(allowedTargetRoleIds.filter(Boolean))])}\n` +
-    `available dreammusic tracks: ${JSON.stringify(dreamMusicTrackPromptPayload)}\n` +
-    `available love relations: ${JSON.stringify(relationPromptPayload)}\n` +
-    `available love check-in tasks (partner side): ${JSON.stringify(checkInTaskPromptPayload)}\n` +
-    `Split into 1-3 plans, each plan 1-8 steps.\n` +
-    `source text:\n${normalizedInputText}`;
+  const planPrompt = renderPaperMagicPrompt('dailyscript.planBuilder', {
+    roleId,
+    roleLabel: roleLabel || roleId,
+    dateKey,
+    allowedTargetRoleIdsJson: JSON.stringify([...new Set(allowedTargetRoleIds.filter(Boolean))]),
+    dreamMusicTrackPromptPayloadJson: JSON.stringify(dreamMusicTrackPromptPayload),
+    relationPromptPayloadJson: JSON.stringify(relationPromptPayload),
+    checkInTaskPromptPayloadJson: JSON.stringify(checkInTaskPromptPayload),
+    normalizedInputText,
+  });
+  const systemPrompt = planPrompt.system || '';
+  const userPrompt = planPrompt.user || '';
 
   const response = await fetch(`${baseUrl}/chat/completions`, {
     method: 'POST',

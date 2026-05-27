@@ -4,6 +4,7 @@ import { useGlobalSettingsStore } from '@baobaobaiOS/sdk';
 import { useWeChatStore } from '../store';
 import type { WeChatAiMomentsConfigViewProps } from '../types';
 import { pickModelId } from './moments/momentsUtils';
+import { renderPaperMagicText } from '../../papermagic/promptCatalog';
 
 const IMAGE_MODEL_FALLBACKS = ['gpt-image-1', 'dall-e-3', 'dall-e-2'];
 
@@ -63,12 +64,13 @@ export const WeChatAiMomentsConfigView: React.FC<WeChatAiMomentsConfigViewProps>
       // 忽略 /models 请求失败，继续使用兜底模型列表。
     }
 
+    const imageProbePrompt = renderPaperMagicText('wechat.moments.imageProbe');
     const payloadVariants = (model: string) => [
-      { model, prompt: '朋友圈图片能力探测', size: imageSize, response_format: 'b64_json' },
-      { model, prompt: '朋友圈图片能力探测', size: imageSize },
+      { model, prompt: imageProbePrompt, size: imageSize, response_format: 'b64_json' },
+      { model, prompt: imageProbePrompt, size: imageSize },
       ...(imageSize === '512x512'
         ? []
-        : [{ model, prompt: '朋友圈图片能力探测', size: '512x512', response_format: 'b64_json' }]),
+        : [{ model, prompt: imageProbePrompt, size: '512x512', response_format: 'b64_json' }]),
     ];
 
     let lastMessage = '当前 API 端点不支持图片生成。';

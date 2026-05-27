@@ -1,5 +1,6 @@
 import type { GlobalSettings } from '../../../core/sdk/types';
 import type { CommerceStore } from '../../shared/business/commerce/domain/types';
+import { renderPaperMagicPrompt, renderPaperMagicText } from '../papermagic/promptCatalog';
 
 const DEFAULT_BASE_URL = 'https://api.openai.com/v1';
 const DEFAULT_AI_PRODUCT_COUNT = 6;
@@ -84,12 +85,12 @@ const buildFallbackDesc = (store: CommerceStore, title: string, category: string
 
 const buildFallbackImagePrompt = (store: CommerceStore, title: string, category: string): string => {
   if (store.kind === 'movie') {
-    return `电影票务海报，影片主题：${title}，类目：${category}，影院售票应用商品封面，视觉精致，商业海报风格，高清`;
+    return renderPaperMagicText('seller.productImageFallback.movie', { title, category });
   }
   if (store.kind === 'flower') {
-    return `电商鲜花商品主图，商品名：${title}，类目：${category}，花束近景，纯净背景，礼盒包装，高级感，高清`;
+    return renderPaperMagicText('seller.productImageFallback.flower', { title, category });
   }
-  return `电商甜品商品主图，商品名：${title}，类目：${category}，食物近景，干净背景，质感布光，高清`;
+  return renderPaperMagicText('seller.productImageFallback.dessert', { title, category });
 };
 
 const parseProductArray = (value: unknown): unknown[] => {
@@ -219,6 +220,14 @@ const requestSellerProductDrafts = async (
   const storeDescription = trimText(store.description);
   const categoryList = buildCategoryOptions(store, categoryOptions);
   const model = trimText(settings.model) || 'gpt-4o-mini';
+  const productPrompt = renderPaperMagicPrompt('seller.productDrafts', {
+    storeKindLabel: STORE_KIND_LABEL_MAP[store.kind],
+    count,
+    storeTitle,
+    storeType,
+    storeDescription: storeDescription || '暂无',
+    categoryList: categoryList.join('、') || '无',
+  });
 
   const response = await fetch(`${baseUrl}/chat/completions`, {
     method: 'POST',
@@ -233,28 +242,11 @@ const requestSellerProductDrafts = async (
       messages: [
         {
           role: 'system',
-          content:
-            '你是电商选品与上架策划助手。你只输出 JSON 数组，不要解释，不要 Markdown，不要额外文本。',
+          content: productPrompt.system || '',
         },
         {
           role: 'user',
-          content: `请为一个${STORE_KIND_LABEL_MAP[store.kind]}生成 ${count} 个可直接上架的商品。
-店铺名称：${storeTitle}
-店铺类型：${storeType}
-店铺描述：${storeDescription || '暂无'}
-候选类目：${categoryList.join('、') || '无'}
-
-请只返回 JSON 数组。每个元素结构必须是：
-{"title":"商品标题","category":"类目","price":39.9,"stock":88,"desc":"商品描述","imagePrompt":"生图提示词"}
-
-要求：
-1. 商品必须适合这个店铺，风格统一但彼此有明显区分。如果是电影院，只需要电影票，而不是周边商品。
-2. title 为 6-24 个中文字符，避免重复。
-3. category 优先从候选类目中选择，没有合适时可给出一个合理新类目。
-4. price 必须是正数，stock 必须是正整数。
-5. desc 控制在 18-60 个中文字符，适合发布商品页直接使用。
-6. imagePrompt 用中文写，适合生成电商商品主图，要具体描述商品主体、材质/口感/花材/海报氛围、构图和背景。
-7. 只输出 JSON 数组。`,
+          content: productPrompt.user || '',
         },
       ],
     }),

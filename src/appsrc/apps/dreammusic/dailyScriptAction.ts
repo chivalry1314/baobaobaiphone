@@ -7,6 +7,7 @@ import { upsertDreamMusicCommentMemory } from './memoryHelpers';
 import { fetchTimedLyrics } from './services/lyrics';
 import { useDreamMusicStore } from './store';
 import type { DreamComment, DreamTrack } from './types';
+import { renderPaperMagicPrompt } from '../papermagic/promptCatalog';
 
 interface DreamMusicCommentTrackScriptPayload {
   targetTrackId?: string;
@@ -203,19 +204,17 @@ const requestAiGeneratedComment = async (params: {
   const lyricContext = params.lyricLines.slice(0, 12).join('\n');
   const commentContext = params.commentCues.slice(0, 6).join('\n');
 
-  const systemPrompt =
-    '你是音乐社区评论助手。' +
-    '请只输出一条中文短评，像真实用户在歌曲评论区留言。' +
-    '不要解释，不要分点，不要加前缀。' +
-    `字数控制在 18-${COMMENT_MAX_LENGTH} 字，语气自然，避免夸张和营销腔。`;
-
-  const userPrompt =
-    `当前歌曲：${params.track.title} - ${params.track.artist}\n` +
-    `评论用户：${params.authorName}\n` +
-    `可参考歌词片段：\n${lyricContext || '(无可用歌词)'}\n` +
-    `可参考评论区线索：\n${commentContext || '(无可用评论线索)'}\n` +
-    `优先围绕歌词意象与评论区共鸣，生成一条不重复、可直接发布的评论。` +
-    (params.lyricCue ? ` 可重点参考这句：${params.lyricCue}` : '');
+  const commentPrompt = renderPaperMagicPrompt('dreammusic.commentTrack', {
+    maxLength: COMMENT_MAX_LENGTH,
+    trackTitle: params.track.title,
+    trackArtist: params.track.artist,
+    authorName: params.authorName,
+    lyricContext: lyricContext || '(无可用歌词)',
+    commentContext: commentContext || '(无可用评论线索)',
+    lyricCueLine: params.lyricCue ? ` 可重点参考这句：${params.lyricCue}` : '',
+  });
+  const systemPrompt = commentPrompt.system || '';
+  const userPrompt = commentPrompt.user || '';
 
   const response = await fetch(`${baseUrl}/chat/completions`, {
     method: 'POST',
