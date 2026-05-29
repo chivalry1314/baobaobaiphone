@@ -205,6 +205,7 @@ export const PaperMagicApp: React.FC<AppProps> = ({ onClose }) => {
   const [familiarMessages, setFamiliarMessages] = React.useState<Array<{ role: 'ai' | 'user'; text: string }>>([
     { role: 'ai', text: '把你想加进咒语的规则告诉我，我会整理成可以插入的短句。' },
   ]);
+  const bookStageRef = React.useRef<HTMLDivElement | null>(null);
 
   const activeModule = PAPER_MAGIC_MODULES.find((item) => item.id === activeModuleId) || PAPER_MAGIC_MODULES[0];
   const moduleAppGroups = PAPER_MAGIC_APP_GROUPS.filter((item) => item.moduleId === activeModule.id);
@@ -286,6 +287,7 @@ export const PaperMagicApp: React.FC<AppProps> = ({ onClose }) => {
     if (!start || !touch || bookTouchHandledRef.current) return;
     const direction = resolveSwipeDirection(touch.clientX - start.x, touch.clientY - start.y);
     if (!direction) return;
+    event.preventDefault();
     bookTouchHandledRef.current = true;
     turnPage(direction);
   };
@@ -352,6 +354,29 @@ export const PaperMagicApp: React.FC<AppProps> = ({ onClose }) => {
       activeCard?.scrollIntoView({ behavior: 'smooth', inline: 'center', block: 'nearest' });
     });
   }, [activeAppGroupId, view]);
+
+  React.useEffect(() => {
+    if (view !== 'book') return undefined;
+    const stage = bookStageRef.current;
+    if (!stage) return undefined;
+
+    const handleTouchMove = (event: TouchEvent) => {
+      const start = bookTouchStartRef.current;
+      const touch = event.touches[0];
+      if (!start || !touch) return;
+      const direction = resolveSwipeDirection(touch.clientX - start.x, touch.clientY - start.y);
+      if (!direction) return;
+      event.preventDefault();
+      if (bookTouchHandledRef.current) return;
+      bookTouchHandledRef.current = true;
+      turnPage(direction);
+    };
+
+    stage.addEventListener('touchmove', handleTouchMove, { passive: false });
+    return () => {
+      stage.removeEventListener('touchmove', handleTouchMove);
+    };
+  }, [view, activePromptIndex, bookPages, turningPage]);
 
   const resetDraft = () => {
     setDrafts((current) => ({ ...current, [activeBookPage.key]: activeBookPage.text }));
@@ -608,6 +633,7 @@ export const PaperMagicApp: React.FC<AppProps> = ({ onClose }) => {
           </header>
 
           <div
+            ref={bookStageRef}
             className={`${styles.bookStage} ${bookDragging ? styles.bookStageDragging : ''}`}
             onTouchStartCapture={handleBookTouchStartCapture}
             onTouchMoveCapture={handleBookTouchMoveCapture}

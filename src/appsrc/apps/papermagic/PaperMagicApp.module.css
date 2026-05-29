@@ -3,6 +3,8 @@
   inset: 0;
   z-index: 50;
   overflow: hidden;
+  overscroll-behavior: none;
+  touch-action: none;
   background: #050408;
   color: #f7f4ff;
   font-family: "PingFang SC", "SF Pro Display", "Microsoft YaHei", sans-serif;
@@ -148,6 +150,8 @@
   z-index: 2;
   inset: 172px 0 0;
   overflow-y: auto;
+  overscroll-behavior: contain;
+  touch-action: pan-y;
   padding-bottom: 96px;
   scrollbar-width: none;
 }
@@ -279,6 +283,12 @@
   background: #fafafa;
 }
 
+.editorPage {
+  overflow: hidden;
+  overscroll-behavior: none;
+  touch-action: none;
+}
+
 .tarotPage {
   overflow: hidden;
   color: #f8efe1;
@@ -345,6 +355,8 @@
   min-height: 0;
   overflow-x: auto;
   overflow-y: hidden;
+  overscroll-behavior: contain;
+  touch-action: pan-x;
   display: flex;
   align-items: center;
   gap: 18px;
@@ -520,11 +532,13 @@
   position: relative;
   flex: 1;
   min-height: 0;
+  overflow: hidden;
   padding: 18px 18px calc(112px + env(safe-area-inset-bottom, 0px));
   perspective: 1400px;
   display: grid;
   place-items: center;
-  touch-action: pan-y;
+  overscroll-behavior: none;
+  touch-action: none;
 }
 
 .bookStageDragging,
@@ -540,7 +554,8 @@
 
 .magicBook {
   position: relative;
-  width: min(94vw, 590px);
+  width: min(calc(100vw - 36px), 590px);
+  max-width: 100%;
   height: min(72vh, 680px);
   min-height: 560px;
   transform-style: preserve-3d;
@@ -577,6 +592,9 @@
   position: absolute;
   inset: 0 0 0 18px;
   overflow-y: auto;
+  overflow-x: hidden;
+  overscroll-behavior: contain;
+  touch-action: pan-y;
   border-radius: 18px 26px 26px 18px;
   padding: 24px 22px 28px 30px;
   color: #4b3524;
@@ -592,6 +610,13 @@
   backface-visibility: hidden;
   will-change: transform, opacity, filter;
   z-index: 3;
+}
+
+.bookPageSheet,
+.bookPageSheet * {
+  max-width: 100%;
+  overflow-wrap: anywhere;
+  word-break: break-word;
 }
 
 .turningLeaf {
@@ -777,6 +802,8 @@
   font-size: 24px;
   line-height: 1.22;
   letter-spacing: 0;
+  overflow-wrap: anywhere;
+  word-break: break-word;
 }
 
 .bookMeta {
@@ -786,6 +813,13 @@
   color: rgba(75, 53, 36, 0.58);
   font-size: 11px;
   line-height: 1.4;
+  min-width: 0;
+}
+
+.bookMeta span {
+  min-width: 0;
+  overflow-wrap: anywhere;
+  word-break: break-word;
 }
 
 .bookUsage {
@@ -793,6 +827,8 @@
   color: rgba(75, 53, 36, 0.72);
   font-size: 13px;
   line-height: 1.55;
+  overflow-wrap: anywhere;
+  word-break: break-word;
 }
 
 .variableGuide {
@@ -860,6 +896,8 @@
 
 .bookTextarea {
   width: 100%;
+  max-width: 100%;
+  box-sizing: border-box;
   min-height: 380px;
   margin-top: 16px;
   border: 0;
@@ -871,6 +909,10 @@
   background: transparent;
   font: inherit;
   line-height: 1.6;
+  white-space: pre-wrap;
+  overflow-x: hidden;
+  overflow-wrap: anywhere;
+  word-break: break-word;
 }
 
 .variablePicker {
