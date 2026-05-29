@@ -343,8 +343,8 @@ const appendShoppingCompanionMessage = (
   message: ShoppingCompanionMessage
 ) => [...messages, message].slice(-SHOPPING_COMPANION_MESSAGE_LIMIT);
 
-const buildShoppingCompanionWelcomeMessage = (companionName: string): string =>
-  `${companionName}上线啦，今天我就陪你一起逛，你负责心动，我负责捧场。`;
+const buildShoppingCompanionWelcomeMessage = (_companionName: string): string =>
+  '我来了，今天我就陪你一起逛，你负责心动，我负责捧场。';
 
 const isGenericShoppingActionLabel = (value: string): boolean => {
   const normalized = value.replace(/\s+/g, '');

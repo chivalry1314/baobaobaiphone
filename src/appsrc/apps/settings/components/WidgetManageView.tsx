@@ -65,6 +65,8 @@ const systemParamSections = [
     items: [
       { name: 'system.music.isPlaying', desc: '梦音乐是否正在播放' },
       { name: 'system.music.currentTrack', desc: '当前歌曲信息，包含 title、artist、album、coverUrl、durationMs' },
+      { name: 'system.music.listenTogether', desc: '一起听歌状态，包含 status、companionId、companionName、companionAvatar、inviterName、invitedAt、acceptedAt' },
+      { name: 'system.music.listenTogetherIdleSince', desc: '一起听歌中暂停或无播放开始的时间戳；为空表示当前正在播放或不在一起听' },
       { name: 'system.music.playPrev()', desc: '切换到上一首' },
       { name: 'system.music.playNext()', desc: '切换到下一首' },
       { name: 'system.music.togglePlayback()', desc: '播放或暂停' },

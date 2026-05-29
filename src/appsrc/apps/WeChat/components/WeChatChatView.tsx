@@ -315,6 +315,48 @@ const WECHAT_EMOJI_MEANING_MAP: Record<string, string> = {
   庆祝: '开心庆祝',
 };
 
+const WECHAT_DEFAULT_EMOJI_TEXT_MAP: Record<string, string> = {
+  动画表情: '',
+  表情: '',
+  冷笑: '[冷笑]',
+  奸笑: '[冷笑]',
+  流泪: '[流泪]',
+  哭: '[流泪]',
+  大哭: '[大哭]',
+  大笑: '[大笑]',
+  笑: '[大笑]',
+  发怒: '[发怒]',
+  生气: '[发怒]',
+  酷: '[酷]',
+  爱心: '[爱心]',
+  点赞: '[点赞]',
+  赞: '[点赞]',
+  害羞: '[害羞]',
+  震惊: '[震惊]',
+  惊讶: '[震惊]',
+  睡觉: '[睡觉]',
+  睡: '[睡觉]',
+  眨眼: '[眨眼]',
+  生病: '[生病]',
+  不要: '[不要]',
+  拒绝: '[不要]',
+  便便: '[便便]',
+  庆祝: '[庆祝]',
+  派对: '[庆祝]',
+};
+
+const normalizeAssistantEmojiText = (content: string): string =>
+  content
+    .replace(/\[([^\[\]\n]{1,16})\]/g, (match, rawName: string) => {
+      const name = rawName.trim();
+      return Object.prototype.hasOwnProperty.call(WECHAT_DEFAULT_EMOJI_TEXT_MAP, name)
+        ? WECHAT_DEFAULT_EMOJI_TEXT_MAP[name]
+        : match;
+    })
+    .replace(/[ \t]+\n/g, '\n')
+    .replace(/\n{3,}/g, '\n\n')
+    .trim();
+
 const explainWeChatEmojiText = (content: string): string => {
   const onlineGifNames = Array.from(content.matchAll(/\[gif:([^:\]]+):[^\]]+\]/g))
     .map((match) => {
@@ -1981,6 +2023,7 @@ export const WeChatChatView: React.FC<WeChatChatViewProps> = ({
       '- 当前最后一轮没有出现的人物、地点、事件，不要突然引入；需要细节时可以顺着当前话题轻轻补一句。',
       '- 像微信真人聊天：自然、有来有回，可以短，可以停顿，可以追问，不要像客服、旁白、总结器或设定说明。',
       '- 优先复现人物的句长、语气词、表情/标点、玩笑方式、解释习惯、拒绝边界和情绪反应。',
+      '- 如果要表达表情，只能使用默认表情短码：[冷笑]、[流泪]、[大哭]、[大笑]、[发怒]、[酷]、[爱心]、[点赞]、[害羞]、[震惊]、[睡觉]、[眨眼]、[生病]、[不要]、[便便]、[庆祝]，界面会渲染成表情图片；不要输出“[动画表情]”“[奸笑]”这类不存在的表情文字。',
       '- 不要连续两轮使用同一句开场或同一个问题；最近已经表达过的意思，只接新的信息，或换一个更自然的角度回应。',
       '- 不要复述世界书，不要解释你在扮演谁，不要输出“作为xxx”。',
       '- 不要每次都很完整地解决问题；关系里可以犹豫、吐槽、敷衍一下、转移话题或只接半句，但要贴合人物。',
@@ -2044,7 +2087,7 @@ export const WeChatChatView: React.FC<WeChatChatViewProps> = ({
 
         const { action, content } = parseAssistantOrderDecision(replyContentRaw);
         const replyContent =
-          content ||
+          normalizeAssistantEmojiText(content) ||
           (action === 'accepted'
             ? '行，这单我来付。'
             : action === 'rejected'
@@ -2163,7 +2206,7 @@ export const WeChatChatView: React.FC<WeChatChatViewProps> = ({
       if (!response.ok) throw new Error('API 失败');
       const payload = await response.json();
       const replyContentRaw = payload?.choices?.[0]?.message?.content;
-      const replyContent = typeof replyContentRaw === 'string' ? replyContentRaw.trim() : '';
+      const replyContent = typeof replyContentRaw === 'string' ? normalizeAssistantEmojiText(replyContentRaw) : '';
       if (!replyContent) return;
 
       voiceCallConversationRef.current = [
@@ -2343,6 +2386,7 @@ export const WeChatChatView: React.FC<WeChatChatViewProps> = ({
         addWeChatMessage(sessionId, { role: 'character', content: `已收款 ¥${amount.toFixed(2)}`, type: 'transfer_accepted', amount });
         replyContent = replyContent.replace('【接收转账】', '').trim();
       }
+      replyContent = normalizeAssistantEmojiText(replyContent);
       if (replyContent) {
         const replyMessage = await buildCharacterReplyMessage(replyContent);
         addWeChatMessage(sessionId, replyMessage);

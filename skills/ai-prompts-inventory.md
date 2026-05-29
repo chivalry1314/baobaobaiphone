@@ -162,32 +162,22 @@ JSON 结构包含 contact、persona、worldBookEntries、memories。
 
 ## 9. 人设生成器：导出 Skill Prompt 模板
 
-- 路径：`src/appsrc/apps/personagenerator/skillTemplates.ts`
-- 起始行：约 37、53、80、92
-- 用途：导出角色 skill 时生成内置 prompt 文档。
+- 路径：`src/appsrc/apps/papermagic/promptCatalog.ts`
+- 起始行：约 1042
+- 用途：纸间魔法集中管理人设生成器的 Skill Prompt 模板，并供人设导入解析后的大模型调用引用。
 
 ```text
-renderPersonaAnalyzerPrompt:
-# 人设分析器
-在写入角色档案之前，先分析导入聊天记录中的证据。
-把明确出现过的事实和根据语气推断出的模式分开记录。
-优先关注重复行为、语言习惯、关系边界、情绪触发点和矛盾信息。
+persona.skill.intakeBasicInfo:
+标题：生成人设-基本信息
+引用 intake.md，用于采集昵称、基本关系信息、职业、MBTI、星座、依恋类型、恋爱标签和主观印象。
 
-renderPersonaBuilderPrompt:
-# ${input.name}
-第 0 层：角色范围
-${input.name} 由导入聊天记录生成。只有下方证据可以作为稳定设定；不确定的信息保持开放，不主动补完。
-后续层包括稳定身份、外显行为、内在逻辑、关系地图、动态状态、修正记录。
+persona.skill.memoriesGeneration:
+标题：记忆生成
+引用 memories_analyzer.md + memories_builder.md，用于分析共同记忆、关系动态并生成 memories.md。
 
-renderMemoriesAnalyzerPrompt:
-# 记忆分析器
-从导入聊天记录中提取简洁、可复用的记忆候选。
-每条候选记忆都应能对应到一条或多条聊天证据，并对后续扮演或对话连续性有帮助。
-
-renderMemoriesBuilderPrompt:
-# ${input.name} 的记忆
-包含关系证据、对话锚点、使用规则。
-规则包括：把这些记忆当作证据；与用户后续修正冲突时优先采用最新修正；不要虚构隐私、医疗、财务或家庭事实。
+persona.skill.personalityGeneration:
+标题：性格生成
+引用 persona_analyzer.md + persona_builder.md，用于分析表达风格、情感逻辑、关系行为并生成 persona.md。
 ```
 
 ## 10. 购物：陪逛搭子回复

@@ -505,6 +505,7 @@ export const WidgetPlaceholder: React.FC<WidgetPlaceholderProps> = ({
   const dreamPlayPrev = useDreamMusicStore((state) => state.playPrev);
   const dreamSetQueueAndPlay = useDreamMusicStore((state) => state.setQueueAndPlay);
   const dreamListenTogether = useDreamMusicStore((state) => state.listenTogether);
+  const dreamListenTogetherIdleSince = useDreamMusicStore((state) => state.listenTogetherIdleSince);
   const dreamClearListenTogether = useDreamMusicStore((state) => state.clearListenTogether);
   const wechatUserProfile = useWeChatStore((state) => state.wechatUserProfile);
   const [listenTogetherTick, setListenTogetherTick] = React.useState(0);
@@ -678,8 +679,30 @@ export const WidgetPlaceholder: React.FC<WidgetPlaceholderProps> = ({
       togglePlayback: dreamTogglePlayback,
       playNext: dreamPlayNext,
       playPrev: dreamPlayPrev,
+      listenTogether: dreamListenTogether
+        ? {
+            status: dreamListenTogether.status,
+            companionId: dreamListenTogether.companionId,
+            companionName: dreamListenTogether.companionName,
+            companionAvatar: normalizeCustomWidgetImageUrl(dreamListenTogether.companionAvatar),
+            inviterName: dreamListenTogether.inviterName,
+            invitedAt: dreamListenTogether.invitedAt,
+            acceptedAt: dreamListenTogether.acceptedAt,
+          }
+        : null,
+      listenTogetherIdleSince: dreamListenTogetherIdleSince,
     },
-  }), [calendarDays.monthName, dreamCurrentTrack, dreamIsPlaying, dreamPlayNext, dreamPlayPrev, dreamTogglePlayback, now]);
+  }), [
+    calendarDays.monthName,
+    dreamCurrentTrack,
+    dreamIsPlaying,
+    dreamListenTogether,
+    dreamListenTogetherIdleSince,
+    dreamPlayNext,
+    dreamPlayPrev,
+    dreamTogglePlayback,
+    now,
+  ]);
   const serializableCustomWidgetSystem = React.useMemo(() => ({
     ...customWidgetSystem,
     music: {

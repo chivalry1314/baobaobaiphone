@@ -48,6 +48,7 @@ const DEFAULT_STATE: DreamMusicState = {
   volume: 0.85,
   currentTimeSec: 0,
   listenTogether: null,
+  listenTogetherIdleSince: null,
   listenTogetherDurationsByCompanionId: {},
   listenTogetherCompanionNamesById: {},
 };
@@ -254,6 +255,15 @@ const settleListenTogetherDuration = (
   };
 };
 
+const resolveListenTogetherIdleSince = (
+  state: DreamMusicState,
+  nextIsPlaying: boolean,
+  now = Date.now()
+): number | null => {
+  if (state.listenTogether?.status !== 'active') return null;
+  return nextIsPlaying ? null : state.listenTogetherIdleSince || now;
+};
+
 export const useDreamMusicStore = create<DreamMusicStore>()(
   persist(
     (set) => ({
@@ -438,6 +448,7 @@ export const useDreamMusicStore = create<DreamMusicStore>()(
               queueTrackIds: [],
               currentTrackId: null,
               isPlaying: false,
+              listenTogetherIdleSince: resolveListenTogetherIdleSince(state, false),
               currentTimeSec: 0,
             };
           }
@@ -447,19 +458,25 @@ export const useDreamMusicStore = create<DreamMusicStore>()(
             queueTrackIds: readyQueue,
             currentTrackId: targetTrackId,
             isPlaying: true,
+            listenTogetherIdleSince: resolveListenTogetherIdleSince(state, true),
             currentTimeSec: 0,
           };
         }),
 
       togglePlayback: () =>
-        set((state) => ({
-          isPlaying: !state.isPlaying,
-        })),
+        set((state) => {
+          const nextIsPlaying = !state.isPlaying;
+          return {
+            isPlaying: nextIsPlaying,
+            listenTogetherIdleSince: resolveListenTogetherIdleSince(state, nextIsPlaying),
+          };
+        }),
 
       setPlaying: (isPlaying) =>
-        set({
+        set((state) => ({
           isPlaying,
-        }),
+          listenTogetherIdleSince: resolveListenTogetherIdleSince(state, isPlaying),
+        })),
 
       setVolume: (volume) =>
         set({
@@ -486,6 +503,7 @@ export const useDreamMusicStore = create<DreamMusicStore>()(
               queueTrackIds: [],
               currentTrackId: null,
               isPlaying: false,
+              listenTogetherIdleSince: resolveListenTogetherIdleSince(state, false),
               currentTimeSec: 0,
             };
           }
@@ -495,6 +513,7 @@ export const useDreamMusicStore = create<DreamMusicStore>()(
             return {
               queueTrackIds: readyQueue,
               isPlaying: false,
+              listenTogetherIdleSince: resolveListenTogetherIdleSince(state, false),
               currentTimeSec: 0,
             };
           }
@@ -503,6 +522,7 @@ export const useDreamMusicStore = create<DreamMusicStore>()(
             queueTrackIds: readyQueue,
             currentTrackId: nextTrackId,
             isPlaying: true,
+            listenTogetherIdleSince: resolveListenTogetherIdleSince(state, true),
             currentTimeSec: 0,
           };
         }),
@@ -515,6 +535,7 @@ export const useDreamMusicStore = create<DreamMusicStore>()(
               queueTrackIds: [],
               currentTrackId: null,
               isPlaying: false,
+              listenTogetherIdleSince: resolveListenTogetherIdleSince(state, false),
               currentTimeSec: 0,
             };
           }
@@ -524,6 +545,7 @@ export const useDreamMusicStore = create<DreamMusicStore>()(
             return {
               queueTrackIds: readyQueue,
               isPlaying: false,
+              listenTogetherIdleSince: resolveListenTogetherIdleSince(state, false),
               currentTimeSec: 0,
             };
           }
@@ -532,6 +554,7 @@ export const useDreamMusicStore = create<DreamMusicStore>()(
             queueTrackIds: readyQueue,
             currentTrackId: prevTrackId,
             isPlaying: true,
+            listenTogetherIdleSince: resolveListenTogetherIdleSince(state, true),
             currentTimeSec: 0,
           };
         }),
@@ -558,6 +581,7 @@ export const useDreamMusicStore = create<DreamMusicStore>()(
               status: 'pending',
               invitedAt: now,
             },
+            listenTogetherIdleSince: null,
           };
         }),
 
@@ -590,6 +614,7 @@ export const useDreamMusicStore = create<DreamMusicStore>()(
                   : now,
               acceptedAt: now,
             },
+            listenTogetherIdleSince: state.isPlaying ? null : now,
           };
         }),
 
@@ -600,6 +625,7 @@ export const useDreamMusicStore = create<DreamMusicStore>()(
             state.listenTogether
           ),
           listenTogether: null,
+          listenTogetherIdleSince: null,
         })),
 
     }),
@@ -618,6 +644,7 @@ export const useDreamMusicStore = create<DreamMusicStore>()(
         volume: state.volume,
         currentTimeSec: 0,
         listenTogether: state.listenTogether,
+        listenTogetherIdleSince: state.listenTogetherIdleSince,
         listenTogetherDurationsByCompanionId: state.listenTogetherDurationsByCompanionId,
         listenTogetherCompanionNamesById: state.listenTogetherCompanionNamesById,
       }),

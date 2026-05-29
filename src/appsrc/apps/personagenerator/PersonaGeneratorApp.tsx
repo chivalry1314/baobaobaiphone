@@ -23,8 +23,10 @@ import {
   addPersonaGeneratedWorldBookEntry,
   type PersonaGeneratedContactPayload,
 } from '../../shared/business/personagenerator/importBridge';
-import { renderPaperMagicText } from '../papermagic/promptCatalog';
-import { renderSkillArtifacts } from './skillTemplates';
+import {
+  renderPaperMagicPersonaSkillArtifacts,
+  renderPaperMagicText,
+} from '../papermagic/promptCatalog';
 
 interface PersonaGeneratorAppProps {
   onClose: () => void;
@@ -763,6 +765,17 @@ const buildModelExtractionPrompt = (params: {
   return [
     renderPaperMagicText('persona.extract.profile'),
     '',
+    '以下三段纸间魔法提示词必须共同参与本次人设生成：',
+    '',
+    '【生成人设-基本信息】',
+    renderPaperMagicText('persona.skill.intakeBasicInfo', { name: params.targetName }),
+    '',
+    '【记忆生成】',
+    renderPaperMagicText('persona.skill.memoriesGeneration', { name: params.targetName }),
+    '',
+    '【性格生成】',
+    renderPaperMagicText('persona.skill.personalityGeneration', { name: params.targetName }),
+    '',
     '如果存在 isSend 字段：isSend=1 是我发出的消息，isSend=0 是对方发来的消息。不要把我发出的内容当成目标人物的口吻。',
     'contact.name 必须优先使用 received 消息里的 speaker/senderDisplayName 或资料字段候选名；不要使用 sent 消息里的发送者姓名。',
     '人物性别不确定时，不要使用有性别指向的第三人称代词；除目标角色名外，避免写“和某某”这种具体人名关系，改用“和用户”“和对方”等概括表达。',
@@ -939,7 +952,7 @@ const buildGeneratedPersona = (
   const personaDescription = `${traitSummary}。${backgroundSummary}`;
   const greetingSample = targetLines.find((line) => line.content.length >= 2 && line.content.length <= 36)?.content
     || samples.find((sample) => sample.length >= 2 && sample.length <= 36);
-  const skill = renderSkillArtifacts({
+  const skill = renderPaperMagicPersonaSkillArtifacts({
     name: generatedName,
     generatedAt,
     parsedLines: lines.length,
@@ -1123,13 +1136,12 @@ export const PersonaGeneratorApp: React.FC<PersonaGeneratorAppProps> = ({ onClos
       setStatus(`已通过主模型生成 ${next.contact.name} 的人物信息、世界书和记忆中心。`);
     } catch (error) {
       const message = error instanceof Error ? error.message : '';
+      setResult(null);
       if (message === 'missing-chat-settings') {
         setStatus('请先在设置里填写主模型 API Key、Base URL 和模型名。');
         return;
       }
-      const fallback = buildGeneratedPersona(trimmed, fileName, undefined, activeTargetName);
-      setResult(fallback);
-      setStatus(`主模型调用失败（${summarizeErrorMessage(error)}），已使用本地兜底提取：${fallback.contact.name}`);
+      setStatus(`主模型调用失败（${summarizeErrorMessage(error)}），未生成人设。请检查模型配置或稍后重试。`);
     } finally {
       setIsGenerating(false);
     }

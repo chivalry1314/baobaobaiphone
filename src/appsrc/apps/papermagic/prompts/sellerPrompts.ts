@@ -1,0 +1,57 @@
+import type { PaperMagicPrompt } from '../types';
+import { definePaperMagicPrompt } from './definePaperMagicPrompt';
+
+export const SELLER_PROMPTS: PaperMagicPrompt[] = [
+  definePaperMagicPrompt({
+    id: 'seller.productDrafts',
+    moduleId: 'commerce-life',
+    title: '开店吧：AI 商品生成',
+    source: 'src/appsrc/apps/seller/aiProductGenerator.ts',
+    kind: 'chat',
+    description: '为店铺生成可上架商品 JSON，并生成商品主图提示词。',
+    system: '你是电商选品与上架策划助手。你只输出 JSON 数组，不要解释，不要 Markdown，不要额外文本。',
+    user: '请为一个${storeKindLabel}生成 ${count} 个可直接上架的商品。\n店铺名称：${storeTitle}\n店铺类型：${storeType}\n店铺描述：${storeDescription}\n候选类目：${categoryList}\n\n请只返回 JSON 数组。每个元素结构必须是：\n{"title":"商品标题","category":"类目","price":39.9,"stock":88,"desc":"商品描述","imagePrompt":"生图提示词"}\n\n要求：\n1. 商品必须适合这个店铺，风格统一但彼此有明显区分。如果是电影院，只需要电影票，而不是周边商品。\n2. title 为 6-24 个中文字符，避免重复。\n3. category 优先从候选类目中选择，没有合适时可给出一个合理新类目。\n4. price 必须是正数，stock 必须是正整数。\n5. desc 控制在 18-60 个中文字符，适合发布商品页直接使用。\n6. imagePrompt 用中文写，适合生成电商商品主图，要具体描述商品主体、材质/口感/花材/海报氛围、构图和背景。\n7. 只输出 JSON 数组。',
+    variables: ['storeKindLabel', 'count', 'storeTitle', 'storeType', 'storeDescription', 'categoryList'],
+  }),
+  definePaperMagicPrompt({
+    id: 'seller.productImageFallback.movie',
+    moduleId: 'commerce-life',
+    title: '开店吧：电影票主图兜底提示词',
+    source: 'src/appsrc/apps/seller/aiProductGenerator.ts',
+    kind: 'image',
+    content: '电影票务海报，影片主题：${title}，类目：${category}，影院售票应用商品封面，视觉精致，商业海报风格，高清',
+    description: '商品缺少 imagePrompt 时的电影票兜底生图提示词。',
+    variables: ['title', 'category'],
+  }),
+  definePaperMagicPrompt({
+    id: 'seller.productImageFallback.flower',
+    moduleId: 'commerce-life',
+    title: '开店吧：鲜花主图兜底提示词',
+    source: 'src/appsrc/apps/seller/aiProductGenerator.ts',
+    kind: 'image',
+    content: '电商鲜花商品主图，商品名：${title}，类目：${category}，花束近景，纯净背景，礼盒包装，高级感，高清',
+    description: '商品缺少 imagePrompt 时的鲜花兜底生图提示词。',
+    variables: ['title', 'category'],
+  }),
+  definePaperMagicPrompt({
+    id: 'seller.productImageFallback.dessert',
+    moduleId: 'commerce-life',
+    title: '开店吧：甜品主图兜底提示词',
+    source: 'src/appsrc/apps/seller/aiProductGenerator.ts',
+    kind: 'image',
+    content: '电商甜品商品主图，商品名：${title}，类目：${category}，食物近景，干净背景，质感布光，高清',
+    description: '商品缺少 imagePrompt 时的甜品兜底生图提示词。',
+    variables: ['title', 'category'],
+  }),
+  definePaperMagicPrompt({
+    id: 'seller.buyerAutoReply',
+    moduleId: 'commerce-life',
+    title: '开店吧：买家自动回复',
+    source: 'src/appsrc/apps/seller/components/SellerStoreManagePage.tsx',
+    kind: 'chat',
+    description: '店主发消息后，模拟买家自然回复。',
+    system: 'You are a buyer in a shopping platform chat. Reply naturally and avoid repeated questions. If context contains order id, product name, or amount, mention them explicitly and avoid ambiguous pronouns like this/that/it. Keep within 80 Chinese characters.',
+    user: 'Recent conversation:\n${recentConversation}\n\nLatest seller message: ${sellerMessage}\n\nReply as the buyer with clear and unambiguous wording.',
+    variables: ['recentConversation', 'sellerMessage'],
+  }),
+];

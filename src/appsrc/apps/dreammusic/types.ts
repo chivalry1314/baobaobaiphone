@@ -76,6 +76,7 @@ export interface DreamMusicState {
   volume: number;
   currentTimeSec: number;
   listenTogether: DreamListenTogetherState | null;
+  listenTogetherIdleSince: number | null;
   listenTogetherDurationsByCompanionId: Record<string, number>;
   listenTogetherCompanionNamesById: Record<string, string>;
 }

@@ -41,6 +41,7 @@ const isBottomTabView = (view: AppViewId): view is BottomTabId =>
   view === 'home' || view === 'search' || view === 'notes' || view === 'mine';
 
 const RECENT_MEMORY_SYNC_INTERVAL_MS = 2 * 60 * 1000;
+const LISTEN_TOGETHER_IDLE_TIMEOUT_MS = 30 * 60 * 1000;
 
 export const DreamMusicApp: React.FC<DreamMusicAppProps> = ({ onClose }) => {
   const activeRoleId = useActiveRoleId();
@@ -69,6 +70,7 @@ export const DreamMusicApp: React.FC<DreamMusicAppProps> = ({ onClose }) => {
     volume,
     currentTimeSec,
     listenTogether,
+    listenTogetherIdleSince,
     listenTogetherDurationsByCompanionId,
     listenTogetherCompanionNamesById,
     setQueueAndPlay,
@@ -255,6 +257,20 @@ export const DreamMusicApp: React.FC<DreamMusicAppProps> = ({ onClose }) => {
     listenTogetherMemorySignatureRef.current = signature;
   }, [activeRoleId, listenTogetherCompanionNamesById, listenTogetherDurationsByCompanionId]);
 
+  useEffect(() => {
+    if (listenTogether?.status !== 'active' || !listenTogetherIdleSince || isPlaying) return undefined;
+
+    const clearIfIdleTooLong = () => {
+      if (Date.now() - listenTogetherIdleSince < LISTEN_TOGETHER_IDLE_TIMEOUT_MS) return;
+      clearListenTogether();
+      setUiMessage('超过半小时没有听歌，已自动退出一起听歌。');
+    };
+
+    clearIfIdleTooLong();
+    const timer = window.setInterval(clearIfIdleTooLong, 30 * 1000);
+    return () => window.clearInterval(timer);
+  }, [clearListenTogether, isPlaying, listenTogether?.status, listenTogetherIdleSince]);
+
   const { lyricLines, activeLyricIndex, isLyricLoading } = useTrackLyrics({
     currentTrack,
     currentTimeSec,
@@ -388,6 +404,12 @@ export const DreamMusicApp: React.FC<DreamMusicAppProps> = ({ onClose }) => {
   };
 
   const handleInviteContact = (contactId: string) => {
+    if (listenTogether?.status === 'active') {
+      setIsInviteSheetOpen(false);
+      setUiMessage('在听歌中，暂时无法邀请。');
+      return;
+    }
+
     const contact = inviteContacts.find((item) => item.id === contactId);
     if (!contact) {
       setUiMessage('未找到可邀请的联系人。');
