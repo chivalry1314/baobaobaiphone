@@ -1151,14 +1151,7 @@ export const PersonaGeneratorApp: React.FC<PersonaGeneratorAppProps> = ({ onClos
     if (!result) return;
     const createdContact = addPersonaGeneratedContact(result.contact);
     result.worldBookEntries.forEach((entry) => {
-      addPersonaGeneratedWorldBookEntry({
-        name: entry.name,
-        keywords: entry.keywords,
-        content: entry.content,
-        triggerMode: entry.triggerMode,
-        insertionOrder: entry.insertionOrder,
-        scope: entry.scope,
-      });
+      addPersonaGeneratedWorldBookEntry(entry);
     });
     importAppMemoryRecords(
       result.memoryRecords.map((record) => ({

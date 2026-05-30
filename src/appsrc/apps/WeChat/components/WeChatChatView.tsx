@@ -320,17 +320,23 @@ const WECHAT_DEFAULT_EMOJI_TEXT_MAP: Record<string, string> = {
   表情: '',
   冷笑: '[冷笑]',
   奸笑: '[冷笑]',
+  旺柴: '[冷笑]',
+  狗头: '[冷笑]',
+  斜眼笑: '[冷笑]',
   流泪: '[流泪]',
   哭: '[流泪]',
   大哭: '[大哭]',
   大笑: '[大笑]',
   笑: '[大笑]',
+  破涕为笑: '[大笑]',
   发怒: '[发怒]',
   生气: '[发怒]',
   酷: '[酷]',
   爱心: '[爱心]',
+  红心: '[爱心]',
   点赞: '[点赞]',
   赞: '[点赞]',
+  强: '[点赞]',
   害羞: '[害羞]',
   震惊: '[震惊]',
   惊讶: '[震惊]',
@@ -351,11 +357,17 @@ const normalizeAssistantEmojiText = (content: string): string =>
       const name = rawName.trim();
       return Object.prototype.hasOwnProperty.call(WECHAT_DEFAULT_EMOJI_TEXT_MAP, name)
         ? WECHAT_DEFAULT_EMOJI_TEXT_MAP[name]
-        : match;
+        : '';
     })
     .replace(/[ \t]+\n/g, '\n')
     .replace(/\n{3,}/g, '\n\n')
     .trim();
+
+const splitAssistantBurstMessages = (content: string): string[] =>
+  content
+    .split('||')
+    .map((message) => normalizeAssistantEmojiText(message))
+    .filter((message) => message && message !== '[NO_REPLY]');
 
 const explainWeChatEmojiText = (content: string): string => {
   const onlineGifNames = Array.from(content.matchAll(/\[gif:([^:\]]+):[^\]]+\]/g))
@@ -2051,6 +2063,7 @@ export const WeChatChatView: React.FC<WeChatChatViewProps> = ({
       const systemPrompt = buildCharacterSystemPrompt(
         'chat',
         [
+          renderPaperMagicText('wechat.chat.reply', { characterName: character.name }),
           renderPaperMagicText('wechat.chat.orderRequestDecision'),
           renderPaperMagicText('wechat.chat.listenTogetherDecision'),
           renderPaperMagicText('wechat.chat.movieTicketDecision'),
@@ -2087,7 +2100,7 @@ export const WeChatChatView: React.FC<WeChatChatViewProps> = ({
 
         const { action, content } = parseAssistantOrderDecision(replyContentRaw);
         const replyContent =
-          normalizeAssistantEmojiText(content) ||
+          content ||
           (action === 'accepted'
             ? '行，这单我来付。'
             : action === 'rejected'
@@ -2108,13 +2121,16 @@ export const WeChatChatView: React.FC<WeChatChatViewProps> = ({
           }
         }
 
-        if (!replyContent) return;
-        const replyMessage = await buildCharacterReplyMessage(replyContent);
-        addWeChatMessage(sessionId, replyMessage);
-        if (replyMessage.type === 'voice' && replyMessage.voiceAudioDataUrl) {
-          void playVoiceFromMessage(replyMessage.voiceAudioDataUrl);
-        } else {
-          void playVoiceReply(replyContent);
+        const replyMessages = splitAssistantBurstMessages(replyContent);
+        if (replyMessages.length === 0) return;
+        for (const messageContent of replyMessages) {
+          const replyMessage = await buildCharacterReplyMessage(messageContent);
+          addWeChatMessage(sessionId, replyMessage);
+          if (replyMessage.type === 'voice' && replyMessage.voiceAudioDataUrl) {
+            void playVoiceFromMessage(replyMessage.voiceAudioDataUrl);
+          } else {
+            void playVoiceReply(messageContent);
+          }
         }
       }
     } catch (e) {
@@ -2366,7 +2382,10 @@ export const WeChatChatView: React.FC<WeChatChatViewProps> = ({
     try {
       const systemPrompt = buildCharacterSystemPrompt(
         'chat',
-        renderPaperMagicText('wechat.chat.transferDecision', { amount })
+        [
+          renderPaperMagicText('wechat.chat.reply', { characterName: character.name }),
+          renderPaperMagicText('wechat.chat.transferDecision', { amount }),
+        ].filter(Boolean).join('\n\n')
       );
 
       const response = await fetch(`${settings.baseUrl}/chat/completions`, {
@@ -2386,14 +2405,16 @@ export const WeChatChatView: React.FC<WeChatChatViewProps> = ({
         addWeChatMessage(sessionId, { role: 'character', content: `已收款 ¥${amount.toFixed(2)}`, type: 'transfer_accepted', amount });
         replyContent = replyContent.replace('【接收转账】', '').trim();
       }
-      replyContent = normalizeAssistantEmojiText(replyContent);
-      if (replyContent) {
-        const replyMessage = await buildCharacterReplyMessage(replyContent);
-        addWeChatMessage(sessionId, replyMessage);
-        if (replyMessage.type === 'voice' && replyMessage.voiceAudioDataUrl) {
-          void playVoiceFromMessage(replyMessage.voiceAudioDataUrl);
-        } else {
-          void playVoiceReply(replyContent);
+      const replyMessages = splitAssistantBurstMessages(replyContent);
+      if (replyMessages.length > 0) {
+        for (const messageContent of replyMessages) {
+          const replyMessage = await buildCharacterReplyMessage(messageContent);
+          addWeChatMessage(sessionId, replyMessage);
+          if (replyMessage.type === 'voice' && replyMessage.voiceAudioDataUrl) {
+            void playVoiceFromMessage(replyMessage.voiceAudioDataUrl);
+          } else {
+            void playVoiceReply(messageContent);
+          }
         }
       }
     } catch (e) { addWeChatMessage(sessionId, { role: 'character', content: '[系统提示：AI连接失败]' }); } 

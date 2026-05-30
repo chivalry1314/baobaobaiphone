@@ -6,7 +6,7 @@ import { createWorldBookPersistOptions } from './storePersistRepo';
 export interface WorldBookStoreState {
   worldBook: WorldInfoEntry[];
   setWorldBook: (entries: WorldInfoEntry[]) => void;
-  addWorldEntry: (entry: Omit<WorldInfoEntry, 'id'>) => void;
+  addWorldEntry: (entry: Omit<WorldInfoEntry, 'id'> | WorldInfoEntry) => void;
   updateWorldEntry: (id: string, entry: Partial<WorldInfoEntry>) => void;
   deleteWorldEntry: (id: string) => void;
 }
@@ -32,7 +32,7 @@ export const useWorldBookCoreStore = create<WorldBookStoreState>()(
 
       addWorldEntry: (entry) =>
         set((state) => ({
-          worldBook: [...state.worldBook, { ...entry, id: generateId() }],
+          worldBook: [...state.worldBook, { ...entry, id: 'id' in entry && entry.id ? entry.id : generateId() }],
         })),
 
       updateWorldEntry: (id, updatedEntry) =>

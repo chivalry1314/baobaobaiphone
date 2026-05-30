@@ -272,9 +272,11 @@ export const PaperMagicApp: React.FC<AppProps> = ({ onClose }) => {
     return deltaX < 0 ? 1 : -1;
   };
 
+  const isEditableGestureTarget = (target: EventTarget | null): boolean =>
+    target instanceof HTMLElement && Boolean(target.closest('textarea, input, select, button, a, [role="button"], [contenteditable="true"]'));
+
   const handleBookTouchStartCapture = (event: React.TouchEvent<HTMLElement>) => {
-    const target = event.target as HTMLElement;
-    if (target.closest('input, button, a, [role="button"]')) return;
+    if (isEditableGestureTarget(event.target)) return;
     const touch = event.touches[0];
     if (!touch) return;
     bookTouchStartRef.current = { x: touch.clientX, y: touch.clientY };
@@ -299,8 +301,7 @@ export const PaperMagicApp: React.FC<AppProps> = ({ onClose }) => {
   };
 
   const handleBookMouseDownCapture = (event: React.MouseEvent<HTMLElement>) => {
-    const target = event.target as HTMLElement;
-    if (target.closest('input, button, a, [role="button"]')) return;
+    if (isEditableGestureTarget(event.target)) return;
     event.preventDefault();
     bookMouseStartRef.current = { x: event.clientX, y: event.clientY };
     bookMouseHandledRef.current = false;
@@ -361,6 +362,7 @@ export const PaperMagicApp: React.FC<AppProps> = ({ onClose }) => {
     if (!stage) return undefined;
 
     const handleTouchMove = (event: TouchEvent) => {
+      if (isEditableGestureTarget(event.target)) return;
       const start = bookTouchStartRef.current;
       const touch = event.touches[0];
       if (!start || !touch) return;

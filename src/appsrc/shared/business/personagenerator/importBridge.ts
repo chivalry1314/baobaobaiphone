@@ -22,7 +22,7 @@ export type PersonaImportedContact = {
 };
 
 type PersonaContactImporter = (payload: PersonaGeneratedContactPayload) => PersonaImportedContact;
-type PersonaWorldBookImporter = (entry: Omit<WorldInfoEntry, 'id'>) => void;
+type PersonaWorldBookImporter = (entry: WorldInfoEntry) => void;
 
 let importPersonaContact: PersonaContactImporter = (payload) => ({
   id: payload.id || '',
@@ -50,7 +50,7 @@ export const addPersonaGeneratedContact = (
 ): PersonaImportedContact => importPersonaContact(payload);
 
 export const addPersonaGeneratedWorldBookEntry = (
-  entry: Omit<WorldInfoEntry, 'id'>
+  entry: WorldInfoEntry
 ): void => {
   importPersonaWorldBookEntry(entry);
 };
