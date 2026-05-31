@@ -185,10 +185,33 @@ export const DailyWordsApp: React.FC<DailyWordsAppProps> = ({ onClose, context }
   const editorPageStyle = useMobileViewportPageStyle(false);
   const shouldHideEditorFooter = useKeyboardTextEntryActive(isEditorOpen);
   const editorScrollRef = React.useRef<HTMLElement | null>(null);
+  const sealViewportHeightRef = React.useRef<number | null>(null);
+  const [sealKeyboardOffset, setSealKeyboardOffset] = useState(0);
   useKeyboardViewportStabilizer(isEditorOpen, editorScrollRef, {
     topPadding: FIELD_FOCUS_TOP_PADDING,
     bottomPadding: 28,
   });
+
+  useEffect(() => {
+    if (typeof window === 'undefined') return undefined;
+    sealViewportHeightRef.current = window.innerHeight;
+
+    const syncSealPosition = () => {
+      const baseHeight = sealViewportHeightRef.current || window.innerHeight;
+      const currentHeight = window.visualViewport?.height || window.innerHeight;
+      const keyboardOffset = Math.max(0, Math.round(baseHeight - currentHeight));
+      setSealKeyboardOffset(keyboardOffset);
+    };
+
+    window.visualViewport?.addEventListener('resize', syncSealPosition);
+    window.visualViewport?.addEventListener('scroll', syncSealPosition);
+    window.addEventListener('resize', syncSealPosition);
+    return () => {
+      window.visualViewport?.removeEventListener('resize', syncSealPosition);
+      window.visualViewport?.removeEventListener('scroll', syncSealPosition);
+      window.removeEventListener('resize', syncSealPosition);
+    };
+  }, []);
 
   const handleOpenCreateEditor = () => {
     if (isReadOnlyMode) return;
@@ -469,7 +492,11 @@ export const DailyWordsApp: React.FC<DailyWordsAppProps> = ({ onClose, context }
         <button
           type="button"
           onClick={handleOpenCreateEditor}
-          className="absolute left-1/2 bottom-8 z-[90] h-14 w-14 -translate-x-1/2 rounded-full bg-[radial-gradient(circle_at_34%_25%,#dc4a43_0%,#b91c1c_45%,#7f1d1d_78%,#4b0b0b_100%)] text-red-100 shadow-[inset_0_3px_5px_rgba(255,255,255,0.3),inset_0_-8px_12px_rgba(69,10,10,0.58)] grid place-items-center active:scale-95 transition-transform"
+          className="fixed left-1/2 z-[90] h-14 w-14 -translate-x-1/2 rounded-full bg-[radial-gradient(circle_at_34%_25%,#dc4a43_0%,#b91c1c_45%,#7f1d1d_78%,#4b0b0b_100%)] text-red-100 shadow-[inset_0_3px_5px_rgba(255,255,255,0.3),inset_0_-8px_12px_rgba(69,10,10,0.58)] grid place-items-center active:scale-95 transition-transform"
+          style={{
+            bottom: 'calc(env(safe-area-inset-bottom, 0px) + 32px)',
+            transform: `translate(-50%, ${sealKeyboardOffset}px)`,
+          }}
           aria-label="添加日记"
         >
           <span className="absolute inset-0 rounded-full bg-[radial-gradient(circle_at_34%_24%,#d9463f_0%,#b91c1c_44%,#7f1d1d_80%,#4b0b0b_100%)]" />

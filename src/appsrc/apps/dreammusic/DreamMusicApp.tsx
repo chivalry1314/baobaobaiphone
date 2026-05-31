@@ -7,7 +7,7 @@ import { DEFAULT_ACTIVE_ROLE_ID, useActiveRoleId } from '../contacts/activeRole'
 import { useContactsStore } from '../contacts/store';
 import { useRoleDisplayNameBridge } from '../../shared/business/contacts/roleDisplayNameBridge';
 import { useWeChatStore } from '../WeChat/store';
-import { getDreamMusicBackgroundAudio } from './backgroundAudio';
+import { getDreamMusicBackgroundAudio, playDreamMusicAudioFromGesture } from './backgroundAudio';
 import { AppDock, AppHeader } from './components';
 import { useDreamMusicCommentsStore } from './commentsStore';
 import { useDreamMusicAudio, useDreamMusicDerived, useTrackLyrics } from './hooks';
@@ -645,7 +645,23 @@ export const DreamMusicApp: React.FC<DreamMusicAppProps> = ({ onClose }) => {
         return;
       }
       setQueueAndPlay(playableTrackIds, firstTrackId);
+      const firstTrack = trackById.get(firstTrackId);
+      if (firstTrack?.playUrl) {
+        void playDreamMusicAudioFromGesture({
+          trackId: firstTrack.id,
+          playUrl: firstTrack.playUrl,
+          volume,
+        }).catch(() => setPlaying(false));
+      }
       return;
+    }
+    if (!isPlaying && currentPlayableTrack?.playUrl) {
+      void playDreamMusicAudioFromGesture({
+        trackId: currentPlayableTrack.id,
+        playUrl: currentPlayableTrack.playUrl,
+        volume,
+        resetTime: false,
+      }).catch(() => setPlaying(false));
     }
     togglePlayback();
   };

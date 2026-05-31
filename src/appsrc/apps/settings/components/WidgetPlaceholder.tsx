@@ -1,5 +1,6 @@
 import React from 'react';
 import { Clock, Pause, Play, SkipBack, SkipForward } from 'lucide-react';
+import { playDreamMusicAudioFromGesture } from '../../dreammusic/backgroundAudio';
 import { useTrackLyrics } from '../../dreammusic/hooks';
 import { useDreamMusicStore } from '../../dreammusic/store';
 import { useWeChatStore } from '../../WeChat/store';
@@ -502,6 +503,8 @@ export const WidgetPlaceholder: React.FC<WidgetPlaceholderProps> = ({
   const dreamCurrentTrackId = useDreamMusicStore((state) => state.currentTrackId);
   const dreamIsPlaying = useDreamMusicStore((state) => state.isPlaying);
   const dreamCurrentTimeSec = useDreamMusicStore((state) => state.currentTimeSec);
+  const dreamVolume = useDreamMusicStore((state) => state.volume);
+  const dreamSetPlaying = useDreamMusicStore((state) => state.setPlaying);
   const dreamTogglePlayback = useDreamMusicStore((state) => state.togglePlayback);
   const dreamPlayNext = useDreamMusicStore((state) => state.playNext);
   const dreamPlayPrev = useDreamMusicStore((state) => state.playPrev);
@@ -524,8 +527,25 @@ export const WidgetPlaceholder: React.FC<WidgetPlaceholderProps> = ({
   const runDreamMusicAction = React.useCallback((action: unknown) => {
     if (action === 'togglePlayback') {
       if (!dreamCurrentTrackId && dreamPlayableTrackIds.length > 0) {
-        dreamSetQueueAndPlay(dreamPlayableTrackIds, dreamPlayableTrackIds[0]);
+        const firstTrackId = dreamPlayableTrackIds[0];
+        dreamSetQueueAndPlay(dreamPlayableTrackIds, firstTrackId);
+        const firstTrack = dreamTracks.find((track) => track.id === firstTrackId);
+        if (firstTrack?.playUrl) {
+          void playDreamMusicAudioFromGesture({
+            trackId: firstTrack.id,
+            playUrl: firstTrack.playUrl,
+            volume: dreamVolume,
+          }).catch(() => dreamSetPlaying(false));
+        }
         return;
+      }
+      if (!dreamIsPlaying && dreamCurrentTrack?.playUrl) {
+        void playDreamMusicAudioFromGesture({
+          trackId: dreamCurrentTrack.id,
+          playUrl: dreamCurrentTrack.playUrl,
+          volume: dreamVolume,
+          resetTime: false,
+        }).catch(() => dreamSetPlaying(false));
       }
       dreamTogglePlayback();
       return;
@@ -547,11 +567,16 @@ export const WidgetPlaceholder: React.FC<WidgetPlaceholderProps> = ({
     }
   }, [
     dreamCurrentTrackId,
+    dreamCurrentTrack,
+    dreamIsPlaying,
     dreamPlayNext,
     dreamPlayPrev,
     dreamPlayableTrackIds,
     dreamSetQueueAndPlay,
+    dreamSetPlaying,
     dreamTogglePlayback,
+    dreamTracks,
+    dreamVolume,
   ]);
   const listenTogetherBarHeights = React.useMemo(
     () => buildListenTogetherBarHeights(dreamIsPlaying, listenTogetherTick),

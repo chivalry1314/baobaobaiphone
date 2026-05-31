@@ -104,8 +104,8 @@ export const RolePhoneDesktopPage: React.FC<RolePhoneDesktopPageProps> = ({
       <button
         type="button"
         onClick={onClearPhone}
-        className="absolute left-5 z-20 flex h-10 w-10 items-center justify-center rounded-full border border-red-200/80 bg-white/82 text-red-500 shadow-[0_12px_28px_-20px_rgba(15,23,42,0.55)] backdrop-blur-xl active:bg-red-50"
-        style={{ bottom: 'calc(env(safe-area-inset-bottom, 0px) + 22px)' }}
+        className="absolute left-10 z-20 flex h-10 w-10 items-center justify-center rounded-full border border-red-200/80 bg-white/82 text-red-500 shadow-[0_12px_28px_-20px_rgba(15,23,42,0.55)] backdrop-blur-xl active:bg-red-50"
+        style={{ bottom: 'calc(env(safe-area-inset-bottom, 0px) + 52px)' }}
         aria-label="一键清除"
         title="一键清除"
       >
@@ -113,7 +113,7 @@ export const RolePhoneDesktopPage: React.FC<RolePhoneDesktopPageProps> = ({
       </button>
 
       {isClearPickerOpen ? (
-        <div className="absolute inset-0 z-[80] flex items-end bg-slate-950/18 px-4 pb-5 backdrop-blur-[2px]">
+        <div className="absolute inset-0 z-[80] flex items-end bg-slate-950/18 px-4 backdrop-blur-[2px]" style={{ paddingBottom: 'calc(env(safe-area-inset-bottom, 0px) + 34px)' }}>
           <div className="w-full rounded-[26px] border border-white/70 bg-white/95 p-4 shadow-[0_24px_60px_-32px_rgba(15,23,42,0.75)]">
             <div className="mb-3 px-1">
               <h3 className="text-[16px] font-semibold text-slate-900">选择要清除的内容</h3>

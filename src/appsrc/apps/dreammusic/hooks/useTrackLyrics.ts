@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useRef, useState } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 import type { DreamTrack } from '../types';
 import { fetchTimedLyrics, parseTimedLyricsText, type TimedLyricLine } from '../services/lyrics';
 import { buildFallbackLyrics } from '../utils';
@@ -8,6 +8,9 @@ interface UseTrackLyricsInput {
   currentTimeSec: number;
   effectiveDurationSec: number;
 }
+
+const trackLyricCache = new Map<string, TimedLyricLine[] | null>();
+const trackLyricRequestCache = new Map<string, Promise<TimedLyricLine[] | null>>();
 
 const findActiveTimedLyricIndex = (lines: TimedLyricLine[], currentMs: number): number => {
   if (lines.length === 0) return -1;
@@ -38,7 +41,6 @@ export const useTrackLyrics = ({
 }: UseTrackLyricsInput) => {
   const [timedLyricLines, setTimedLyricLines] = useState<TimedLyricLine[] | null>(null);
   const [isLyricLoading, setIsLyricLoading] = useState(false);
-  const lyricCacheRef = useRef<Map<string, TimedLyricLine[] | null>>(new Map());
 
   const trackLyricSignature = useMemo(() => {
     if (!currentTrack) return '';
@@ -59,7 +61,7 @@ export const useTrackLyrics = ({
       return;
     }
 
-    const cached = lyricCacheRef.current.get(trackLyricSignature);
+    const cached = trackLyricCache.get(trackLyricSignature);
     if (cached !== undefined) {
       setTimedLyricLines(cached);
       setIsLyricLoading(false);
@@ -71,22 +73,26 @@ export const useTrackLyrics = ({
     const resolveLyrics = async () => {
       setIsLyricLoading(true);
       try {
-        const inlineText = currentTrack.lyrics?.join('\n') ?? '';
-        const inlineTimedLines = parseTimedLyricsText(inlineText);
-        if (inlineTimedLines.length > 0) {
-          if (isCancelled) return;
-          lyricCacheRef.current.set(trackLyricSignature, inlineTimedLines);
-          setTimedLyricLines(inlineTimedLines);
-          return;
+        let lyricPromise = trackLyricRequestCache.get(trackLyricSignature);
+        if (!lyricPromise) {
+          lyricPromise = (async () => {
+            const inlineText = currentTrack.lyrics?.join('\n') ?? '';
+            const inlineTimedLines = parseTimedLyricsText(inlineText);
+            if (inlineTimedLines.length > 0) return inlineTimedLines;
+            return fetchTimedLyrics(currentTrack);
+          })();
+          trackLyricRequestCache.set(trackLyricSignature, lyricPromise);
         }
 
-        const fetched = await fetchTimedLyrics(currentTrack);
+        const fetched = await lyricPromise;
+        trackLyricCache.set(trackLyricSignature, fetched);
+        trackLyricRequestCache.delete(trackLyricSignature);
         if (isCancelled) return;
-        lyricCacheRef.current.set(trackLyricSignature, fetched);
         setTimedLyricLines(fetched);
       } catch {
+        trackLyricCache.set(trackLyricSignature, null);
+        trackLyricRequestCache.delete(trackLyricSignature);
         if (isCancelled) return;
-        lyricCacheRef.current.set(trackLyricSignature, null);
         setTimedLyricLines(null);
       } finally {
         if (!isCancelled) setIsLyricLoading(false);
