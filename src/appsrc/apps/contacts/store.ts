@@ -4,6 +4,7 @@ import type {
   AddCallRecordPayload,
   AddContactPayload,
   AddMyCardPayload,
+  CallRecord,
   Contact,
   ContactsState,
   MyCard,
@@ -26,6 +27,8 @@ export interface ContactsStore extends ContactsState {
   updateContact: (id: string, payload: Partial<AddContactPayload>) => void;
   deleteContact: (id: string) => void;
   addCallRecord: (payload: AddCallRecordPayload) => void;
+  importInspectorCallRecords: (sourceContactId: string, records: CallRecord[]) => void;
+  clearInspectorCallRecords: (sourceContactId: string) => void;
   deleteCallRecord: (id: string) => void;
   clearCallRecords: () => void;
 }

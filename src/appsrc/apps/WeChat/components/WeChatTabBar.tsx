@@ -3,9 +3,14 @@ import { MessageCircle, Users, Compass, User } from 'lucide-react';
 import { WeChatTabBarProps } from '../types';
 import { useIncomingRequestContacts } from '../contactAdapter';
 
-export const WeChatTabBar: React.FC<WeChatTabBarProps> = ({ activeTab, onTabChange }) => {
+export const WeChatTabBar: React.FC<WeChatTabBarProps> = ({
+  activeTab,
+  onTabChange,
+  unreadChatCount = 0,
+}) => {
   const incomingRequests = useIncomingRequestContacts();
   const newFriendsCount = incomingRequests.length;
+  const normalizedUnreadChatCount = Math.max(0, Math.floor(Number(unreadChatCount) || 0));
 
   const tabs = [
     { key: 'chat', icon: MessageCircle, label: '微信' },
@@ -27,6 +32,11 @@ export const WeChatTabBar: React.FC<WeChatTabBarProps> = ({ activeTab, onTabChan
           >
             <span className="relative">
               <Icon size={22} />
+              {key === 'chat' && normalizedUnreadChatCount > 0 ? (
+                <span className="absolute -right-3 -top-2 min-w-[16px] h-4 rounded-full bg-[#FA5151] px-1 text-[10px] leading-4 text-white text-center">
+                  {normalizedUnreadChatCount > 99 ? '99+' : normalizedUnreadChatCount}
+                </span>
+              ) : null}
               {key === 'contacts' && newFriendsCount > 0 ? (
                 <span className="absolute -right-3 -top-2 min-w-[16px] h-4 rounded-full bg-[#FA5151] px-1 text-[10px] leading-4 text-white text-center">
                   {newFriendsCount > 99 ? '99+' : newFriendsCount}

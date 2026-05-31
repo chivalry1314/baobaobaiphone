@@ -1,5 +1,5 @@
 import React from 'react';
-import { Unplug } from 'lucide-react';
+import { RefreshCw, Trash2, Unplug } from 'lucide-react';
 import { AppIcon } from '../../../../components/AppIcon';
 
 export interface InspectablePhoneApp {
@@ -10,16 +10,32 @@ export interface InspectablePhoneApp {
 
 interface RolePhoneDesktopPageProps {
   contactName: string;
+  generationStatus?: string;
+  isReading?: boolean;
   inspectableApps: InspectablePhoneApp[];
+  clearTargetApps?: InspectablePhoneApp[];
+  isClearPickerOpen?: boolean;
   onBackToRoles: () => void;
+  onReconnect: () => void;
+  onClearPhone: () => void;
+  onCancelClearPhone?: () => void;
+  onClearApp?: (appId: string) => void;
   onOpenSubApp: (appId: string) => void;
   children?: React.ReactNode;
 }
 
 export const RolePhoneDesktopPage: React.FC<RolePhoneDesktopPageProps> = ({
   contactName,
+  generationStatus,
+  isReading = false,
   inspectableApps,
+  clearTargetApps = inspectableApps,
+  isClearPickerOpen = false,
   onBackToRoles,
+  onReconnect,
+  onClearPhone,
+  onCancelClearPhone,
+  onClearApp,
   onOpenSubApp,
   children,
 }) => {
@@ -34,10 +50,24 @@ export const RolePhoneDesktopPage: React.FC<RolePhoneDesktopPageProps> = ({
         <div className="mb-5 flex items-center gap-3">
           <div className="flex-1 rounded-2xl border border-sky-200 bg-white/90 px-4 py-3 text-[13px] text-slate-700 shadow-[0_10px_24px_-20px_rgba(14,116,144,0.4)]">
             当前正在查看 <span className="font-semibold">{contactName}</span> 的手机桌面
+            {generationStatus ? (
+              <div className="mt-1 text-[12px] text-slate-500">{generationStatus}</div>
+            ) : null}
           </div>
           <button
             type="button"
+            onClick={onReconnect}
+            disabled={isReading}
+            className="shrink-0 flex h-9 w-9 items-center justify-center rounded-full border border-sky-200/90 bg-white/90 text-sky-700 shadow-[0_10px_24px_-18px_rgba(15,23,42,0.45)] backdrop-blur active:bg-sky-50"
+            aria-label="重新连接"
+            title="重新连接"
+          >
+            <RefreshCw size={15} />
+          </button>
+          <button
+            type="button"
             onClick={onBackToRoles}
+            disabled={isReading}
             className="shrink-0 flex h-9 w-9 items-center justify-center rounded-full border border-slate-200/90 bg-white/90 text-slate-700 shadow-[0_10px_24px_-18px_rgba(15,23,42,0.45)] backdrop-blur active:bg-slate-100"
             aria-label="断开连接"
             title="断开连接"
@@ -46,18 +76,72 @@ export const RolePhoneDesktopPage: React.FC<RolePhoneDesktopPageProps> = ({
           </button>
         </div>
 
-        <div className="grid grid-cols-4 gap-y-6 gap-x-3 justify-items-center">
+        <div className={`grid grid-cols-4 gap-y-6 gap-x-3 justify-items-center ${isReading ? 'pointer-events-none opacity-60' : ''}`}>
           {inspectableApps.map((app) => (
-            <AppIcon
-              key={app.id}
-              name={app.name}
-              icon={app.icon as any}
-              label={app.name}
-              onClick={() => onOpenSubApp(app.id)}
-            />
+            <div key={app.id} aria-disabled={isReading}>
+              <AppIcon
+                name={app.name}
+                icon={app.icon as any}
+                label={app.name}
+                onClick={() => onOpenSubApp(app.id)}
+              />
+            </div>
           ))}
         </div>
       </div>
+
+      <button
+        type="button"
+        onClick={onClearPhone}
+        disabled={isReading}
+        className="absolute left-5 z-20 flex h-10 w-10 items-center justify-center rounded-full border border-red-200/80 bg-white/82 text-red-500 shadow-[0_12px_28px_-20px_rgba(15,23,42,0.55)] backdrop-blur-xl active:bg-red-50 disabled:opacity-45"
+        style={{ bottom: 'calc(env(safe-area-inset-bottom, 0px) + 22px)' }}
+        aria-label="一键清除"
+        title="一键清除"
+      >
+        <Trash2 size={15} />
+      </button>
+
+      {isClearPickerOpen ? (
+        <div className="absolute inset-0 z-[80] flex items-end bg-slate-950/18 px-4 pb-5 backdrop-blur-[2px]">
+          <div className="w-full rounded-[26px] border border-white/70 bg-white/95 p-4 shadow-[0_24px_60px_-32px_rgba(15,23,42,0.75)]">
+            <div className="mb-3 px-1">
+              <h3 className="text-[16px] font-semibold text-slate-900">选择要清除的内容</h3>
+              <p className="mt-1 text-[12px] leading-5 text-slate-500">
+                清除动作会写入 {contactName} 的记忆中心
+              </p>
+            </div>
+            <div className="grid grid-cols-2 gap-2">
+              {clearTargetApps.map((app) => (
+                <button
+                  key={app.id}
+                  type="button"
+                  disabled={isReading}
+                  onClick={() => onClearApp?.(app.id)}
+                  className="flex items-center gap-3 rounded-2xl border border-slate-200 bg-white px-3 py-3 text-left active:bg-red-50 disabled:opacity-50"
+                >
+                  <span className="grid h-9 w-9 place-items-center rounded-2xl bg-red-50 text-red-500">
+                    <Trash2 size={16} />
+                  </span>
+                  <span className="min-w-0">
+                    <span className="block truncate text-[14px] font-medium text-slate-800">
+                      {app.name}
+                    </span>
+                    <span className="mt-0.5 block text-[11px] text-slate-400">清除该 App 内容</span>
+                  </span>
+                </button>
+              ))}
+            </div>
+            <button
+              type="button"
+              onClick={onCancelClearPhone}
+              className="mt-3 h-11 w-full rounded-2xl bg-slate-100 text-[14px] font-medium text-slate-600 active:bg-slate-200"
+            >
+              取消
+            </button>
+          </div>
+        </div>
+      ) : null}
 
       {children}
     </div>

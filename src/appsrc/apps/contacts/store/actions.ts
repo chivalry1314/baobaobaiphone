@@ -14,6 +14,8 @@ type ContactsActions = Pick<
   | 'updateContact'
   | 'deleteContact'
   | 'addCallRecord'
+  | 'importInspectorCallRecords'
+  | 'clearInspectorCallRecords'
   | 'deleteCallRecord'
   | 'clearCallRecords'
 >;

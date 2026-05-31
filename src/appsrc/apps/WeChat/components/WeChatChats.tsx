@@ -23,6 +23,9 @@ const toSafeSessions = (sessions: unknown): WeChatSession[] => {
   return sessions.filter(isSessionLike);
 };
 
+const isInspectorGeneratedCharacterId = (characterId: string): boolean =>
+  characterId.trim().startsWith('inspector-gen-');
+
 export const WeChatChats: React.FC<WeChatChatsProps> = ({ onSelectChat }) => {
   const wechatCharacters = useWeChatFriendCharactersFromContacts();
   const inspectorVisibleRoleIds = useInspectorVisibleRoleIds();
@@ -85,7 +88,8 @@ export const WeChatChats: React.FC<WeChatChatsProps> = ({ onSelectChat }) => {
       if (session.messages.length === 0) continue;
 
       const roleId = parseRoleCharacterId(characterId);
-      if (!roleId || !inspectorVisibleRoleIds.has(roleId)) continue;
+      const isGenerated = isInspectorGeneratedCharacterId(characterId);
+      if (!isGenerated && (!roleId || !inspectorVisibleRoleIds.has(roleId))) continue;
       if (added.has(characterId)) continue;
 
       const character = characterById.get(characterId);
@@ -138,7 +142,7 @@ export const WeChatChats: React.FC<WeChatChatsProps> = ({ onSelectChat }) => {
     }
   };
 
-  const getLastMessageInfo = (characterId: string) => {
+  const resolveSessionForDisplayCharacter = (characterId: string) => {
     let session = safeSessions.find((item) => item.characterId === characterId);
 
     if (!session && isContactRoleId(effectiveRoleId) && activeContactId) {
@@ -149,6 +153,12 @@ export const WeChatChats: React.FC<WeChatChatsProps> = ({ onSelectChat }) => {
         );
       }
     }
+
+    return session;
+  };
+
+  const getLastMessageInfo = (characterId: string) => {
+    const session = resolveSessionForDisplayCharacter(characterId);
 
     if (session && session.messages.length > 0) {
       const lastMessage = session.messages[session.messages.length - 1];
@@ -209,6 +219,8 @@ export const WeChatChats: React.FC<WeChatChatsProps> = ({ onSelectChat }) => {
             const character = displayCharacters[virtualItem.index];
             if (!character) return null;
             const lastMessageInfo = getLastMessageInfo(character.id);
+            const session = resolveSessionForDisplayCharacter(character.id);
+            const unreadCount = Math.max(0, Number(session?.unreadCount) || 0);
 
             return (
               <div
@@ -225,12 +237,20 @@ export const WeChatChats: React.FC<WeChatChatsProps> = ({ onSelectChat }) => {
                 }}
                 className="flex items-center px-4 py-3 bg-white border-b border-gray-100 active:bg-gray-50 cursor-pointer"
               >
-                <div className="w-12 h-12 bg-gray-200 rounded-lg flex items-center justify-center text-gray-400 overflow-hidden shrink-0">
+                <div className="relative w-12 h-12 bg-gray-200 rounded-lg flex items-center justify-center text-gray-400 shrink-0">
+                  {unreadCount > 0 ? (
+                    <span
+                      className="absolute z-10 h-3.5 min-w-3.5 rounded-full bg-[#FA5151] ring-2 ring-white"
+                      style={{ right: '-4px', top: '-4px' }}
+                    />
+                  ) : null}
+                  <div className="h-full w-full overflow-hidden rounded-lg flex items-center justify-center">
                   {character.avatar ? (
                     <img src={character.avatar} alt={character.name} className="w-full h-full object-cover" />
                   ) : (
                     <User size={24} />
                   )}
+                  </div>
                 </div>
                 <div className="flex-1 ml-3 min-w-0">
                   <div className="flex justify-between items-center mb-1">

@@ -516,8 +516,25 @@ const runDueSystemTasks = (): void => {
   });
 };
 
+const runEnabledSystemTasksOnStartup = (): void => {
+  if (!useSystemSchedulerStore.persist.hasHydrated()) return;
+
+  const startupTaskIds = Object.values(useSystemSchedulerStore.getState().tasks)
+    .filter((task) => normalizeTaskEnabled(task.enabled, true) && !task.isRunning)
+    .map((task) => task.id);
+
+  startupTaskIds.forEach((taskId) => {
+    appendSystemScheduledTaskLog(taskId, {
+      level: 'info',
+      message: '小手机启动，立即执行启用任务',
+    });
+    void runTaskInternal(taskId);
+  });
+};
+
 let schedulerTicker: number | null = null;
 let schedulerHydrationWatcherBound = false;
+let schedulerStartupRunTriggered = false;
 
 export const initializeSystemScheduler = (): void => {
   if (typeof window === 'undefined') return;
@@ -525,7 +542,12 @@ export const initializeSystemScheduler = (): void => {
   const bootstrapSchedulerAfterHydration = () => {
     syncRegisteredTaskDefinitions();
     useSystemSchedulerStore.getState().resetRuntimeTaskStates();
-    runDueSystemTasks();
+    if (!schedulerStartupRunTriggered) {
+      schedulerStartupRunTriggered = true;
+      runEnabledSystemTasksOnStartup();
+    } else {
+      runDueSystemTasks();
+    }
   };
 
   if (useSystemSchedulerStore.persist.hasHydrated()) {

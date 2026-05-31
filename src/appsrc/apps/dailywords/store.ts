@@ -507,6 +507,28 @@ export const useDailyWordsStore = create<DailyWordsStore>()((set) => {
       }
     },
 
+    importInspectorEntries: (roleId, entries) => {
+      const normalizedRoleId = normalizeRoleId(roleId);
+      const nextRoleState: DailyWordsRoleState = {
+        ...createDefaultDailyWordsRoleState(),
+        entries: sortEntries(entries.map((entry) => ({
+          ...entry,
+          tags: [...entry.tags],
+        }))),
+      };
+
+      set((state) => applyRoleState(state, normalizedRoleId, nextRoleState));
+      persistDailyWordsRoleState(normalizedRoleId, nextRoleState);
+    },
+
+    clearInspectorEntries: (roleId) => {
+      const normalizedRoleId = normalizeRoleId(roleId);
+      const nextRoleState = createDefaultDailyWordsRoleState();
+
+      set((state) => applyRoleState(state, normalizedRoleId, nextRoleState));
+      persistDailyWordsRoleState(normalizedRoleId, nextRoleState);
+    },
+
     setSearchKeyword: (value) => {
       updateRoleState((roleState) => ({
         ...roleState,

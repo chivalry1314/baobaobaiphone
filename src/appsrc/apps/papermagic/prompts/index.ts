@@ -4,6 +4,7 @@ import { PERSONA_GENERATOR_PROMPTS } from './personaGeneratorPrompts';
 import { SETTINGS_PROMPTS } from './settingsPrompts';
 import { LOVESPACE_PROMPTS } from './lovespacePrompts';
 import { WECHAT_PROMPTS } from './wechatPrompts';
+import { PHONE_INSPECTOR_PROMPTS } from './phoneInspectorPrompts';
 import { COMMERCE_BRIDGE_PROMPTS } from './commerceBridgePrompts';
 import { SELLER_PROMPTS } from './sellerPrompts';
 import { SHOPPING_PROMPTS } from './shoppingPrompts';
@@ -17,6 +18,7 @@ export const PAPER_MAGIC_PROMPTS: PaperMagicPrompt[] = [
   ...SETTINGS_PROMPTS,
   ...LOVESPACE_PROMPTS,
   ...WECHAT_PROMPTS,
+  ...PHONE_INSPECTOR_PROMPTS,
   ...COMMERCE_BRIDGE_PROMPTS,
   ...SELLER_PROMPTS,
   ...SHOPPING_PROMPTS,
@@ -30,6 +32,7 @@ export { PERSONA_GENERATOR_PROMPTS } from './personaGeneratorPrompts';
 export { SETTINGS_PROMPTS } from './settingsPrompts';
 export { LOVESPACE_PROMPTS } from './lovespacePrompts';
 export { WECHAT_PROMPTS } from './wechatPrompts';
+export { PHONE_INSPECTOR_PROMPTS } from './phoneInspectorPrompts';
 export { COMMERCE_BRIDGE_PROMPTS } from './commerceBridgePrompts';
 export { SELLER_PROMPTS } from './sellerPrompts';
 export { SHOPPING_PROMPTS } from './shoppingPrompts';

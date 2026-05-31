@@ -74,6 +74,111 @@ type ChatCompletionMessage = {
   content: string | ChatCompletionContentPart[];
 };
 
+const CHAT_TIME_DIVIDER_INTERVAL_MS = 5 * 60_000;
+const WECHAT_AUTO_REPLY_DELAY_MS = 1600;
+const WECHAT_FLOATING_BUBBLE_SIZE = 44;
+const WECHAT_FLOATING_BUBBLE_MARGIN = 10;
+const WECHAT_FLOATING_BUBBLE_DRAG_THRESHOLD = 6;
+const WECHAT_CONTEXT_CHAR_BUDGET = 28000;
+
+type WeChatAutoReplyRunner = (sessionId: string) => Promise<void> | void;
+
+const wechatAutoReplyTimers = new Map<string, number>();
+const wechatAutoReplyRunningSessionIds = new Set<string>();
+const wechatAutoReplyHandledMessageIds = new Set<string>();
+
+const enqueueWeChatAutoReply = (
+  sessionId: string,
+  runReply: WeChatAutoReplyRunner
+): void => {
+  const normalizedSessionId = sessionId.trim();
+  if (!normalizedSessionId) return;
+
+  const existingTimer = wechatAutoReplyTimers.get(normalizedSessionId);
+  if (existingTimer != null) {
+    window.clearTimeout(existingTimer);
+  }
+
+  const timer = window.setTimeout(() => {
+    wechatAutoReplyTimers.delete(normalizedSessionId);
+
+    if (wechatAutoReplyRunningSessionIds.has(normalizedSessionId)) {
+      enqueueWeChatAutoReply(normalizedSessionId, runReply);
+      return;
+    }
+
+    const store = useWeChatStore.getState();
+    const latestSession = store.wechatSessions.find((item) => item.id === normalizedSessionId);
+    const pendingMessages = (latestSession?.messages || []).filter(
+      (message) =>
+        message.role === 'user' &&
+        message.assistantReplyPending &&
+        !wechatAutoReplyHandledMessageIds.has(message.id)
+    );
+    if (pendingMessages.length === 0) return;
+
+    pendingMessages.forEach((message) => {
+      wechatAutoReplyHandledMessageIds.add(message.id);
+      store.updateWeChatMessage(normalizedSessionId, message.id, {
+        assistantReplyPending: false,
+      });
+    });
+
+    wechatAutoReplyRunningSessionIds.add(normalizedSessionId);
+    Promise.resolve(runReply(normalizedSessionId))
+      .catch((error) => {
+        console.error('[WeChat] auto reply failed:', error);
+      })
+      .finally(() => {
+        wechatAutoReplyRunningSessionIds.delete(normalizedSessionId);
+        const nextSession = useWeChatStore
+          .getState()
+          .wechatSessions.find((item) => item.id === normalizedSessionId);
+        const hasNextPending = (nextSession?.messages || []).some(
+          (message) =>
+            message.role === 'user' &&
+            message.assistantReplyPending &&
+            !wechatAutoReplyHandledMessageIds.has(message.id)
+        );
+        if (hasNextPending) {
+          enqueueWeChatAutoReply(normalizedSessionId, runReply);
+        }
+      });
+  }, WECHAT_AUTO_REPLY_DELAY_MS);
+
+  wechatAutoReplyTimers.set(normalizedSessionId, timer);
+};
+
+const formatChatTimeDivider = (timestamp: number): string => {
+  const date = new Date(timestamp);
+  const now = new Date();
+  const isSameYear = date.getFullYear() === now.getFullYear();
+  const isSameDay =
+    isSameYear &&
+    date.getMonth() === now.getMonth() &&
+    date.getDate() === now.getDate();
+  const time = `${String(date.getHours()).padStart(2, '0')}:${String(date.getMinutes()).padStart(2, '0')}`;
+  if (isSameDay) return time;
+  const monthDay = `${date.getMonth() + 1}月${date.getDate()}日`;
+  return isSameYear ? `${monthDay} ${time}` : `${date.getFullYear()}年${monthDay} ${time}`;
+};
+
+const shouldShowChatTimeDivider = (
+  message: WeChatMessage,
+  previousMessage: WeChatMessage | undefined
+): boolean => {
+  if (!previousMessage) return true;
+  return message.timestamp - previousMessage.timestamp >= CHAT_TIME_DIVIDER_INTERVAL_MS;
+};
+
+const estimateChatCompletionMessageChars = (message: ChatCompletionMessage): number => {
+  if (typeof message.content === 'string') return message.content.length;
+  return message.content.reduce((sum, part) => {
+    if (part.type === 'text') return sum + part.text.length;
+    return sum + 120;
+  }, 0);
+};
+
 const getSpeechRecognitionConstructor = (): SpeechRecognitionConstructor | null => {
   if (typeof window === 'undefined') return null;
   const anyWindow = window as Window & {
@@ -181,6 +286,32 @@ const selectRelevantWorldBookLines = (content: string, turnKeywords: string[]): 
     .filter((line) => line.length >= 6)
     .filter((line) => isWeChatMemoryRelevantToTurn(line, turnKeywords))
     .slice(0, 4);
+};
+
+const normalizeWorldBookText = (content: string, maxLength = 1800): string => {
+  const normalized = content
+    .split(/\n+/)
+    .map((line) => line.trim())
+    .filter(Boolean)
+    .join('\n');
+  return normalized.length > maxLength ? `${normalized.slice(0, maxLength)}...` : normalized;
+};
+
+const isWorldBookEntryTriggeredByKeywords = (
+  entry: { keywords?: string[]; content: string },
+  turnKeywords: string[],
+  latestUserText: string
+): boolean => {
+  const entryKeywords = Array.isArray(entry.keywords)
+    ? entry.keywords.map((keyword) => keyword.trim().toLowerCase()).filter(Boolean)
+    : [];
+  if (entryKeywords.length === 0) return false;
+  const normalizedLatestUserText = latestUserText.toLowerCase();
+  return entryKeywords.some(
+    (keyword) =>
+      normalizedLatestUserText.includes(keyword) ||
+      turnKeywords.some((turnKeyword) => turnKeyword.includes(keyword) || keyword.includes(turnKeyword))
+  );
 };
 
 const formatOrderPreviewForMemory = (message: Pick<WeChatMessage, 'orderPreview'>): string => {
@@ -528,12 +659,25 @@ export const WeChatChatView: React.FC<WeChatChatViewProps> = ({
   const voiceCallConnectTimerRef = useRef<number | null>(null);
   const voiceCallSpeakerEnabledRef = useRef(false);
   const lastRestoreVoiceCallSignalRef = useRef<number | null>(restoreVoiceCallSignal ?? null);
-  const handledAutoReplyMessageIdsRef = useRef<Set<string>>(new Set());
-  const autoReplyTimerRef = useRef<number | null>(null);
-
+  const isChatViewMountedRef = useRef(true);
   const scrollRef = useRef<HTMLDivElement>(null);
+  const chatShellRef = useRef<HTMLDivElement>(null);
   const bottomAnchorRef = useRef<HTMLDivElement>(null);
   const pendingAssistantReplyCountRef = useRef(0);
+  const [floatingBubblePosition, setFloatingBubblePosition] = useState({ x: 18, y: 112 });
+  const [oocCorrectionPanelOpen, setOocCorrectionPanelOpen] = useState(false);
+  const [oocCorrectionInput, setOocCorrectionInput] = useState('');
+  const [oocCorrectionPending, setOocCorrectionPending] = useState(false);
+  const [oocCorrectionNotice, setOocCorrectionNotice] = useState<string | null>(null);
+  const floatingBubbleDragRef = useRef<{
+    pointerId: number;
+    startClientX: number;
+    startClientY: number;
+    offsetX: number;
+    offsetY: number;
+    moved: boolean;
+  } | null>(null);
+  const oocCorrectionInstructionsBySessionRef = useRef<Record<string, string[]>>({});
   const shouldFollowVisualViewport = useMemo(() => isIOSViewportDevice(), []);
 
   const character = wechatCharacters.find(c => c.id === characterId);
@@ -764,8 +908,75 @@ export const WeChatChatView: React.FC<WeChatChatViewProps> = ({
     ? isComposerFocused
     : keyboardInset > 0;
 
+  const clampFloatingBubblePosition = useCallback((x: number, y: number) => {
+    const rect = chatShellRef.current?.getBoundingClientRect();
+    if (!rect) return { x, y };
+    const maxX = Math.max(WECHAT_FLOATING_BUBBLE_MARGIN, rect.width - WECHAT_FLOATING_BUBBLE_SIZE - WECHAT_FLOATING_BUBBLE_MARGIN);
+    const maxY = Math.max(WECHAT_FLOATING_BUBBLE_MARGIN, rect.height - WECHAT_FLOATING_BUBBLE_SIZE - WECHAT_FLOATING_BUBBLE_MARGIN);
+    return {
+      x: Math.min(maxX, Math.max(WECHAT_FLOATING_BUBBLE_MARGIN, x)),
+      y: Math.min(maxY, Math.max(WECHAT_FLOATING_BUBBLE_MARGIN, y)),
+    };
+  }, []);
+
+  const handleFloatingBubblePointerDown = useCallback(
+    (event: React.PointerEvent<HTMLButtonElement>) => {
+      if (readOnly) return;
+      const rect = chatShellRef.current?.getBoundingClientRect();
+      if (!rect) return;
+      event.preventDefault();
+      event.stopPropagation();
+      floatingBubbleDragRef.current = {
+        pointerId: event.pointerId,
+        startClientX: event.clientX,
+        startClientY: event.clientY,
+        offsetX: event.clientX - rect.left - floatingBubblePosition.x,
+        offsetY: event.clientY - rect.top - floatingBubblePosition.y,
+        moved: false,
+      };
+      event.currentTarget.setPointerCapture(event.pointerId);
+    },
+    [floatingBubblePosition.x, floatingBubblePosition.y, readOnly]
+  );
+
+  const handleFloatingBubblePointerMove = useCallback(
+    (event: React.PointerEvent<HTMLButtonElement>) => {
+      const drag = floatingBubbleDragRef.current;
+      if (!drag || drag.pointerId !== event.pointerId) return;
+      const rect = chatShellRef.current?.getBoundingClientRect();
+      if (!rect) return;
+      event.preventDefault();
+      event.stopPropagation();
+      const moveDistance = Math.hypot(event.clientX - drag.startClientX, event.clientY - drag.startClientY);
+      if (moveDistance > WECHAT_FLOATING_BUBBLE_DRAG_THRESHOLD) {
+        drag.moved = true;
+      }
+      const nextX = event.clientX - rect.left - drag.offsetX;
+      const nextY = event.clientY - rect.top - drag.offsetY;
+      setFloatingBubblePosition(clampFloatingBubblePosition(nextX, nextY));
+    },
+    [clampFloatingBubblePosition]
+  );
+
+  const handleFloatingBubblePointerEnd = useCallback((event: React.PointerEvent<HTMLButtonElement>) => {
+    const drag = floatingBubbleDragRef.current;
+    if (!drag || drag.pointerId !== event.pointerId) return;
+    floatingBubbleDragRef.current = null;
+    event.preventDefault();
+    event.stopPropagation();
+    try {
+      event.currentTarget.releasePointerCapture(event.pointerId);
+    } catch {
+      // ignore if capture has already been released
+    }
+    if (!drag.moved) {
+      setOocCorrectionPanelOpen((current) => !current);
+    }
+  }, []);
+
   const beginAssistantReply = useCallback(() => {
     pendingAssistantReplyCountRef.current += 1;
+    if (!isChatViewMountedRef.current) return;
     setIsTyping(true);
   }, []);
 
@@ -774,6 +985,7 @@ export const WeChatChatView: React.FC<WeChatChatViewProps> = ({
       0,
       pendingAssistantReplyCountRef.current - 1
     );
+    if (!isChatViewMountedRef.current) return;
     setIsTyping(pendingAssistantReplyCountRef.current > 0);
   }, []);
 
@@ -1068,6 +1280,7 @@ export const WeChatChatView: React.FC<WeChatChatViewProps> = ({
         imageMimeType: file.type || 'image/jpeg',
         assistantReplyPending: true,
       });
+      enqueueWeChatAutoReply(sessionId, requestAssistantReply);
       scrollToBottom();
 
       if (!settings.apiKey) {
@@ -1267,6 +1480,9 @@ export const WeChatChatView: React.FC<WeChatChatViewProps> = ({
               voiceTranscriptVisible: false,
               assistantReplyPending: true,
             });
+            if (transcript) {
+              enqueueWeChatAutoReply(sessionId, requestAssistantReply);
+            }
             setShowVoiceRecorderModal(false);
             scrollToBottom();
             if (!transcript) {
@@ -1300,7 +1516,9 @@ export const WeChatChatView: React.FC<WeChatChatViewProps> = ({
   };
 
   useEffect(() => {
+    isChatViewMountedRef.current = true;
     return () => {
+      isChatViewMountedRef.current = false;
       stopVoiceRecognition(true);
       stopRealVoiceRecording(false);
       stopVoiceCallRecognition();
@@ -1770,6 +1988,9 @@ export const WeChatChatView: React.FC<WeChatChatViewProps> = ({
         .map((message) => normalizeMessageContentForMemoryComparison(message))
         .join('\n')
     );
+    const latestUserTurnText = latestUserTurnForMemory
+      .map((message) => normalizeMessageContentForMemoryComparison(message))
+      .join('\n');
     const recentSourceIdSet = new Set(sessionContextMessages.map((item) => item.id));
     const recentAssistantContents = sessionContextMessages
       .filter((item) => item.role === 'character')
@@ -1781,24 +2002,58 @@ export const WeChatChatView: React.FC<WeChatChatViewProps> = ({
         .map((item) => item.trim())
         .filter(Boolean)
     );
-    const apiMessages: ChatCompletionMessage[] = [{ role: 'system', content: basePrompt }];
-    const worldBookContent = character?.worldBookId
-      ? worldBook.find((entry) => entry.id === character.worldBookId)?.content?.trim()
-      : '';
-    const relevantWorldBookLines = worldBookContent
-      ? selectRelevantWorldBookLines(worldBookContent, latestUserTurnKeywords)
-          .filter((line) => !isWeChatContentRecentlyUsed(line, recentAssistantContents))
-      : [];
+    const activeWorldBookLines = worldBook
+      .filter((entry) => {
+        const isBoundCharacterWorldBook = Boolean(character?.worldBookId && entry.id === character.worldBookId);
+        if (entry.scope !== 'global' && !isBoundCharacterWorldBook) return false;
+        if (entry.triggerMode === 'disabled') return false;
+        if (isBoundCharacterWorldBook) return true;
+        if (entry.triggerMode === 'constant') return true;
+        return isWorldBookEntryTriggeredByKeywords(entry, latestUserTurnKeywords, latestUserTurnText);
+      })
+      .sort((left, right) => left.insertionOrder - right.insertionOrder)
+      .map((entry) => {
+        const scopeLabel = entry.scope === 'global' ? '全局' : '角色';
+        return `#${Number(entry.insertionOrder) || 0} [${scopeLabel}] ${normalizeWorldBookText(entry.content)}`;
+      })
+      .filter(Boolean)
+      .slice(0, 6);
+    const priorityMessages: ChatCompletionMessage[] = [];
+    let contextCharBudgetRemaining = WECHAT_CONTEXT_CHAR_BUDGET;
+    const pushPriorityMessage = (message: ChatCompletionMessage): boolean => {
+      const estimatedChars = estimateChatCompletionMessageChars(message);
+      if (estimatedChars > contextCharBudgetRemaining) return false;
+      priorityMessages.push(message);
+      contextCharBudgetRemaining -= estimatedChars;
+      return true;
+    };
 
-    if (relevantWorldBookLines.length > 0) {
-      apiMessages.push({
+    if (activeWorldBookLines.length > 0) {
+      pushPriorityMessage({
         role: 'system',
-        content: renderPaperMagicText('wechat.chat.context.worldBook', {
-          relevantWorldBookLines: relevantWorldBookLines.map((line) => `- ${line}`).join('\n'),
-        }),
+        content: [
+          '【世界书：高于纸间魔法默认规则】',
+          '以下世界书设定优先级高于纸间魔法默认微信提示词、记忆中心与通讯录描述。',
+          '全局世界书与角色世界书不互相天然压制；若多条世界书设定冲突，必须服从序列号更小、重要度更高的设定。',
+          activeWorldBookLines.map((line) => `- ${line}`).join('\n'),
+        ].join('\n'),
       });
     }
 
+    pushPriorityMessage({ role: 'system', content: basePrompt });
+    const oocCorrectionInstructions = oocCorrectionInstructionsBySessionRef.current[sessionId] || [];
+    if (oocCorrectionInstructions.length > 0 && character) {
+      pushPriorityMessage({
+        role: 'system',
+        content: [
+          renderPaperMagicText('wechat.chat.oocCorrection', { characterName: character.name }),
+          '',
+          '【当前有效的导演纠正指令】',
+          oocCorrectionInstructions.slice(-5).join('\n'),
+        ].join('\n'),
+      });
+    }
+    const lowPriorityContextMessages: ChatCompletionMessage[] = [];
     const memoryLines = (() => {
       if (effectiveMemoryReferenceLimit <= 0) return [];
 
@@ -1835,7 +2090,7 @@ export const WeChatChatView: React.FC<WeChatChatViewProps> = ({
     })();
 
     if (memoryLines.length > 0) {
-      apiMessages.push({
+      lowPriorityContextMessages.push({
         role: 'system',
         content: renderPaperMagicText('wechat.chat.context.memory', {
           memoryLines: memoryLines.join('\n'),
@@ -1877,7 +2132,7 @@ export const WeChatChatView: React.FC<WeChatChatViewProps> = ({
     })();
 
     if (personalProfileLines.length > 0) {
-      apiMessages.push({
+      lowPriorityContextMessages.push({
         role: 'system',
         content: renderPaperMagicText('wechat.chat.context.personalProfile', {
           personalProfileLines: personalProfileLines.join('\n'),
@@ -1886,12 +2141,13 @@ export const WeChatChatView: React.FC<WeChatChatViewProps> = ({
     }
 
     if (sessionContextMessages.length > 0) {
-      apiMessages.push({
+      pushPriorityMessage({
         role: 'system',
         content: renderPaperMagicText('wechat.chat.context.sessionIntro'),
       });
     }
 
+    const chatContextMessages: ChatCompletionMessage[] = [];
     sessionContextMessages.forEach((m) => {
       const role: 'user' | 'assistant' = m.role === 'user' ? 'user' : 'assistant';
 
@@ -1903,7 +2159,7 @@ export const WeChatChatView: React.FC<WeChatChatViewProps> = ({
           const textPrompt = normalizedCaption || renderPaperMagicText('wechat.chat.specialMessage.image', {
             normalizedCaption: '请根据这张图片内容回复。',
           });
-          apiMessages.push({
+          chatContextMessages.push({
             role: 'user',
             content: [
               { type: 'image_url', image_url: { url: m.imageDataUrl } },
@@ -1916,7 +2172,7 @@ export const WeChatChatView: React.FC<WeChatChatViewProps> = ({
         const fallbackContent = normalizedCaption
           ? `[系统记录：${role === 'user' ? '用户' : '对方'}发送了一张图片，附言：${normalizedCaption}]`
           : `[系统记录：${role === 'user' ? '用户' : '对方'}发送了一张图片]`;
-        apiMessages.push({
+        chatContextMessages.push({
           role,
           content: fallbackContent,
         });
@@ -1986,7 +2242,7 @@ export const WeChatChatView: React.FC<WeChatChatViewProps> = ({
       if (m.type === 'pat') content = `[系统记录：${m.content}]`;
       if (m.type === 'voice') content = m.voiceTranscriptText?.trim() || m.content;
       if (m.quoteText) content = `[引用："${m.quoteText}"]\n${content}`;
-      apiMessages.push({ role, content });
+      chatContextMessages.push({ role, content });
     });
 
     const latestUserTurn: WeChatMessage[] = [];
@@ -1999,13 +2255,30 @@ export const WeChatChatView: React.FC<WeChatChatViewProps> = ({
       const latestUserContent = latestUserTurn
         .map((message, index) => `${index + 1}. ${normalizeMessageContentForMemoryComparison(message)}`)
         .join('\n');
-      apiMessages.push({
+      pushPriorityMessage({
         role: 'system',
         content: renderPaperMagicText('wechat.chat.context.latestTurn', { latestUserContent }),
       });
     }
 
-    return apiMessages;
+    const selectedChatContextMessages: ChatCompletionMessage[] = [];
+    for (let index = chatContextMessages.length - 1; index >= 0; index -= 1) {
+      const message = chatContextMessages[index];
+      const estimatedChars = estimateChatCompletionMessageChars(message);
+      if (estimatedChars > contextCharBudgetRemaining) continue;
+      selectedChatContextMessages.unshift(message);
+      contextCharBudgetRemaining -= estimatedChars;
+    }
+
+    const selectedLowPriorityContextMessages: ChatCompletionMessage[] = [];
+    lowPriorityContextMessages.forEach((message) => {
+      const estimatedChars = estimateChatCompletionMessageChars(message);
+      if (estimatedChars > contextCharBudgetRemaining) return;
+      selectedLowPriorityContextMessages.push(message);
+      contextCharBudgetRemaining -= estimatedChars;
+    });
+
+    return [...priorityMessages, ...selectedLowPriorityContextMessages, ...selectedChatContextMessages];
   };
 
   const buildCharacterSystemPrompt = (
@@ -2031,7 +2304,7 @@ export const WeChatChatView: React.FC<WeChatChatViewProps> = ({
       '- 句子要像真人自然说话，前后要有明确关系；不要把零散记忆、物品、地点、情绪硬拼成一句不通顺的话。',
       '- 如果不确定怎么接，宁可短回一句自然的话，不要为了显得有细节而强行补充。',
       '- 严格区分说话人和事实归属：我发过的内容才是用户说过/做过的事；你自己上一条说过的话，只代表你的提议、玩笑或情绪，不能反过来说成是我说的。',
-      '- 世界书和记忆中心的优先级低于当前聊天；除非我主动提到，不要把里面的旧事件拿出来继续聊。',
+      '- 世界书优先级高于本默认提示词；当前聊天负责承接语境，不能覆盖世界书中的全局或角色级设定。记忆中心低于世界书与当前聊天，除非我主动提到，不要把旧事件拿出来继续聊。',
       '- 当前最后一轮没有出现的人物、地点、事件，不要突然引入；需要细节时可以顺着当前话题轻轻补一句。',
       '- 像微信真人聊天：自然、有来有回，可以短，可以停顿，可以追问，不要像客服、旁白、总结器或设定说明。',
       '- 优先复现人物的句长、语气词、表情/标点、玩笑方式、解释习惯、拒绝边界和情绪反应。',
@@ -2126,6 +2399,7 @@ export const WeChatChatView: React.FC<WeChatChatViewProps> = ({
         for (const messageContent of replyMessages) {
           const replyMessage = await buildCharacterReplyMessage(messageContent);
           addWeChatMessage(sessionId, replyMessage);
+          if (!isChatViewMountedRef.current) continue;
           if (replyMessage.type === 'voice' && replyMessage.voiceAudioDataUrl) {
             void playVoiceFromMessage(replyMessage.voiceAudioDataUrl);
           } else {
@@ -2137,58 +2411,66 @@ export const WeChatChatView: React.FC<WeChatChatViewProps> = ({
       addWeChatMessage(sessionId, { role: 'character', content: '[系统提示：AI连接失败]' });
     } finally {
       endAssistantReply();
-      scrollToBottom();
+      if (isChatViewMountedRef.current) scrollToBottom();
     }
   };
 
-  React.useEffect(() => {
-    if (readOnly) return;
-    if (!session) return;
-    if (pendingAssistantReplyCountRef.current > 0) return;
-    const pendingMessages = messages.filter(
-      (message) =>
-        message.role === 'user' &&
-        message.assistantReplyPending &&
-        !handledAutoReplyMessageIdsRef.current.has(message.id)
-    );
-    if (pendingMessages.length === 0) return;
-
-    const sessionId = session.id;
-    if (autoReplyTimerRef.current !== null) {
-      window.clearTimeout(autoReplyTimerRef.current);
+  const handleSubmitOocCorrection = async () => {
+    const rawInstruction = oocCorrectionInput.trim();
+    if (!rawInstruction || !character || oocCorrectionPending) return;
+    if (!settings.apiKey) {
+      setToastMessage('请先配置 API Key');
+      setTimeout(() => setToastMessage(null), 1600);
+      return;
     }
 
-    autoReplyTimerRef.current = window.setTimeout(() => {
-      autoReplyTimerRef.current = null;
-      if (pendingAssistantReplyCountRef.current > 0) return;
+    const sessionId = session?.id || createWeChatSession(character.id);
+    const wrappedInstruction = rawInstruction.startsWith('【') && rawInstruction.endsWith('】')
+      ? rawInstruction
+      : `【${rawInstruction}】`;
+    const existingInstructions = oocCorrectionInstructionsBySessionRef.current[sessionId] || [];
+    oocCorrectionInstructionsBySessionRef.current[sessionId] = [
+      ...existingInstructions,
+      wrappedInstruction,
+    ].slice(-5);
 
-      const latestSession = useWeChatStore
-        .getState()
-        .wechatSessions.find((item) => item.id === sessionId);
-      const latestPendingMessages = (latestSession?.messages || []).filter(
-        (message) =>
-          message.role === 'user' &&
-          message.assistantReplyPending &&
-          !handledAutoReplyMessageIdsRef.current.has(message.id)
-      );
-      if (latestPendingMessages.length === 0) return;
+    setOocCorrectionInput('');
+    setOocCorrectionPending(true);
+    setOocCorrectionNotice('正在纠正剧情...');
 
-      latestPendingMessages.forEach((message) => {
-        handledAutoReplyMessageIdsRef.current.add(message.id);
-        updateWeChatMessage(sessionId, message.id, {
-          assistantReplyPending: false,
-        });
+    try {
+      const systemPrompt = renderPaperMagicText('wechat.chat.oocCorrection', {
+        characterName: character.name,
       });
-      void requestAssistantReply(sessionId);
-    }, 1600);
-
-    return () => {
-      if (autoReplyTimerRef.current !== null) {
-        window.clearTimeout(autoReplyTimerRef.current);
-        autoReplyTimerRef.current = null;
-      }
-    };
-  }, [messages, readOnly, requestAssistantReply, session, updateWeChatMessage]);
+      const response = await fetch(`${settings.baseUrl}/chat/completions`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          Authorization: `Bearer ${settings.apiKey}`,
+        },
+        body: JSON.stringify({
+          model: settings.model || 'gpt-3.5-turbo',
+          messages: [
+            { role: 'system', content: systemPrompt },
+            ...buildApiMessages(buildCharacterSystemPrompt('chat'), sessionId).slice(-12),
+            { role: 'user', content: wrappedInstruction },
+          ],
+          temperature: Math.min(0.7, settings.temperature || 0.5),
+          max_tokens: 160,
+        }),
+      });
+      if (!response.ok) throw new Error('API 失败');
+      const payload = await response.json();
+      const rawReply = payload?.choices?.[0]?.message?.content;
+      const normalizedReply = typeof rawReply === 'string' ? rawReply.trim() : '';
+      setOocCorrectionNotice(normalizedReply || '【已收到，剧情会按新的方向继续。】');
+    } catch (error) {
+      console.error('[WeChat] OOC correction failed:', error);
+      setOocCorrectionNotice('纠正失败，请稍后再试');
+    } finally {
+      setOocCorrectionPending(false);
+    }
+  };
 
   const requestAssistantReplyForVoiceCall = async (userText: string) => {
     if (!character) return;
@@ -2410,6 +2692,7 @@ export const WeChatChatView: React.FC<WeChatChatViewProps> = ({
         for (const messageContent of replyMessages) {
           const replyMessage = await buildCharacterReplyMessage(messageContent);
           addWeChatMessage(sessionId, replyMessage);
+          if (!isChatViewMountedRef.current) continue;
           if (replyMessage.type === 'voice' && replyMessage.voiceAudioDataUrl) {
             void playVoiceFromMessage(replyMessage.voiceAudioDataUrl);
           } else {
@@ -2418,7 +2701,10 @@ export const WeChatChatView: React.FC<WeChatChatViewProps> = ({
         }
       }
     } catch (e) { addWeChatMessage(sessionId, { role: 'character', content: '[系统提示：AI连接失败]' }); } 
-    finally { endAssistantReply(); scrollToBottom(); }
+    finally {
+      endAssistantReply();
+      if (isChatViewMountedRef.current) scrollToBottom();
+    }
   };
 
   const handleSend = async (inputOverride?: string) => {
@@ -2455,6 +2741,7 @@ export const WeChatChatView: React.FC<WeChatChatViewProps> = ({
     if (quotingMessage) messageData.quoteText = `${quotingMessage.senderName}: ${quotingMessage.content}`;
 
     addWeChatMessage(sessionId, messageData);
+    enqueueWeChatAutoReply(sessionId, requestAssistantReply);
     setInputValue('');
     setPendingVoiceDraft(null);
     setQuotingMessage(null);
@@ -2481,6 +2768,7 @@ export const WeChatChatView: React.FC<WeChatChatViewProps> = ({
       stickerName: sticker.name || '表情',
       assistantReplyPending: true,
     });
+    enqueueWeChatAutoReply(sessionId, requestAssistantReply);
     setInputValue('');
     setPendingVoiceDraft(null);
     setQuotingMessage(null);
@@ -3011,7 +3299,18 @@ export const WeChatChatView: React.FC<WeChatChatViewProps> = ({
   return (
     <>
       {chatFontFaceCss ? <style>{chatFontFaceCss}</style> : null}
+      {!readOnly ? (
+        <style>
+          {`
+            @keyframes wechat-floating-bubble-float {
+              0%, 100% { transform: translateY(0); }
+              50% { transform: translateY(-5px); }
+            }
+          `}
+        </style>
+      ) : null}
       <motion.div
+        ref={chatShellRef}
         initial={{ opacity: 0, x: 20 }}
         animate={{ opacity: 1, x: 0 }}
         exit={{ opacity: 0, x: 20 }}
@@ -3052,29 +3351,39 @@ export const WeChatChatView: React.FC<WeChatChatViewProps> = ({
             }}
           >
             <div className="flex min-h-full flex-col px-4 pt-4 pb-6">
-              {messages.map((message) => (
-                <div key={message.id} className="pb-2">
-                  <WeChatChatMessageItem 
-                    message={message} isUser={message.role === 'user'} 
-                    userAvatar={wechatUserProfile?.avatar} characterAvatar={character.avatar} characterName={character.name}
-                    selfBubblePreset={sessionUiSettings.selfBubblePreset}
-                    peerBubblePreset={sessionUiSettings.peerBubblePreset}
-                    selfBubbleColor={sessionUiSettings.selfBubbleColor}
-                    customBubbleCss={sessionUiSettings.customBubbleCss}
-                    chatFontFamily={chatFontFamily}
-                    customRenderConfig={customRenderConfig}
-                    isSelected={selectedMessageIds.includes(message.id)} isSelectionMode={isSelectionMode}
-                    isMenuOpen={menuState?.messageId === message.id}
-                    onMessageClick={readOnly ? (event) => event.stopPropagation() : handleMessageClick}
-                    onOpenMessageMenu={readOnly ? undefined : openMessageMenu}
-                    onVoiceMessagePlay={readOnly ? undefined : handlePlayVoiceMessage}
-                    onOrderRequestAction={readOnly ? undefined : handleOrderRequestAction}
-                    isVoicePlaying={playingVoiceMessageId === message.id}
-                    onToggleSelection={readOnly ? () => undefined : toggleSelection}
-                    onAvatarClick={readOnly ? undefined : handlePeerAvatarTap}
-                  />
-                </div>
-              ))}
+              {messages.map((message, index) => {
+                const showTimeDivider = shouldShowChatTimeDivider(message, messages[index - 1]);
+                return (
+                  <div key={message.id} className="pb-2">
+                    {showTimeDivider ? (
+                      <div className="flex justify-center pb-3 pt-1">
+                        <span className="rounded-full px-2 py-1 text-[12px] leading-none text-[#A0A0A0]">
+                          {formatChatTimeDivider(message.timestamp)}
+                        </span>
+                      </div>
+                    ) : null}
+                    <WeChatChatMessageItem 
+                      message={message} isUser={message.role === 'user'} 
+                      userAvatar={wechatUserProfile?.avatar} characterAvatar={character.avatar} characterName={character.name}
+                      selfBubblePreset={sessionUiSettings.selfBubblePreset}
+                      peerBubblePreset={sessionUiSettings.peerBubblePreset}
+                      selfBubbleColor={sessionUiSettings.selfBubbleColor}
+                      customBubbleCss={sessionUiSettings.customBubbleCss}
+                      chatFontFamily={chatFontFamily}
+                      customRenderConfig={customRenderConfig}
+                      isSelected={selectedMessageIds.includes(message.id)} isSelectionMode={isSelectionMode}
+                      isMenuOpen={menuState?.messageId === message.id}
+                      onMessageClick={readOnly ? (event) => event.stopPropagation() : handleMessageClick}
+                      onOpenMessageMenu={readOnly ? undefined : openMessageMenu}
+                      onVoiceMessagePlay={readOnly ? undefined : handlePlayVoiceMessage}
+                      onOrderRequestAction={readOnly ? undefined : handleOrderRequestAction}
+                      isVoicePlaying={playingVoiceMessageId === message.id}
+                      onToggleSelection={readOnly ? () => undefined : toggleSelection}
+                      onAvatarClick={readOnly ? undefined : handlePeerAvatarTap}
+                    />
+                  </div>
+                );
+              })}
               <div ref={bottomAnchorRef} className="h-px w-full shrink-0" />
             </div>
           </div>
@@ -3133,6 +3442,85 @@ export const WeChatChatView: React.FC<WeChatChatViewProps> = ({
           onOpenVoiceRecorder={handleOpenVoiceRecorderModal}
           onForwardMulti={() => setForwardTargetModal({ messageIds: selectedMessageIds })} onDeleteMulti={() => setDeleteTarget('multi')}
         />
+        {!readOnly ? (
+          <>
+            {oocCorrectionPanelOpen ? (
+              <div
+                className="absolute z-[89] w-[210px] rounded-2xl border border-white/55 bg-white/88 p-3 shadow-[0_12px_36px_rgba(15,23,42,0.16)] backdrop-blur-xl"
+                style={{
+                  left: Math.min(
+                    floatingBubblePosition.x + WECHAT_FLOATING_BUBBLE_SIZE + 8,
+                    Math.max(WECHAT_FLOATING_BUBBLE_MARGIN, (chatShellRef.current?.clientWidth || 320) - 222)
+                  ),
+                  top: Math.min(
+                    floatingBubblePosition.y,
+                    Math.max(WECHAT_FLOATING_BUBBLE_MARGIN, (chatShellRef.current?.clientHeight || 640) - 190)
+                  ),
+                }}
+                onPointerDown={(event) => event.stopPropagation()}
+                onClick={(event) => event.stopPropagation()}
+              >
+                <div className="mb-2 text-[12px] font-semibold text-slate-700">纠正剧情</div>
+                <textarea
+                  value={oocCorrectionInput}
+                  onChange={(event) => setOocCorrectionInput(event.target.value)}
+                  disabled={oocCorrectionPending}
+                  placeholder="AI注意，你对上一个剧情理解有偏差..."
+                  className="h-[78px] w-full resize-none rounded-xl border border-slate-200 bg-white/80 px-2.5 py-2 text-[12px] leading-5 text-slate-700 outline-none focus:border-[#7dd3fc]"
+                />
+                {oocCorrectionNotice ? (
+                  <div className="mt-1.5 line-clamp-2 text-[11px] leading-4 text-slate-500">
+                    {oocCorrectionNotice}
+                  </div>
+                ) : null}
+                <div className="mt-2 flex items-center justify-end gap-2">
+                  <button
+                    type="button"
+                    className="rounded-full px-2.5 py-1 text-[12px] text-slate-500 active:bg-slate-100"
+                    onClick={() => setOocCorrectionPanelOpen(false)}
+                  >
+                    收起
+                  </button>
+                  <button
+                    type="button"
+                    disabled={oocCorrectionPending || !oocCorrectionInput.trim()}
+                    className="rounded-full bg-slate-900 px-3 py-1 text-[12px] font-medium text-white disabled:bg-slate-300"
+                    onClick={() => {
+                      void handleSubmitOocCorrection();
+                    }}
+                  >
+                    {oocCorrectionPending ? '发送中' : '发送'}
+                  </button>
+                </div>
+              </div>
+            ) : null}
+            <button
+              type="button"
+              aria-label="聊天悬浮球"
+              onPointerDown={handleFloatingBubblePointerDown}
+              onPointerMove={handleFloatingBubblePointerMove}
+              onPointerUp={handleFloatingBubblePointerEnd}
+              onPointerCancel={handleFloatingBubblePointerEnd}
+              className="absolute z-[90] h-11 w-11 rounded-full p-0 outline-none active:scale-95"
+              style={{
+                left: floatingBubblePosition.x,
+                top: floatingBubblePosition.y,
+                touchAction: 'none',
+              }}
+            >
+              <span
+                className="block h-full w-full rounded-full"
+                style={{
+                  background:
+                    'radial-gradient(circle at 30% 30%, rgba(255,255,255,0.95) 0%, rgba(255,220,245,0.42) 25%, rgba(170,230,255,0.2) 50%, rgba(240,150,255,0.42) 80%, rgba(255,255,255,0.62) 100%)',
+                  boxShadow:
+                    'inset -3px -3px 12px rgba(100,200,255,0.56), inset 3px 3px 14px rgba(255,120,220,0.54), inset 0 0 7px rgba(255,255,255,0.86), 0 8px 18px rgba(15,23,42,0.12)',
+                  animation: 'wechat-floating-bubble-float 4s ease-in-out infinite',
+                }}
+              />
+            </button>
+          </>
+        ) : null}
       </motion.div>
       {!readOnly && (
         <>

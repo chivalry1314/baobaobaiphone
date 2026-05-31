@@ -5,6 +5,7 @@ import type { WeChatBillRecord } from '../types';
 
 interface WeChatBillViewProps {
   onBack: () => void;
+  inspectorOnly?: boolean;
 }
 
 interface BillMonthGroup {
@@ -185,7 +186,7 @@ const WheelColumn = <T extends string | number>({
   );
 };
 
-export const WeChatBillView: React.FC<WeChatBillViewProps> = ({ onBack }) => {
+export const WeChatBillView: React.FC<WeChatBillViewProps> = ({ onBack, inspectorOnly = false }) => {
   const records = useWeChatStore((state) => state.wechatBills);
   const allMonthGroups = React.useMemo(() => buildMonthGroups(records), [records]);
   const fallbackMonthKey = React.useMemo(() => formatMonthKey(Date.now()), []);
@@ -350,6 +351,11 @@ export const WeChatBillView: React.FC<WeChatBillViewProps> = ({ onBack }) => {
                         {record.counterparty ? `${record.title}-${record.counterparty}` : record.title}
                       </div>
                       <div className="mt-1 text-[14px] text-[#A0A0A0]">{formatRecordTime(record.timestamp)}</div>
+                      {inspectorOnly && record.inspectorGeneratedSourceContactId && record.remark ? (
+                        <div className="mt-1 truncate text-[13px] text-[#8E8E8E]">
+                          {`备注：${record.remark}`}
+                        </div>
+                      ) : null}
                     </div>
 
                     <div className="flex flex-col items-end justify-start">

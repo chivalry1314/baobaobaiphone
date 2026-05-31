@@ -21,12 +21,12 @@ import {
 import {
   DEFAULT_ACTIVE_ROLE_ID,
   isContactRoleId,
-  normalizeRoleId,
   parseContactRoleId,
 } from './roleIdentity';
 import { useActiveRoleId } from './activeRole';
 import { useContactsStore } from './store';
-import type { CallDirection, CallRecord, Contact, ContactsAppProps, MyCard } from './types';
+import { useWeChatStore } from '../WeChat/store';
+import type { CallRecord, Contact, ContactsAppProps, MyCard } from './types';
 import type { ContactsBottomTab, ContactsPage } from './uiTypes';
 
 const createDefaultInspectorContact = (): Contact => ({
@@ -59,12 +59,6 @@ const mapMyCardToInspectorContact = (card: MyCard): Contact => ({
   createdAt: card.createdAt || 0,
 });
 
-const reverseCallDirection = (direction: CallDirection): CallDirection => {
-  if (direction === 'incoming') return 'outgoing';
-  if (direction === 'outgoing') return 'incoming';
-  return 'missed';
-};
-
 export const ContactsApp: React.FC<ContactsAppProps> = ({ onClose, context }) => {
   const {
     contacts,
@@ -85,6 +79,7 @@ export const ContactsApp: React.FC<ContactsAppProps> = ({ onClose, context }) =>
   const inspectorContactId = parseContactRoleId(activeRoleId);
   const isInspectorContactRoleMode =
     isContactRoleId(activeRoleId) && Boolean(inspectorContactId);
+  const wechatStateByRoleId = useWeChatStore((state) => state.wechatStateByRoleId);
 
   const inspectorPerspectiveContacts = useMemo<Contact[]>(() => {
     if (!isInspectorContactRoleMode) return contacts;
@@ -94,8 +89,31 @@ export const ContactsApp: React.FC<ContactsAppProps> = ({ onClose, context }) =>
       result.push(mapMyCardToInspectorContact(card));
     });
 
+    const generatedSessions = wechatStateByRoleId[activeRoleId]?.wechatSessions || [];
+    generatedSessions.forEach((session) => {
+      const generated = session.inspectorGeneratedContact;
+      if (!generated || generated.sourceContactId !== inspectorContactId) return;
+      const name = generated.name?.trim();
+      if (!name || result.some((item) => item.id === session.characterId)) return;
+
+      result.push({
+        id: session.characterId,
+        name,
+        role: generated.role || generated.relationshipGuess || '查手机联系人',
+        wechatRelation: 'friend',
+        phone: '',
+        note: generated.note || generated.suspicion || generated.relationshipGuess || '',
+        avatar: '',
+        description: generated.suspicion || generated.relationshipGuess || '',
+        greeting: '你好',
+        personality: '',
+        background: '',
+        createdAt: session.lastUpdated || 0,
+      });
+    });
+
     return result;
-  }, [contacts, isInspectorContactRoleMode, myCards]);
+  }, [activeRoleId, contacts, inspectorContactId, isInspectorContactRoleMode, myCards, wechatStateByRoleId]);
 
   const scopedContacts = isInspectorContactRoleMode
     ? inspectorPerspectiveContacts
@@ -113,34 +131,12 @@ export const ContactsApp: React.FC<ContactsAppProps> = ({ onClose, context }) =>
     if (!inspectorContactId) return [];
 
     return callRecords
-      .filter((record) => record.contactId === inspectorContactId)
-      .map((record) => {
-        const normalizedRoleId = normalizeRoleId(record.roleId);
-        const roleCard = myCardById.get(normalizedRoleId);
-        const roleName =
-          normalizedRoleId === DEFAULT_ACTIVE_ROLE_ID
-            ? '默认身份'
-            : roleCard?.name || normalizedRoleId;
-        const rolePhone =
-          normalizedRoleId === DEFAULT_ACTIVE_ROLE_ID
-            ? ''
-            : roleCard?.phone || '';
-
-        return {
-          ...record,
-          id: `inspector-${record.id}`,
-          contactId: normalizedRoleId,
-          contactName: roleName,
-          phone: rolePhone,
-          direction: reverseCallDirection(record.direction),
-        };
-      })
+      .filter((record) => record.inspectorGeneratedSourceContactId === inspectorContactId)
       .filter((record) => scopedContactIdSet.has(record.contactId));
   }, [
     callRecords,
     inspectorContactId,
     isInspectorContactRoleMode,
-    myCardById,
     scopedContactIdSet,
   ]);
 

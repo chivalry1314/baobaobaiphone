@@ -1,6 +1,6 @@
 import React, { useState } from 'react';
-import { motion, AnimatePresence } from 'motion/react';
-import { ChevronLeft, Plus, Trash2, Edit2, Check, X, BookOpen, Globe, User } from 'lucide-react';
+import { motion, AnimatePresence, Reorder } from 'motion/react';
+import { ChevronLeft, Plus, Trash2, Edit2, Check, X, BookOpen, Globe, User, GripVertical } from 'lucide-react';
 import { WorldInfoEntry } from './types';
 import { useWorldBookStore } from './store';
 import { APP_OPEN_MOTION, APP_CLOSE_MOTION } from '../../../core/appOpenMotion';
@@ -10,9 +10,13 @@ interface WorldBookAppProps {
 }
 
 export const WorldBookApp: React.FC<WorldBookAppProps> = ({ onClose }) => {
-  const { worldBook, addWorldEntry, updateWorldEntry, deleteWorldEntry } = useWorldBookStore();
+  const { worldBook, setWorldBook, addWorldEntry, updateWorldEntry, deleteWorldEntry } = useWorldBookStore();
   const [editingEntry, setEditingEntry] = useState<WorldInfoEntry | null>(null);
   const [isAdding, setIsAdding] = useState(false);
+  const sortedWorldBook = [...worldBook].sort(
+    (left, right) =>
+      (Number(left.insertionOrder) || 0) - (Number(right.insertionOrder) || 0)
+  );
 
   const generateId = (): string => {
     if (typeof crypto !== 'undefined' && typeof crypto.randomUUID === 'function') {
@@ -33,6 +37,14 @@ export const WorldBookApp: React.FC<WorldBookAppProps> = ({ onClose }) => {
       updateWorldEntry(entry.id, entry);
     }
     setEditingEntry(null);
+  };
+
+  const handleReorderWorldBook = (nextEntries: WorldInfoEntry[]) => {
+    const reorderedEntries = nextEntries.map((entry, index) => ({
+      ...entry,
+      insertionOrder: index + 1,
+    }));
+    setWorldBook(reorderedEntries);
   };
 
   const startNewEntry = () => {
@@ -82,19 +94,30 @@ export const WorldBookApp: React.FC<WorldBookAppProps> = ({ onClose }) => {
             </button>
           </div>
         ) : (
-          <div className="space-y-3">
-            {worldBook.map((entry) => (
-              <motion.div
+          <Reorder.Group
+            axis="y"
+            values={sortedWorldBook}
+            onReorder={handleReorderWorldBook}
+            className="space-y-3"
+          >
+            {sortedWorldBook.map((entry) => (
+              <Reorder.Item
                 key={entry.id}
+                value={entry}
                 layout
-                className={`bg-white rounded-xl border p-4 shadow-sm space-y-2 transition-opacity ${
+                className={`bg-white rounded-xl border p-4 shadow-sm space-y-2 transition-opacity touch-none ${
                   entry.triggerMode === 'disabled' ? 'opacity-50 border-gray-200' : 'border-gray-200'
                 }`}
               >
                 <div className="flex justify-between items-start">
-                  <div className="flex-1">
+                  <div className="flex min-w-0 flex-1 gap-2">
+                    <GripVertical className="mt-0.5 shrink-0 text-gray-300" size={18} />
+                    <div className="min-w-0 flex-1">
                     <div className="flex items-center gap-2">
                       <h3 className="font-semibold text-[16px]">{entry.name}</h3>
+                      <span className="px-1.5 py-0.5 rounded bg-slate-100 text-[10px] font-bold text-slate-500">
+                        重要度 #{Number(entry.insertionOrder) || 0}
+                      </span>
                       <span className={`px-1.5 py-0.5 rounded text-[10px] font-bold uppercase ${
                         entry.scope === 'global' ? 'bg-green-100 text-green-700' : 'bg-purple-100 text-purple-700'
                       }`}>
@@ -116,6 +139,7 @@ export const WorldBookApp: React.FC<WorldBookAppProps> = ({ onClose }) => {
                         </span>
                       ))}
                     </div>
+                    </div>
                   </div>
                   <div className="flex gap-2">
                     <button
@@ -133,9 +157,9 @@ export const WorldBookApp: React.FC<WorldBookAppProps> = ({ onClose }) => {
                   </div>
                 </div>
                 <p className="text-[13px] text-gray-500 line-clamp-2">{entry.content}</p>
-              </motion.div>
+              </Reorder.Item>
             ))}
-          </div>
+          </Reorder.Group>
         )}
       </div>
 
@@ -236,6 +260,21 @@ export const WorldBookApp: React.FC<WorldBookAppProps> = ({ onClose }) => {
                     className="w-full px-3 py-2 bg-gray-100 rounded-lg text-[15px] text-gray-900 outline-none focus:ring-2 focus:ring-blue-500/20 placeholder:text-gray-400"
                     placeholder="条目名称"
                   />
+                </div>
+
+                <div className="space-y-1">
+                  <label className="text-[12px] text-gray-500 uppercase px-1">序列号</label>
+                  <input
+                    type="number"
+                    min={1}
+                    step={1}
+                    value={Number(editingEntry.insertionOrder) || 1}
+                    readOnly
+                    className="w-full px-3 py-2 bg-gray-100 rounded-lg text-[15px] text-gray-500 outline-none"
+                  />
+                  <p className="px-1 text-[11px] leading-4 text-gray-400">
+                    通过拖动列表卡片改变重要程度；数字越小越重要，世界书设定高于纸间魔法默认设定。
+                  </p>
                 </div>
 
                 {editingEntry.triggerMode === 'keyword' && (

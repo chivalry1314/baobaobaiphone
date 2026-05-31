@@ -13,6 +13,27 @@ import type { WeChatMessageMemoryOptions } from './types';
 const DELETED_MEMORY_SOURCE_LIMIT = 240;
 const DELETED_MEMORY_HINT_LIMIT = 80;
 
+const slugifyInspectorValue = (value: string): string => {
+  const normalized = value.trim().toLowerCase();
+  const ascii = normalized.replace(/[^a-z0-9]+/g, '-').replace(/^-+|-+$/g, '');
+  if (ascii) return ascii.slice(0, 32);
+
+  let hash = 0;
+  for (let index = 0; index < normalized.length; index += 1) {
+    hash = (hash * 31 + normalized.charCodeAt(index)) >>> 0;
+  }
+  return hash.toString(36) || 'contact';
+};
+
+const isInspectorGeneratedSessionForSource = (
+  session: WeChatSession,
+  sourceContactId: string
+): boolean => {
+  if (session.inspectorGeneratedContact?.sourceContactId === sourceContactId) return true;
+  const legacyPrefix = `inspector-gen-${slugifyInspectorValue(sourceContactId)}-`;
+  return session.characterId.trim().startsWith(legacyPrefix);
+};
+
 const normalizeDeletedMemoryHint = (content: string): string => {
   const normalized = content.replace(/\s+/g, ' ').trim();
   if (normalized.length <= 80) return normalized;
@@ -148,6 +169,9 @@ export const createWeChatSessionSlice = ({
   | 'setWeChatCurrentSession'
   | 'deleteWeChatMessages'
   | 'updateWeChatSessionSettings'
+  | 'importWeChatInspectorSnapshot'
+  | 'clearWeChatInspectorSnapshot'
+  | 'clearWeChatInspectorContacts'
 > => ({
   ensureWeChatSession: (characterId, options) => {
     const normalizedCharacterId = characterId.trim();
@@ -281,6 +305,10 @@ export const createWeChatSessionSlice = ({
                 ...session,
                 messages: [...session.messages, nextMessage],
                 lastUpdated: timestamp,
+                unreadCount:
+                  message.role === 'character' && roleState.wechatCurrentSessionId !== normalizedSessionId
+                    ? Math.max(0, Number(session.unreadCount) || 0) + 1
+                    : session.unreadCount,
               }
             : session
         ),
@@ -431,5 +459,106 @@ export const createWeChatSessionSlice = ({
     });
 
     wechatMemoryController.removeBySessionSources(normalizedSessionId, normalizedMessageIds);
+  },
+
+  importWeChatInspectorSnapshot: (targetRoleId, snapshot) => {
+    const normalizedRoleId = targetRoleId.trim();
+    const sourceContactId = snapshot.sourceContactId.trim();
+    if (!normalizedRoleId || !sourceContactId) return;
+
+    set((state) => {
+      const { state: syncedState, roleId, roleState } = ensureRoleContextState(
+        state,
+        normalizedRoleId
+      );
+      const replacingCharacterIds = new Set(snapshot.sessions.map((session) => session.characterId));
+      const existingManualSessions = roleState.wechatSessions.filter((session) => {
+        if (replacingCharacterIds.has(session.characterId)) return false;
+        return true;
+      });
+      const existingManualBills = roleState.wechatBills.filter(
+        (bill) => bill.inspectorGeneratedSourceContactId !== sourceContactId
+      );
+      const nextSessions = snapshot.sessions.filter((session) => session.characterId.trim());
+      const nextBills = snapshot.bills.filter((bill) => Number.isFinite(bill.amount) && bill.amount > 0);
+
+      return applyRoleState(syncedState, roleId, {
+        ...roleState,
+        wechatSessions: [...nextSessions, ...existingManualSessions],
+        wechatCurrentSessionId: roleState.wechatCurrentSessionId,
+        wechatBills: [...nextBills, ...existingManualBills],
+        wechatUserProfile: {
+          ...roleState.wechatUserProfile,
+          balance:
+            Number(roleState.wechatUserProfile.balance || 0) > 0
+              ? roleState.wechatUserProfile.balance
+              : Number((88 + Math.random() * 1888).toFixed(2)),
+        },
+      });
+    });
+  },
+
+  clearWeChatInspectorSnapshot: (targetRoleId, sourceContactId) => {
+    const normalizedRoleId = targetRoleId.trim();
+    const normalizedSourceContactId = sourceContactId.trim();
+    if (!normalizedRoleId || !normalizedSourceContactId) return;
+
+    set((state) => {
+      const { state: syncedState, roleId, roleState } = ensureRoleContextState(
+        state,
+        normalizedRoleId
+      );
+
+      return applyRoleState(syncedState, roleId, {
+        ...roleState,
+        wechatSessions: roleState.wechatSessions.filter(
+          (session) =>
+            !isInspectorGeneratedSessionForSource(session, normalizedSourceContactId)
+        ),
+        wechatCurrentSessionId:
+          roleState.wechatCurrentSessionId &&
+          roleState.wechatSessions.some(
+            (session) =>
+              session.id === roleState.wechatCurrentSessionId &&
+              isInspectorGeneratedSessionForSource(session, normalizedSourceContactId)
+          )
+            ? null
+            : roleState.wechatCurrentSessionId,
+        wechatBills: roleState.wechatBills.filter(
+          (bill) => bill.inspectorGeneratedSourceContactId !== normalizedSourceContactId
+        ),
+      });
+    });
+  },
+
+  clearWeChatInspectorContacts: (targetRoleId, sourceContactId) => {
+    const normalizedRoleId = targetRoleId.trim();
+    const normalizedSourceContactId = sourceContactId.trim();
+    if (!normalizedRoleId || !normalizedSourceContactId) return;
+
+    set((state) => {
+      const { state: syncedState, roleId, roleState } = ensureRoleContextState(
+        state,
+        normalizedRoleId
+      );
+
+      const removedSessionIds = new Set(
+        roleState.wechatSessions
+          .filter(
+            (session) =>
+              isInspectorGeneratedSessionForSource(session, normalizedSourceContactId)
+          )
+          .map((session) => session.id)
+      );
+
+      return applyRoleState(syncedState, roleId, {
+        ...roleState,
+        wechatSessions: roleState.wechatSessions.filter((session) => !removedSessionIds.has(session.id)),
+        wechatCurrentSessionId:
+          roleState.wechatCurrentSessionId && removedSessionIds.has(roleState.wechatCurrentSessionId)
+            ? null
+            : roleState.wechatCurrentSessionId,
+      });
+    });
   },
 });

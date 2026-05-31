@@ -26,6 +26,9 @@ type WeChatActions = Pick<
   | 'deleteWeChatContact'
   | 'deleteWeChatMessages'
   | 'updateWeChatSessionSettings'
+  | 'importWeChatInspectorSnapshot'
+  | 'clearWeChatInspectorSnapshot'
+  | 'clearWeChatInspectorContacts'
   | 'topUpWeChatBalance'
   | 'withdrawWeChatBalance'
 >;

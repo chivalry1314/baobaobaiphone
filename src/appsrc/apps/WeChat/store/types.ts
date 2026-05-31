@@ -56,6 +56,16 @@ export interface WeChatState extends WeChatRoleScopedState {
     sessionId: string,
     settings: Partial<Omit<WeChatSession, 'id' | 'characterId' | 'messages' | 'lastUpdated' | 'unreadCount'>>
   ) => void;
+  importWeChatInspectorSnapshot: (
+    roleId: string,
+    snapshot: {
+      sourceContactId: string;
+      sessions: WeChatSession[];
+      bills: WeChatBillRecord[];
+    }
+  ) => void;
+  clearWeChatInspectorSnapshot: (roleId: string, sourceContactId: string) => void;
+  clearWeChatInspectorContacts: (roleId: string, sourceContactId: string) => void;
   topUpWeChatBalance: (amount: number, meta?: WeChatBillMutationMeta) => void;
   withdrawWeChatBalance: (amount: number, meta?: WeChatBillMutationMeta) => void;
 }

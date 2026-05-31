@@ -30,6 +30,7 @@ export interface CallRecord {
   direction: CallDirection;
   durationSec: number;
   createdAt: number;
+  inspectorGeneratedSourceContactId?: string;
 }
 
 export interface MyCard {

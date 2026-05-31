@@ -20,6 +20,10 @@ import { hasAppMarketHydrated, onAppMarketHydrated, useAppMarketStore } from './
 import { getInstalledRuntimeMarketApps, isMarketAppId } from './appsrc/apps/appmarket/runtime';
 import { WidgetPlaceholder } from './appsrc/apps/settings/components/WidgetPlaceholder';
 import { DreamMusicAudioHost } from './appsrc/apps/dreammusic/DreamMusicAudioHost';
+import { useWeChatStore } from './appsrc/apps/WeChat/store';
+import type { WeChatSession } from './appsrc/apps/WeChat/types';
+import { useContactsSnapshot, useMyCardsSnapshot } from './appsrc/apps/contacts/selectors';
+import { parseRoleCharacterId } from './appsrc/shared/business/roleIdentity';
 
 // 默认壁纸
 const DEFAULT_WALLPAPER = `data:image/svg+xml;utf8,${encodeURIComponent(`
@@ -81,6 +85,15 @@ interface FullscreenElement extends HTMLElement {
   webkitRequestFullScreen?: () => Promise<void> | void;
   mozRequestFullScreen?: () => Promise<void> | void;
   msRequestFullscreen?: () => Promise<void> | void;
+}
+
+interface WeChatNotificationBannerState {
+  sessionId: string;
+  characterId: string;
+  title: string;
+  body: string;
+  count: number;
+  avatar?: string;
 }
 
 interface StandaloneNavigator extends Navigator {
@@ -295,6 +308,56 @@ const parsePendingPushLaunch = (): { appId: string; params?: Record<string, unkn
   return { appId };
 };
 
+const resolveWeChatNotificationText = (session: WeChatSession): string => {
+  const lastMessage = session.messages.at(-1);
+  if (!lastMessage) return '收到一条新消息';
+  if (lastMessage.type === 'voice') return '[语音]';
+  if (lastMessage.type === 'image') return '[图片]';
+  if (lastMessage.type === 'sticker') return '[表情]';
+  if (lastMessage.type === 'transfer') return '[转账]';
+  if (lastMessage.type === 'transfer_accepted') return '[已收款]';
+  const content = typeof lastMessage.content === 'string' ? lastMessage.content.trim() : '';
+  if (!content) return '收到一条新消息';
+  return content.length > 28 ? `${content.slice(0, 28)}...` : content;
+};
+
+const resolveWeChatNotificationMeta = (
+  session: WeChatSession,
+  contacts: ReturnType<typeof useContactsSnapshot>,
+  myCards: ReturnType<typeof useMyCardsSnapshot>
+): Pick<WeChatNotificationBannerState, 'title' | 'avatar'> => {
+  if (session.inspectorGeneratedContact?.name) {
+    const sourceContact = contacts.find(
+      (contact) => contact.id === session.inspectorGeneratedContact?.sourceContactId
+    );
+    return {
+      title: session.inspectorGeneratedContact.name,
+      avatar: sourceContact?.avatar,
+    };
+  }
+
+  const contact = contacts.find((item) => item.id === session.characterId);
+  if (contact) {
+    return {
+      title: contact.name,
+      avatar: contact.avatar,
+    };
+  }
+
+  const roleId = parseRoleCharacterId(session.characterId);
+  if (roleId) {
+    const myCard = myCards.find((item) => item.id === roleId);
+    if (myCard) {
+      return {
+        title: myCard.name,
+        avatar: myCard.avatar,
+      };
+    }
+  }
+
+  return { title: '微信' };
+};
+
 const clearPendingPushLaunch = (): void => {
   if (typeof window === 'undefined') {
     return;
@@ -321,6 +384,7 @@ export default function App() {
   const [isFullscreen, setIsFullscreen] = useState(false);
   const [fullscreenHint, setFullscreenHint] = useState<string | null>(null);
   const [isStandalonePwa, setIsStandalonePwa] = useState<boolean>(() => isStandaloneDisplayMode());
+  const [wechatBanner, setWechatBanner] = useState<WeChatNotificationBannerState | null>(null);
   const [storesHydrated, setStoresHydrated] = useState(
     () => hasCoreStoresHydrated() && hasAppMarketHydrated()
   );
@@ -333,6 +397,15 @@ export default function App() {
   const removeDesktopItem = useDesktopCoreStore((state) => state.removeDesktopItem);
   const updateDesktopLayout = useDesktopCoreStore((state) => state.updateDesktopLayout);
   const { installedAppIds, uploadedApps, uninstallApp } = useAppMarketStore();
+  const wechatUnreadCount = useWeChatStore((state) =>
+    state.wechatSessions.reduce(
+      (total, session) => total + Math.max(0, Number(session.unreadCount) || 0),
+      0
+    )
+  );
+  const wechatSessions = useWeChatStore((state) => state.wechatSessions);
+  const contactsSnapshot = useContactsSnapshot();
+  const myCardsSnapshot = useMyCardsSnapshot();
 
   // 初始化桌面布局
   const { cols = 4, rows = 6, items = [], pageCount = 1 } = desktopLayout;
@@ -347,6 +420,37 @@ export default function App() {
       window.removeEventListener('storage', syncLocalCustomWidgets);
     };
   }, []);
+
+  useEffect(() => {
+    const previousUnreadCount = previousWechatUnreadCountRef.current;
+    previousWechatUnreadCountRef.current = wechatUnreadCount;
+
+    if (wechatUnreadCount <= previousUnreadCount) return;
+    if (activeAppId === 'wechat') return;
+
+    const latestUnreadSession = [...wechatSessions]
+      .filter((session) => Math.max(0, Number(session.unreadCount) || 0) > 0)
+      .sort((left, right) => (right.lastUpdated || 0) - (left.lastUpdated || 0))[0];
+    if (!latestUnreadSession) return;
+    const notificationMeta = resolveWeChatNotificationMeta(
+      latestUnreadSession,
+      contactsSnapshot,
+      myCardsSnapshot
+    );
+
+    setWechatBanner({
+      sessionId: latestUnreadSession.id,
+      characterId: latestUnreadSession.characterId,
+      title: notificationMeta.title,
+      body:
+        latestUnreadSession.unreadCount > 1
+          ? `${latestUnreadSession.unreadCount} 则通知`
+          : resolveWeChatNotificationText(latestUnreadSession),
+      count: wechatUnreadCount,
+      avatar: notificationMeta.avatar,
+    });
+
+  }, [activeAppId, contactsSnapshot, myCardsSnapshot, wechatSessions, wechatUnreadCount]);
 
   const installableLocalAppIdSet = useMemo(() => {
     return new Set(localApps.filter((app) => !app.isSystem).map((app) => app.id));
@@ -380,6 +484,7 @@ export default function App() {
     pointerOffsetX: number;
     pointerOffsetY: number;
   } | null>(null);
+  const previousWechatUnreadCountRef = useRef(wechatUnreadCount);
   const touchStartRef = useRef<{ x: number; y: number } | null>(null);
   const desktopGridRef = useRef<HTMLDivElement | null>(null);
   const iconLongPressTimerRef = useRef<number | null>(null);
@@ -756,6 +861,16 @@ export default function App() {
     setIsDesktopEditing(false);
     setActiveAppParams(params);
     setActiveAppId(appId);
+  }, []);
+
+  const openWeChatNotificationBanner = useCallback(() => {
+    if (!wechatBanner) return;
+    setWechatBanner(null);
+    openApp('wechat', { openChatCharacterId: wechatBanner.characterId });
+  }, [openApp, wechatBanner]);
+
+  const dismissWeChatNotificationBanner = useCallback(() => {
+    setWechatBanner(null);
   }, []);
 
   const closeActiveApp = useCallback(() => {
@@ -1828,6 +1943,46 @@ export default function App() {
         {isLocked && <LockScreen onUnlock={() => setIsLocked(false)} />}
       </AnimatePresence>
 
+      <AnimatePresence>
+        {wechatBanner ? (
+          <motion.button
+            key={wechatBanner.sessionId}
+            type="button"
+            initial={{ opacity: 0, y: -34, scale: 0.98 }}
+            animate={{ opacity: 1, y: 0, scale: 1 }}
+            exit={{ opacity: 0, y: -34, scale: 0.98 }}
+            drag="y"
+            dragConstraints={{ top: -80, bottom: 0 }}
+            dragElastic={0.18}
+            onDragEnd={(_, info) => {
+              if (info.offset.y < -24 || info.velocity.y < -220) {
+                dismissWeChatNotificationBanner();
+              }
+            }}
+            onClick={openWeChatNotificationBanner}
+            className="absolute left-4 right-4 z-[240] flex items-center gap-3 rounded-[26px] border border-white/70 bg-white/88 px-4 py-3 text-left text-slate-900 shadow-[0_18px_42px_-24px_rgba(15,23,42,0.85)] backdrop-blur-2xl"
+            style={{ top: 'calc(env(safe-area-inset-top, 0px) + 16px)' }}
+          >
+            <span className="relative flex h-12 w-12 shrink-0 items-center justify-center rounded-full bg-slate-100 text-slate-700 shadow-inner">
+              {wechatBanner.avatar ? (
+                <img src={wechatBanner.avatar} alt="" className="h-full w-full rounded-full object-cover" />
+              ) : (
+                <span className="text-[20px]">💬</span>
+              )}
+            </span>
+            <span className="min-w-0 flex-1">
+              <span className="flex items-center justify-between gap-3">
+                <span className="text-[15px] font-semibold leading-5">{wechatBanner.title}</span>
+                <span className="text-[13px] text-slate-500">现在</span>
+              </span>
+              <span className="mt-0.5 block truncate text-[15px] leading-5 text-slate-700">
+                {wechatBanner.body}
+              </span>
+            </span>
+          </motion.button>
+        ) : null}
+      </AnimatePresence>
+
       {/* 动态渲染激活的应用 */}
       <AnimatePresence>
         {activeAppId && ActiveAppComponent && (
@@ -2268,6 +2423,7 @@ export default function App() {
                           label={settings.showAppName ? app.name : undefined}
                           customIcon={customIconNode}
                           onClick={() => openApp(app.id)}
+                          badgeCount={app.id === 'wechat' ? wechatUnreadCount : 0}
                           isEditing={isDesktopEditing}
                           canRemove={!isSystemAppId(appItem.componentId)}
                           onRemove={() => uninstallDesktopApp(appItem)}

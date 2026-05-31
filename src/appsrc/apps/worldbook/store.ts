@@ -5,7 +5,7 @@ import {
 
 export type WorldBookAppStore = Pick<
   WorldBookStoreState,
-  'worldBook' | 'addWorldEntry' | 'updateWorldEntry' | 'deleteWorldEntry'
+  'worldBook' | 'setWorldBook' | 'addWorldEntry' | 'updateWorldEntry' | 'deleteWorldEntry'
 >;
 
 const createCachedSelector = <TSource, TResult>(
@@ -30,6 +30,7 @@ const createCachedSelector = <TSource, TResult>(
 
 const selectWorldBookAppStore = createCachedSelector((state: WorldBookStoreState): WorldBookAppStore => ({
   worldBook: state.worldBook,
+  setWorldBook: state.setWorldBook,
   addWorldEntry: state.addWorldEntry,
   updateWorldEntry: state.updateWorldEntry,
   deleteWorldEntry: state.deleteWorldEntry,

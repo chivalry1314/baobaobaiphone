@@ -3,7 +3,7 @@ import { DEFAULT_ACTIVE_ROLE_ID, createRoleCharacterId, isContactRoleId, parseCo
 import { useActiveRoleIdSnapshot, useContactsSnapshot, useMyCardsSnapshot } from '../contacts/selectors';
 import type { Contact, MyCard } from '../contacts/types';
 import { useWeChatStore } from './store';
-import type { WeChatCharacter } from './types';
+import type { WeChatCharacter, WeChatSession } from './types';
 
 const DEFAULT_DESCRIPTION = '这个联系人暂无详细设定';
 const DEFAULT_GREETING = '你好，很高兴认识你';
@@ -129,6 +129,27 @@ const createFallbackCharacter = (
   };
 };
 
+const mapInspectorGeneratedSessionToCharacter = (
+  session: WeChatSession,
+  patSuffix?: string
+): WeChatCharacter | null => {
+  const generated = session.inspectorGeneratedContact;
+  const normalizedCharacterId = session.characterId?.trim();
+  const name = generated?.name?.trim();
+  if (!generated || !normalizedCharacterId || !name) return null;
+
+  return {
+    id: normalizedCharacterId,
+    name,
+    avatar: '',
+    description: generated.note || generated.suspicion || generated.relationshipGuess || '查手机自动生成的联系人',
+    greeting: DEFAULT_GREETING,
+    personality: generated.suspicion || '',
+    background: generated.role || generated.relationshipGuess || '',
+    patSuffix,
+  };
+};
+
 export const useWeChatFriendCharactersFromContacts = (): WeChatCharacter[] => {
   const contacts = useContactsSnapshot();
   const myCards = useMyCardsSnapshot();
@@ -184,15 +205,20 @@ export const useWeChatFriendCharactersFromContacts = (): WeChatCharacter[] => {
       if (characterById.has(sessionCharacterId)) return;
       const sessionContact = contacts.find((item) => item.id === sessionCharacterId);
       if (sessionContact && sessionContact.wechatRelation !== 'friend') return;
+      const generatedCharacter = mapInspectorGeneratedSessionToCharacter(
+        session,
+        wechatContactExtensions[sessionCharacterId]?.patSuffix
+      );
       characterById.set(
         sessionCharacterId,
-        createFallbackCharacter(
-          sessionCharacterId,
-          contacts,
-          myCards,
-          roleAvatarMap,
-          wechatContactExtensions[sessionCharacterId]?.patSuffix
-        )
+        generatedCharacter ||
+          createFallbackCharacter(
+            sessionCharacterId,
+            contacts,
+            myCards,
+            roleAvatarMap,
+            wechatContactExtensions[sessionCharacterId]?.patSuffix
+          )
       );
     });
 

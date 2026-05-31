@@ -40,6 +40,9 @@ const getPinyinInitial = (name: string): string => {
   return firstChar.toUpperCase();
 };
 
+const isInspectorGeneratedCharacterId = (characterId: string): boolean =>
+  characterId.trim().startsWith('inspector-gen-');
+
 export const WeChatContacts: React.FC<WeChatContactsProps> = ({ onSelectContact, onOpenNewFriends }) => {
   const friendCharacters = useWeChatFriendCharactersFromContacts();
   const incomingRequests = useIncomingRequestContacts();
@@ -54,6 +57,7 @@ export const WeChatContacts: React.FC<WeChatContactsProps> = ({ onSelectContact,
     if (!isInspectorContactRoleMode) return friendCharacters;
 
     return friendCharacters.filter((character) => {
+      if (isInspectorGeneratedCharacterId(character.id)) return true;
       const roleId = parseRoleCharacterId(character.id);
       if (!roleId) return false;
       return roleId === DEFAULT_ACTIVE_ROLE_ID || inspectorVisibleRoleIds.has(roleId);

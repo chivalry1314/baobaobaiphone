@@ -53,6 +53,14 @@ export const WeChatApp: React.FC<WeChatAppProps> = ({ onClose, context }) => {
     storedActiveRoleId;
   const isInspectorContactRoleMode = isInspectorMode && isContactRoleId(effectiveRoleId);
   const syncWeChatRoleContext = useWeChatStore((state) => state.syncWeChatRoleContext);
+  const ensureWeChatSession = useWeChatStore((state) => state.ensureWeChatSession);
+  const setWeChatCurrentSession = useWeChatStore((state) => state.setWeChatCurrentSession);
+  const unreadChatCount = useWeChatStore((state) =>
+    state.wechatSessions.reduce(
+      (total, session) => total + Math.max(0, Number(session.unreadCount) || 0),
+      0
+    )
+  );
   const [activeTab, setActiveTab] = useState<WeChatTab>('chat');
   const [currentView, setCurrentView] = useState<WeChatView>('main');
   const [selectedCharacterId, setSelectedCharacterId] = useState<string | null>(null);
@@ -92,14 +100,31 @@ export const WeChatApp: React.FC<WeChatAppProps> = ({ onClose, context }) => {
 
   useEffect(() => {
     if (!directLaunchCharacterId) return;
+    const sessionId = ensureWeChatSession(directLaunchCharacterId, { switchCurrent: true });
+    if (sessionId) {
+      setWeChatCurrentSession(sessionId);
+    }
     setActiveTab('chat');
     setSelectedCharacterId(directLaunchCharacterId);
     setCurrentView('chat');
-  }, [directLaunchCharacterId]);
+  }, [directLaunchCharacterId, ensureWeChatSession, setWeChatCurrentSession]);
+
+  useEffect(() => {
+    if (currentView === 'chat') return;
+    setWeChatCurrentSession(null);
+  }, [currentView, setWeChatCurrentSession]);
 
   useEffect(() => {
     if (!isInspectorContactRoleMode) return;
-    if (currentView === 'main' || currentView === 'chat') return;
+    if (
+      currentView === 'main' ||
+      currentView === 'chat' ||
+      currentView === 'services' ||
+      currentView === 'wallet' ||
+      currentView === 'bill'
+    ) {
+      return;
+    }
     setCurrentView('main');
   }, [currentView, isInspectorContactRoleMode]);
 
@@ -187,6 +212,9 @@ export const WeChatApp: React.FC<WeChatAppProps> = ({ onClose, context }) => {
       if (currentView === 'chat' && isVoiceCallActive) {
         setVoiceCallUiState(null);
       }
+      if (currentView === 'chat') {
+        setWeChatCurrentSession(null);
+      }
       setCurrentView('main');
       return;
     }
@@ -230,6 +258,10 @@ export const WeChatApp: React.FC<WeChatAppProps> = ({ onClose, context }) => {
 
   const handleSelectChat = (characterId: string) => {
     if (!trySwitchChatTarget(characterId)) return;
+    const sessionId = ensureWeChatSession(characterId, { switchCurrent: true });
+    if (sessionId) {
+      setWeChatCurrentSession(sessionId);
+    }
     setCurrentView('chat');
   };
 
@@ -293,7 +325,9 @@ export const WeChatApp: React.FC<WeChatAppProps> = ({ onClose, context }) => {
                   <span className="text-[17px]">返回</span>
                 </button>
                 <h1 className="flex-1 text-center text-[17px] font-medium text-gray-900">
-                  {TAB_TITLE[activeTab]}
+                  {activeTab === 'chat' && unreadChatCount > 0
+                    ? `微信 (${unreadChatCount > 99 ? '99+' : unreadChatCount})`
+                    : TAB_TITLE[activeTab]}
                 </h1>
                 {activeTab === 'contacts' && !isInspectorContactRoleMode ? (
                   <button
@@ -348,7 +382,6 @@ export const WeChatApp: React.FC<WeChatAppProps> = ({ onClose, context }) => {
                       setCurrentView('editMyProfile');
                     }}
                     onServicesClick={() => {
-                      if (isInspectorContactRoleMode) return;
                       setCurrentView('services');
                     }}
                     onMomentsClick={() => {
@@ -367,7 +400,11 @@ export const WeChatApp: React.FC<WeChatAppProps> = ({ onClose, context }) => {
             </div>
 
             <div className="shrink-0">
-              <WeChatTabBar activeTab={activeTab} onTabChange={setActiveTab} />
+              <WeChatTabBar
+                activeTab={activeTab}
+                onTabChange={setActiveTab}
+                unreadChatCount={unreadChatCount}
+              />
             </div>
           </motion.div>
         )}
@@ -476,7 +513,13 @@ export const WeChatApp: React.FC<WeChatAppProps> = ({ onClose, context }) => {
           />
         )}
 
-        {currentView === 'bill' && <WeChatBillView key="bill" onBack={handleBack} />}
+        {currentView === 'bill' && (
+          <WeChatBillView
+            key="bill"
+            onBack={handleBack}
+            inspectorOnly={isInspectorContactRoleMode}
+          />
+        )}
 
         {currentView === 'balance' && (
           <WeChatBalanceView

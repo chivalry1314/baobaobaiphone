@@ -15,6 +15,7 @@ import {
   setRuntimeActiveRoleId,
 } from '../../shared/business/roleRuntime';
 import { WeChatApp } from './WeChatApp';
+import { wechatMemoryController } from './memory';
 import { useWeChatStore } from './store';
 
 interface WeChatScriptPayload {
@@ -83,6 +84,18 @@ if (!wechatScriptExecutorRegistered) {
         role: 'user',
         content,
         type: 'text',
+      });
+
+      await runWithRuntimeRole(targetUserRoleId, () => {
+        wechatMemoryController.record({
+          contactId: roleId,
+          sessionId,
+          sourceId: `daily-script-${roleId}-${Date.now()}`,
+          sourceType: 'text',
+          role: 'assistant',
+          content,
+          timestamp: Date.now(),
+        });
       });
 
       return {

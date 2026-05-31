@@ -20,6 +20,7 @@ interface AppIconProps {
   onPointerCancel?: React.PointerEventHandler<HTMLDivElement>;
   jiggleDelayMs?: number;
   jiggleDurationMs?: number;
+  badgeCount?: number;
   // 全局样式
   size?: number;
   radius?: number;
@@ -47,9 +48,12 @@ export const AppIcon: React.FC<AppIconProps> = ({
   onPointerCancel,
   jiggleDelayMs = 0,
   jiggleDurationMs = 920,
+  badgeCount = 0,
 }) => {
   const IconComponent = icon ? (LucideIcons[icon] as React.ElementType) : null;
   const clockId = useId();
+  const normalizedBadgeCount = Math.max(0, Math.floor(Number(badgeCount) || 0));
+  const badgeLabel = normalizedBadgeCount > 99 ? '99+' : String(normalizedBadgeCount);
 
   return (
     <motion.div
@@ -78,6 +82,17 @@ export const AppIcon: React.FC<AppIconProps> = ({
         >
           <span className="h-1 w-4 rounded-full bg-white shadow-[0_1px_3px_rgba(15,23,42,0.28)]" />
         </button>
+      ) : null}
+      {normalizedBadgeCount > 0 ? (
+        <span
+          className="absolute z-30 flex h-5 min-w-[20px] items-center justify-center rounded-full bg-[#FF3B30] px-1.5 text-[11px] font-semibold leading-none text-white shadow-[0_2px_6px_rgba(0,0,0,0.22)] ring-2 ring-white"
+          style={{
+            right: '8px',
+            top: '-7px',
+          }}
+        >
+          {badgeLabel}
+        </span>
       ) : null}
       <div
         className="flex items-center justify-center relative overflow-hidden group"

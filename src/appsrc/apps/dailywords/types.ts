@@ -45,6 +45,8 @@ export interface DailyWordsStore extends DailyWordsRoleState {
   createEntryFromDraft: () => void;
   updateEntry: (entryId: string, payload: DailyWordsUpdatePayload) => void;
   removeEntry: (entryId: string) => void;
+  importInspectorEntries: (roleId: string, entries: DailyWordsEntry[]) => void;
+  clearInspectorEntries: (roleId: string) => void;
   setSearchKeyword: (value: string) => void;
   setDateFilter: (value: DailyWordsDateFilter) => void;
   setShowFullPreview: (value: boolean) => void;

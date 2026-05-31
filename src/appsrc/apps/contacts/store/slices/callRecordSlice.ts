@@ -9,7 +9,7 @@ export const createCallRecordSlice = ({
   generateId,
 }: ContactsActionContext): Pick<
   ContactsStore,
-  'addCallRecord' | 'deleteCallRecord' | 'clearCallRecords'
+  'addCallRecord' | 'importInspectorCallRecords' | 'clearInspectorCallRecords' | 'deleteCallRecord' | 'clearCallRecords'
 > => ({
   addCallRecord: (payload: AddCallRecordPayload) => {
     const contact = get().contacts.find((item) => item.id === payload.contactId);
@@ -33,6 +33,31 @@ export const createCallRecordSlice = ({
 
     set((state) => ({
       callRecords: [record, ...state.callRecords].slice(0, 500),
+    }));
+  },
+
+  importInspectorCallRecords: (sourceContactId, records) => {
+    const normalizedSourceContactId = sourceContactId.trim();
+    if (!normalizedSourceContactId) return;
+
+    set((state) => ({
+      callRecords: [
+        ...records,
+        ...state.callRecords.filter(
+          (record) => record.inspectorGeneratedSourceContactId !== normalizedSourceContactId
+        ),
+      ].slice(0, 500),
+    }));
+  },
+
+  clearInspectorCallRecords: (sourceContactId) => {
+    const normalizedSourceContactId = sourceContactId.trim();
+    if (!normalizedSourceContactId) return;
+
+    set((state) => ({
+      callRecords: state.callRecords.filter(
+        (record) => record.inspectorGeneratedSourceContactId !== normalizedSourceContactId
+      ),
     }));
   },
 

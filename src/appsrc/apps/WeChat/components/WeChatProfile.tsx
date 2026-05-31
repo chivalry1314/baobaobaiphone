@@ -130,7 +130,7 @@ export const WeChatProfile: React.FC<WeChatProfileProps> = ({
             color="text-[#27A372]"
             border={false}
             onClick={onServicesClick}
-            readOnly={readOnly}
+            readOnly={false}
           />
         </div>
 

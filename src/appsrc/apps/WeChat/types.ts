@@ -131,6 +131,7 @@ export interface WeChatSession {
   messages: WeChatMessage[];
   lastUpdated: number;
   unreadCount: number;
+  inspectorGeneratedContact?: WeChatInspectorGeneratedContact;
   isPinned?: boolean;
   chatBackgroundImage?: string;
   selfBubblePreset?: WeChatBubblePreset;
@@ -142,6 +143,15 @@ export interface WeChatSession {
   chatFontData?: string;
   customBubbleStyles?: WeChatCustomBubbleStyle[];
   customChatFonts?: WeChatCustomFontStyle[];
+}
+
+export interface WeChatInspectorGeneratedContact {
+  sourceContactId: string;
+  name: string;
+  role?: string;
+  note?: string;
+  suspicion?: string;
+  relationshipGuess?: string;
 }
 
 export interface WeChatMoment {
@@ -181,13 +191,16 @@ export interface WeChatBillRecord {
   amount: number;
   direction: WeChatBillDirection;
   timestamp: number;
+  remark?: string;
   statusText?: string;
   avatar?: string;
+  inspectorGeneratedSourceContactId?: string;
 }
 
 export interface WeChatBillMutationMeta {
   title?: string;
   counterparty?: string;
+  remark?: string;
   statusText?: string;
   timestamp?: number;
   avatar?: string;
@@ -287,6 +300,7 @@ export interface WeChatAppProps {
 export interface WeChatTabBarProps {
   activeTab: WeChatTab;
   onTabChange: (tab: WeChatTab) => void;
+  unreadChatCount?: number;
 }
 
 export interface WeChatChatsProps {
