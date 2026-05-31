@@ -81,7 +81,7 @@ const WECHAT_FLOATING_BUBBLE_MARGIN = 10;
 const WECHAT_FLOATING_BUBBLE_DRAG_THRESHOLD = 6;
 const WECHAT_CONTEXT_CHAR_BUDGET = 28000;
 
-type WeChatAutoReplyRunner = (sessionId: string) => Promise<void> | void;
+type WeChatAutoReplyRunner = (sessionId: string) => Promise<boolean | void> | boolean | void;
 
 const wechatAutoReplyTimers = new Map<string, number>();
 const wechatAutoReplyRunningSessionIds = new Set<string>();
@@ -123,15 +123,20 @@ const enqueueWeChatAutoReply = (
     );
     if (pendingMessages.length === 0) return;
 
-    pendingMessages.forEach((message) => {
-      wechatAutoReplyHandledMessageIds.add(message.id);
-      store.updateWeChatMessage(normalizedSessionId, message.id, {
-        assistantReplyPending: false,
-      });
-    });
+    const pendingMessageIds = pendingMessages.map((message) => message.id);
 
     wechatAutoReplyRunningSessionIds.add(normalizedSessionId);
     Promise.resolve(runReply(normalizedSessionId))
+      .then((handled) => {
+        if (handled === false) return;
+        const latestStore = useWeChatStore.getState();
+        pendingMessageIds.forEach((messageId) => {
+          wechatAutoReplyHandledMessageIds.add(messageId);
+          latestStore.updateWeChatMessage(normalizedSessionId, messageId, {
+            assistantReplyPending: false,
+          });
+        });
+      })
       .catch((error) => {
         console.error('[WeChat] auto reply failed:', error);
       })
@@ -2361,7 +2366,7 @@ export const WeChatChatView: React.FC<WeChatChatViewProps> = ({
   };
 
   const requestAssistantReply = async (sessionId: string) => {
-    if (!character) return;
+    if (!character) return false;
 
     const requestStartedAt = Date.now();
     beginAssistantReply();
@@ -2455,6 +2460,7 @@ export const WeChatChatView: React.FC<WeChatChatViewProps> = ({
       endAssistantReply();
       if (isChatViewMountedRef.current) scrollToBottom();
     }
+    return true;
   };
 
   const handleSubmitOocCorrection = async () => {
@@ -2515,7 +2521,7 @@ export const WeChatChatView: React.FC<WeChatChatViewProps> = ({
   };
 
   useEffect(() => {
-    if (!session?.id || readOnly || !settings.apiKey) return;
+    if (!session?.id || readOnly || !settings.apiKey || !character) return;
     const hasPendingAutoReply = messages.some(
       (message) =>
         isPendingWeChatAutoReplyMessage(message) &&
@@ -2523,7 +2529,7 @@ export const WeChatChatView: React.FC<WeChatChatViewProps> = ({
     );
     if (!hasPendingAutoReply) return;
     enqueueWeChatAutoReply(session.id, requestAssistantReply);
-  }, [messages, readOnly, session?.id, settings.apiKey]);
+  }, [character, messages, readOnly, session?.id, settings.apiKey]);
 
   const requestAssistantReplyForVoiceCall = async (userText: string) => {
     if (!character) return;
