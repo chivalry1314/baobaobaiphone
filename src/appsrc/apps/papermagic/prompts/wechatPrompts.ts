@@ -259,6 +259,12 @@ const WECHAT_LISTEN_TOGETHER_DECISION_PROMPT = `一起听歌邀请规则：
 - 如果不愿意加入，就在回复最前面输出 [LISTEN_TOGETHER:rejected]。
 - 标签后面继续正常聊天回复，不要解释标签本身。`;
 
+const WECHAT_SHOPPING_TOGETHER_DECISION_PROMPT = `一起购物邀请规则：
+- 如果聊天上下文里出现“一起购物/同TA购物”的邀请卡，请结合最近聊天内容、熟悉程度、对话语气、当前心情和人物关系，判断是否愿意一起逛。
+- 如果愿意一起购物，就在回复最前面输出 [SHOPPING_TOGETHER:accepted]。
+- 如果不愿意一起购物，就在回复最前面输出 [SHOPPING_TOGETHER:rejected]。
+- 标签后面继续正常聊天回复，不要解释标签本身。`;
+
 const WECHAT_MOVIE_TICKET_DECISION_PROMPT = `电影票规则：
 - 如果聊天上下文里出现电影票卡片，请结合电影、影院、时间、座位、关系亲近度和当前语气，判断角色是否愿意去看或如何回应。
 - 如果愿意去或表现出接受，就在回复最前面输出 [MOVIE_TICKET:accepted]。
@@ -507,7 +513,7 @@ export const WECHAT_PROMPTS: PaperMagicPrompt[] = [
     kind: 'chat',
     content: WECHAT_ORDER_REQUEST_DECISION_PROMPT,
     description: '出现待处理代付订单时，要求角色明确接受或拒绝并通过标签驱动 UI 状态。',
-    variables: [],
+    variables: ['actionText', 'amount', 'orderIdsText', 'orderPreviewText'],
   }),
   definePaperMagicPrompt({
     id: 'wechat.chat.listenTogetherDecision',
@@ -517,7 +523,17 @@ export const WECHAT_PROMPTS: PaperMagicPrompt[] = [
     kind: 'chat',
     content: WECHAT_LISTEN_TOGETHER_DECISION_PROMPT,
     description: '出现一起听歌邀请时，要求角色明确加入或拒绝并通过标签驱动 UI 状态。',
-    variables: [],
+    variables: ['inviterName', 'statusText', 'trackText'],
+  }),
+  definePaperMagicPrompt({
+    id: 'wechat.chat.shoppingTogetherDecision',
+    moduleId: 'social-bonds',
+    title: '微信聊天：一起购物决策标签',
+    source: 'src/appsrc/apps/WeChat/components/WeChatChatView.tsx',
+    kind: 'chat',
+    content: WECHAT_SHOPPING_TOGETHER_DECISION_PROMPT,
+    description: '出现一起购物邀请时，要求角色明确同意或拒绝并通过标签驱动 UI 状态。',
+    variables: ['inviterName', 'statusText', 'inviteText'],
   }),
   definePaperMagicPrompt({
     id: 'wechat.chat.movieTicketDecision',
@@ -527,7 +543,7 @@ export const WECHAT_PROMPTS: PaperMagicPrompt[] = [
     kind: 'chat',
     content: WECHAT_MOVIE_TICKET_DECISION_PROMPT,
     description: '出现电影票卡片时，要求角色判断是否接受邀约或自然追问。',
-    variables: [],
+    variables: ['title', 'cinema', 'date', 'time', 'hall', 'seat', 'qty', 'pickupCode'],
   }),
   definePaperMagicPrompt({
     id: 'wechat.chat.giftDecision',
@@ -537,7 +553,7 @@ export const WECHAT_PROMPTS: PaperMagicPrompt[] = [
     kind: 'chat',
     content: WECHAT_GIFT_DECISION_PROMPT,
     description: '出现礼物卡片时，要求角色判断是否接受礼物或自然回应。',
-    variables: [],
+    variables: ['productName', 'amount', 'orderId'],
   }),
   definePaperMagicPrompt({
     id: 'wechat.chat.recipeDecision',
@@ -547,7 +563,7 @@ export const WECHAT_PROMPTS: PaperMagicPrompt[] = [
     kind: 'chat',
     content: WECHAT_RECIPE_DECISION_PROMPT,
     description: '出现菜谱卡片时，要求角色判断是否想尝试或自然回应。',
-    variables: [],
+    variables: ['title', 'subtitle', 'time', 'servings', 'ingredientText'],
   }),
   definePaperMagicPrompt({
     id: 'wechat.chat.imageDecision',
@@ -557,7 +573,7 @@ export const WECHAT_PROMPTS: PaperMagicPrompt[] = [
     kind: 'chat',
     content: WECHAT_IMAGE_DECISION_PROMPT,
     description: '出现图片消息时，要求角色基于图片内容做出明确或自然的回应。',
-    variables: [],
+    variables: ['normalizedCaption'],
   }),
   definePaperMagicPrompt({
     id: 'wechat.chat.transferDecision',
@@ -565,7 +581,7 @@ export const WECHAT_PROMPTS: PaperMagicPrompt[] = [
     title: '微信聊天：转账接收判断',
     source: 'src/appsrc/apps/WeChat/components/WeChatChatView.tsx',
     kind: 'chat',
-    content: '[系统紧急提示：用户刚刚向你发起了一笔转账，金额：¥${amount}。如果你选择接收这笔钱，请必须在回复中包含“【接收转账】”这四个字；如果不接收或想忽略，请正常回复其他内容即可。]',
+    content: '转账接收规则：\n- 如果聊天上下文里出现用户向你发起转账，请结合金额、关系亲近度、当前语气和角色性格判断是否接收。\n- 如果愿意接收这笔转账，就在回复最前面输出 [TRANSFER:accepted]。\n- 如果不愿意接收或想退回，就在回复最前面输出 [TRANSFER:rejected]。\n- 标签后面继续正常聊天回复，不要解释标签本身。\n- 当前转账金额：¥${amount}',
     description: '用户发起转账时，要求角色决定是否接收。',
     variables: ['amount'],
   }),

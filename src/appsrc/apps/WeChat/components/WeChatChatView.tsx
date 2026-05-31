@@ -86,6 +86,12 @@ type WeChatAutoReplyRunner = (sessionId: string) => Promise<void> | void;
 const wechatAutoReplyTimers = new Map<string, number>();
 const wechatAutoReplyRunningSessionIds = new Set<string>();
 const wechatAutoReplyHandledMessageIds = new Set<string>();
+const WECHAT_ACTION_MESSAGE_TYPES = new Set<WeChatMessage['type']>([
+  'order_request',
+  'dream_music_invite',
+  'shopping_invite',
+  'transfer',
+]);
 
 const enqueueWeChatAutoReply = (
   sessionId: string,
@@ -148,6 +154,9 @@ const enqueueWeChatAutoReply = (
 
   wechatAutoReplyTimers.set(normalizedSessionId, timer);
 };
+
+const isPendingWeChatAutoReplyMessage = (message: WeChatMessage): boolean =>
+  message.role === 'user' && Boolean(message.assistantReplyPending);
 
 const formatChatTimeDivider = (timestamp: number): string => {
   const date = new Date(timestamp);
@@ -365,6 +374,18 @@ const formatDreamMusicInviteForAi = (message: Pick<WeChatMessage, 'dreamMusicInv
 const formatDreamMusicListenSummaryForAi = (message: Pick<WeChatMessage, 'dreamMusicListenSummary'>): string =>
   `一起听歌记录：我们一起听了${formatListenTogetherMinutes(message.dreamMusicListenSummary?.durationMs)}`;
 
+const formatShoppingInviteForAi = (message: Pick<WeChatMessage, 'shoppingInvite' | 'orderRequestStatus'>): string => {
+  const inviterName = message.shoppingInvite?.inviterName?.trim() || '用户';
+  const inviteText = message.shoppingInvite?.inviteText?.trim() || '邀请你一起购物';
+  const statusText =
+    message.orderRequestStatus === 'accepted'
+      ? '已同意一起购物'
+      : message.orderRequestStatus === 'rejected'
+        ? '已拒绝一起购物'
+        : '等待你决定是否一起购物';
+  return `一起购物邀请：${inviterName}邀请你一起购物；状态：${statusText}；内容：${inviteText}`;
+};
+
 const normalizeMessageContentForMemoryComparison = (message: WeChatMessage): string => {
   if (message.type === 'order_request' && typeof message.amount === 'number') {
     const actionText =
@@ -399,6 +420,10 @@ const normalizeMessageContentForMemoryComparison = (message: WeChatMessage): str
 
   if (message.type === 'dream_music_invite') {
     return formatDreamMusicInviteForAi(message);
+  }
+
+  if (message.type === 'shopping_invite') {
+    return formatShoppingInviteForAi(message);
   }
 
   if (message.type === 'dream_music_listen_summary') {
@@ -534,7 +559,7 @@ const parseAssistantOrderDecision = (
   rawReply: string
 ): { action: 'accepted' | 'rejected' | null; content: string } => {
   const normalized = rawReply.trim();
-  const match = normalized.match(/^\[(ORDER_REQUEST|代付决策|LISTEN_TOGETHER|一起听歌|MOVIE_TICKET|电影票|GIFT|礼物|RECIPE_CARD|菜谱|IMAGE_MESSAGE|图片)\s*:\s*(accepted|rejected|同意|拒绝)\]\s*/i);
+  const match = normalized.match(/^\[(ORDER_REQUEST|代付决策|LISTEN_TOGETHER|一起听歌|SHOPPING_TOGETHER|SHOPPING_INVITE|一起购物|TRANSFER|转账|MOVIE_TICKET|电影票|GIFT|礼物|RECIPE_CARD|菜谱|IMAGE_MESSAGE|图片)\s*:\s*(accepted|rejected|同意|拒绝)\]\s*/i);
   if (!match) {
     return {
       action: null,
@@ -544,7 +569,12 @@ const parseAssistantOrderDecision = (
 
   const label = match[1].toUpperCase();
   const actionToken = match[2].toLowerCase();
-  const shouldApplyUiAction = ['ORDER_REQUEST', 'LISTEN_TOGETHER'].includes(label) || match[1] === '代付决策' || match[1] === '一起听歌';
+  const shouldApplyUiAction =
+    ['ORDER_REQUEST', 'LISTEN_TOGETHER', 'SHOPPING_TOGETHER', 'SHOPPING_INVITE', 'TRANSFER'].includes(label) ||
+    match[1] === '代付决策' ||
+    match[1] === '一起听歌' ||
+    match[1] === '一起购物' ||
+    match[1] === '转账';
   return {
     action: shouldApplyUiAction
       ? actionToken === 'accepted' || actionToken === '同意'
@@ -2199,6 +2229,9 @@ export const WeChatChatView: React.FC<WeChatChatViewProps> = ({
           orderPreviewText,
         });
       }
+      if (m.type === 'shopping_invite') {
+        content = `[系统记录：${formatShoppingInviteForAi(m)}]`;
+      }
       if (m.type === 'movie_ticket' && m.movieTicket) {
         content = renderPaperMagicText('wechat.chat.specialMessage.movieTicket', {
           title: m.movieTicket.movieTitle,
@@ -2339,6 +2372,7 @@ export const WeChatChatView: React.FC<WeChatChatViewProps> = ({
           renderPaperMagicText('wechat.chat.reply', { characterName: character.name }),
           renderPaperMagicText('wechat.chat.orderRequestDecision'),
           renderPaperMagicText('wechat.chat.listenTogetherDecision'),
+          renderPaperMagicText('wechat.chat.shoppingTogetherDecision'),
           renderPaperMagicText('wechat.chat.movieTicketDecision'),
           renderPaperMagicText('wechat.chat.giftDecision'),
           renderPaperMagicText('wechat.chat.recipeDecision'),
@@ -2372,26 +2406,34 @@ export const WeChatChatView: React.FC<WeChatChatViewProps> = ({
         if (hasNewPendingUserMessage) return;
 
         const { action, content } = parseAssistantOrderDecision(replyContentRaw);
-        const replyContent =
-          content ||
-          (action === 'accepted'
-            ? '行，这单我来付。'
-            : action === 'rejected'
-              ? '这单我先不帮你付了。'
-              : '');
-
-        if (action) {
-          const latestPendingActionMessage = [...(useWeChatStore.getState().wechatSessions.find((item) => item.id === sessionId)?.messages || [])]
-            .reverse()
-            .find(
-              (message) =>
-                message.role === 'user' &&
-                (message.type === 'order_request' || message.type === 'dream_music_invite') &&
-                message.orderRequestStatus === 'pending'
-            );
-          if (latestPendingActionMessage) {
-            await applyOrderRequestAction(sessionId, latestPendingActionMessage, action, { silent: true });
+        const latestPendingActionMessage = action
+          ? [...(useWeChatStore.getState().wechatSessions.find((item) => item.id === sessionId)?.messages || [])]
+              .reverse()
+              .find(
+                (message) =>
+                  message.role === 'user' &&
+                  WECHAT_ACTION_MESSAGE_TYPES.has(message.type) &&
+                  message.orderRequestStatus === 'pending'
+              )
+          : undefined;
+        const defaultActionReply = (() => {
+          if (!action) return '';
+          if (latestPendingActionMessage?.type === 'dream_music_invite') {
+            return action === 'accepted' ? '好啊，我加入。' : '我先不一起听了。';
           }
+          if (latestPendingActionMessage?.type === 'shopping_invite') {
+            return action === 'accepted' ? '行，我陪你逛。' : '我今天先不逛了。';
+          }
+          if (latestPendingActionMessage?.type === 'transfer') {
+            return action === 'accepted' ? '我收到了。' : '这钱我先不收。';
+          }
+          return action === 'accepted' ? '行，这单我来付。' : '这单我先不帮你付了。';
+        })();
+        const replyContent =
+          content || defaultActionReply;
+
+        if (action && latestPendingActionMessage) {
+          await applyOrderRequestAction(sessionId, latestPendingActionMessage, action, { silent: true });
         }
 
         const replyMessages = splitAssistantBurstMessages(replyContent);
@@ -2471,6 +2513,17 @@ export const WeChatChatView: React.FC<WeChatChatViewProps> = ({
       setOocCorrectionPending(false);
     }
   };
+
+  useEffect(() => {
+    if (!session?.id || readOnly || !settings.apiKey) return;
+    const hasPendingAutoReply = messages.some(
+      (message) =>
+        isPendingWeChatAutoReplyMessage(message) &&
+        !wechatAutoReplyHandledMessageIds.has(message.id)
+    );
+    if (!hasPendingAutoReply) return;
+    enqueueWeChatAutoReply(session.id, requestAssistantReply);
+  }, [messages, readOnly, session?.id, settings.apiKey]);
 
   const requestAssistantReplyForVoiceCall = async (userText: string) => {
     if (!character) return;
@@ -2642,7 +2695,13 @@ export const WeChatChatView: React.FC<WeChatChatViewProps> = ({
     }
 
     let sessionId = session?.id || createWeChatSession(character.id);
-    addWeChatMessage(sessionId, { role: 'user', content: `转账 ¥${amount.toFixed(2)}`, type: 'transfer', amount });
+    addWeChatMessage(sessionId, {
+      role: 'user',
+      content: `转账 ¥${amount.toFixed(2)}`,
+      type: 'transfer',
+      amount,
+      orderRequestStatus: 'pending',
+    });
     setShowTransferView(false); setTransferAmount(''); scrollToBottom();
 
     if (!settings.apiKey) {
@@ -2676,16 +2735,31 @@ export const WeChatChatView: React.FC<WeChatChatViewProps> = ({
       });
       if (!response.ok) throw new Error('API 失败');
       const data = await response.json();
-      let replyContent = data.choices[0].message.content;
+      const rawReplyContent = String(data.choices[0].message.content || '');
+      const normalizedReplyContent = rawReplyContent.includes('【接收转账】')
+        ? rawReplyContent.replace('【接收转账】', '[TRANSFER:accepted]')
+        : rawReplyContent;
+      const { action, content } = parseAssistantOrderDecision(normalizedReplyContent);
+      let replyContent =
+        content ||
+        (action === 'accepted'
+          ? '我收到了。'
+          : action === 'rejected'
+            ? '这钱我先不收。'
+            : normalizedReplyContent.trim());
 
-      if (replyContent.includes('【接收转账】')) {
-        withdrawWeChatBalance(amount, {
-          title: '转账',
-          counterparty: character.name,
-          avatar: character.avatar,
-        });
-        addWeChatMessage(sessionId, { role: 'character', content: `已收款 ¥${amount.toFixed(2)}`, type: 'transfer_accepted', amount });
-        replyContent = replyContent.replace('【接收转账】', '').trim();
+      if (action) {
+        const latestTransferMessage = [...(useWeChatStore.getState().wechatSessions.find((item) => item.id === sessionId)?.messages || [])]
+          .reverse()
+          .find(
+            (message) =>
+              message.role === 'user' &&
+              message.type === 'transfer' &&
+              message.orderRequestStatus === 'pending'
+          );
+        if (latestTransferMessage) {
+          await applyOrderRequestAction(sessionId, latestTransferMessage, action, { silent: true });
+        }
       }
       const replyMessages = splitAssistantBurstMessages(replyContent);
       if (replyMessages.length > 0) {
@@ -2932,6 +3006,28 @@ export const WeChatChatView: React.FC<WeChatChatViewProps> = ({
 
         if (!options?.silent) {
           setToastMessage(action === 'accepted' ? '已同意一起听' : '已拒绝一起听');
+          window.setTimeout(() => setToastMessage(null), 1800);
+        }
+        return;
+      }
+
+      if (message.type === 'transfer') {
+        if (action === 'accepted' && character && typeof message.amount === 'number') {
+          withdrawWeChatBalance(message.amount, {
+            title: '转账',
+            counterparty: character.name,
+            avatar: character.avatar,
+          });
+          addWeChatMessage(sessionId, {
+            role: 'character',
+            content: `已收款 ¥${message.amount.toFixed(2)}`,
+            type: 'transfer_accepted',
+            amount: message.amount,
+          });
+        }
+
+        if (!options?.silent) {
+          setToastMessage(action === 'accepted' ? '已接收转账' : '已拒绝转账');
           window.setTimeout(() => setToastMessage(null), 1800);
         }
         return;

@@ -1334,7 +1334,7 @@ export const ShoppingApp: React.FC<ShoppingAppProps> = ({ onClose, context }) =>
         content: '邀请你和我一起购物',
         type: 'shopping_invite',
         orderRequestStatus: 'pending',
-        assistantReplyPending: false,
+        assistantReplyPending: true,
         shoppingInvite: {
           mode: 'together',
           inviterName: '我',
