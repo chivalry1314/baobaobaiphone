@@ -171,6 +171,7 @@ export const DailyWordsApp: React.FC<DailyWordsAppProps> = ({ onClose, context }
     () => buildTimelineGroups(filteredEntries),
     [filteredEntries]
   );
+  const hasSearchKeyword = searchKeyword.trim().length > 0;
 
   const draftCanSubmit = useMemo(() => {
     const title = draft.title.trim();
@@ -273,7 +274,7 @@ export const DailyWordsApp: React.FC<DailyWordsAppProps> = ({ onClose, context }
           </div>
         </section>
 
-        {timelineGroups.length === 0 ? (
+        {timelineGroups.length === 0 && hasSearchKeyword ? null : timelineGroups.length === 0 ? (
           <div className="relative mx-0 mt-4 h-[260px]">
             <div
               className="absolute left-3 right-0 top-7 h-[205px] rotate-[4deg] rounded-[12px] border border-neutral-300/90"
@@ -464,7 +465,7 @@ export const DailyWordsApp: React.FC<DailyWordsAppProps> = ({ onClose, context }
         )}
       </main>
 
-      {!isReadOnlyMode && !isEditorOpen ? (
+      {!isReadOnlyMode && !isEditorOpen && !hasSearchKeyword ? (
         <button
           type="button"
           onClick={handleOpenCreateEditor}

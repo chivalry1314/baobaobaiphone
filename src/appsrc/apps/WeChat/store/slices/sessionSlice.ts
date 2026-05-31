@@ -471,7 +471,8 @@ export const createWeChatSessionSlice = ({
         state,
         normalizedRoleId
       );
-      const replacingCharacterIds = new Set(snapshot.sessions.map((session) => session.characterId));
+      const nextSessions = snapshot.sessions.filter((session) => session.characterId.trim());
+      const replacingCharacterIds = new Set(nextSessions.map((session) => session.characterId));
       const existingManualSessions = roleState.wechatSessions.filter((session) => {
         if (replacingCharacterIds.has(session.characterId)) return false;
         return true;
@@ -479,7 +480,6 @@ export const createWeChatSessionSlice = ({
       const existingManualBills = roleState.wechatBills.filter(
         (bill) => bill.inspectorGeneratedSourceContactId !== sourceContactId
       );
-      const nextSessions = snapshot.sessions.filter((session) => session.characterId.trim());
       const nextBills = snapshot.bills.filter((bill) => Number.isFinite(bill.amount) && bill.amount > 0);
 
       return applyRoleState(syncedState, roleId, {

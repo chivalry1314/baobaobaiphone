@@ -26,7 +26,15 @@ import styles from './PaperMagicApp.module.css';
 type ViewMode = 'cover' | 'tarot' | 'book';
 type PromptPart = 'variables' | 'system' | 'user' | 'content';
 
-interface PromptBookPage {
+interface PromptDirectoryPage {
+  key: string;
+  part: 'directory';
+  label: string;
+  text: string;
+  editable: false;
+}
+
+interface PromptContentPage {
   key: string;
   prompt: PaperMagicPrompt;
   part: PromptPart;
@@ -34,6 +42,8 @@ interface PromptBookPage {
   text: string;
   editable: boolean;
 }
+
+type PromptBookPage = PromptDirectoryPage | PromptContentPage;
 
 const PROMPT_PART_LABELS: Record<PromptPart, string> = {
   variables: '参数',
@@ -81,6 +91,14 @@ const getPromptBookPages = (prompt: PaperMagicPrompt): PromptBookPage[] => {
 
 const getAllPromptBookPages = (): PromptBookPage[] =>
   PAPER_MAGIC_PROMPTS.flatMap(getPromptBookPages);
+
+const getDirectoryPage = (appGroupId: string): PromptDirectoryPage => ({
+  key: `${appGroupId}:directory`,
+  part: 'directory',
+  label: '目录',
+  text: '',
+  editable: false,
+});
 
 const highlightVariables = (text: string) => {
   const parts = text.split(/(\$\{[A-Za-z0-9_]+\})/g);
@@ -187,7 +205,7 @@ export const PaperMagicApp: React.FC<AppProps> = ({ onClose }) => {
   const [activeModuleId, setActiveModuleId] = React.useState(PAPER_MAGIC_MODULES[0].id);
   const [activeAppGroupId, setActiveAppGroupId] = React.useState(PAPER_MAGIC_APP_GROUPS[0].id);
   const [activePageKey, setActivePageKey] = React.useState(
-    getPromptBookPages(getPaperMagicPrompt(PAPER_MAGIC_MODULES[0].promptIds[0]))[0].key
+    getDirectoryPage(PAPER_MAGIC_APP_GROUPS[0].id).key
   );
   const [drafts, setDrafts] = React.useState<Record<string, string>>(() =>
     Object.fromEntries(getAllPromptBookPages().map((item) => [item.key, item.text]))
@@ -218,9 +236,11 @@ export const PaperMagicApp: React.FC<AppProps> = ({ onClose }) => {
   const moduleAppGroups = PAPER_MAGIC_APP_GROUPS.filter((item) => item.moduleId === activeModule.id);
   const activeAppGroup = PAPER_MAGIC_APP_GROUPS.find((item) => item.id === activeAppGroupId) || moduleAppGroups[0] || PAPER_MAGIC_APP_GROUPS[0];
   const modulePrompts = activeAppGroup.promptIds.map(getPaperMagicPrompt);
-  const bookPages = modulePrompts.flatMap(getPromptBookPages);
+  const contentBookPages = modulePrompts.flatMap(getPromptBookPages);
+  const directoryPage = getDirectoryPage(activeAppGroup.id);
+  const bookPages: PromptBookPage[] = [directoryPage, ...contentBookPages];
   const activeBookPage = bookPages.find((item) => item.key === activePageKey) || bookPages[0] || getAllPromptBookPages()[0];
-  const activePrompt = activeBookPage.prompt;
+  const activePrompt = activeBookPage.part === 'directory' ? modulePrompts[0] : activeBookPage.prompt;
   const activeDraft = drafts[activeBookPage.key] ?? activeBookPage.text;
   const activePageIsEditable = activeBookPage.editable;
   const activePromptIndex = Math.max(0, bookPages.findIndex((item) => item.key === activeBookPage.key));
@@ -231,7 +251,7 @@ export const PaperMagicApp: React.FC<AppProps> = ({ onClose }) => {
     const firstApp = PAPER_MAGIC_APP_GROUPS.find((item) => item.moduleId === module.id);
     if (firstApp) {
       setActiveAppGroupId(firstApp.id);
-      setActivePageKey(getPromptBookPages(getPaperMagicPrompt(firstApp.promptIds[0]))[0].key);
+      setActivePageKey(getDirectoryPage(firstApp.id).key);
     }
     setView('tarot');
   };
@@ -239,9 +259,27 @@ export const PaperMagicApp: React.FC<AppProps> = ({ onClose }) => {
   const openAppBook = (appGroup: PaperMagicAppGroup) => {
     setActiveModuleId(appGroup.moduleId);
     setActiveAppGroupId(appGroup.id);
-    setActivePageKey(getPromptBookPages(getPaperMagicPrompt(appGroup.promptIds[0]))[0].key);
+    setActivePageKey(getDirectoryPage(appGroup.id).key);
     setFamiliarOpen(false);
     setView('book');
+  };
+
+  const navigateToBookPage = (pageKey: string, direction: -1 | 1 = 1) => {
+    if (turningPage || pageKey === activeBookPage.key) return;
+    setPageTurnDirection(direction);
+    if (turnAnimationTimerRef.current !== null) {
+      window.clearTimeout(turnAnimationTimerRef.current);
+    }
+    setActivePageKey(pageKey);
+    setTurningPage(null);
+  };
+
+  const handleBookBack = () => {
+    if (activeBookPage.part === 'directory') {
+      setView('tarot');
+      return;
+    }
+    navigateToBookPage(directoryPage.key, -1);
   };
 
   const turnPage = (direction: -1 | 1) => {
@@ -388,14 +426,17 @@ export const PaperMagicApp: React.FC<AppProps> = ({ onClose }) => {
   }, [view, activePromptIndex, bookPages, turningPage]);
 
   const resetDraft = () => {
+    if (activeBookPage.part === 'directory') return;
     setDrafts((current) => ({ ...current, [activeBookPage.key]: activeBookPage.text }));
   };
 
   const clearDraft = () => {
+    if (activeBookPage.part === 'directory') return;
     setDrafts((current) => ({ ...current, [activeBookPage.key]: '' }));
   };
 
   const saveDraft = () => {
+    if (activeBookPage.part === 'directory') return;
     setDrafts((current) => ({ ...current, [activeBookPage.key]: current[activeBookPage.key] || activeDraft }));
   };
 
@@ -410,6 +451,7 @@ export const PaperMagicApp: React.FC<AppProps> = ({ onClose }) => {
     setFamiliarPending(true);
 
     try {
+      if (activeBookPage.part === 'directory') return;
       const settings = useSettingsCoreStore.getState().settings;
       const apiKey = (settings.apiKey || '').trim();
       const baseUrl = (settings.baseUrl || '').trim().replace(/\/+$/, '');
@@ -491,6 +533,7 @@ export const PaperMagicApp: React.FC<AppProps> = ({ onClose }) => {
   };
 
   const insertSuggestion = (text: string) => {
+    if (!activeBookPage.editable) return;
     setDrafts((current) => ({
       ...current,
       [activeBookPage.key]: `${current[activeBookPage.key] || activeDraft}\n\n${text}`,
@@ -499,6 +542,7 @@ export const PaperMagicApp: React.FC<AppProps> = ({ onClose }) => {
   };
 
   const updateActiveDraft = (value: string) => {
+    if (!activeBookPage.editable) return;
     setDrafts((current) => ({ ...current, [activeBookPage.key]: value }));
   };
 
@@ -631,14 +675,18 @@ export const PaperMagicApp: React.FC<AppProps> = ({ onClose }) => {
       {view === 'book' && (
         <section className={styles.editorPage}>
           <header className={styles.editorHeader}>
-            <button className={styles.iconButton} onClick={() => setView('tarot')} aria-label="返回塔罗牌">
+            <button className={styles.iconButton} onClick={handleBookBack} aria-label="返回">
               <ChevronLeft size={24} />
             </button>
             <h1>{activeAppGroup.title}</h1>
-            <button className={styles.saveButton} onClick={saveDraft}>
-              <Save size={16} />
-              保存
-            </button>
+            {activeBookPage.part === 'directory' ? (
+              <span className={styles.saveButtonPlaceholder} />
+            ) : (
+              <button className={styles.saveButton} onClick={saveDraft}>
+                <Save size={16} />
+                保存
+              </button>
+            )}
           </header>
 
           <div
@@ -671,6 +719,29 @@ export const PaperMagicApp: React.FC<AppProps> = ({ onClose }) => {
                   <span>{String(activePromptIndex + 1).padStart(2, '0')} / {bookPages.length}</span>
                   <em>{activeBookPage.label}</em>
                 </div>
+                {activeBookPage.part === 'directory' ? (
+                  <section className={styles.bookDirectory}>
+                    <h2>{activeAppGroup.title}</h2>
+                    <p>{activeAppGroup.subtitle}</p>
+                    <div className={styles.bookDirectoryList}>
+                      {modulePrompts.map((prompt, index) => {
+                        const targetPage = getPromptBookPages(prompt)[0];
+                        return (
+                          <button
+                            key={prompt.id}
+                            type="button"
+                            onClick={() => navigateToBookPage(targetPage.key, 1)}
+                          >
+                            <span>{String(index + 1).padStart(2, '0')}</span>
+                            <strong>{prompt.title}</strong>
+                            <small>{prompt.kind} · {prompt.variables.length} 个变量</small>
+                          </button>
+                        );
+                      })}
+                    </div>
+                  </section>
+                ) : (
+                  <>
                 <h2>{activePrompt.title}</h2>
                 <div className={styles.bookMeta}>
                   <span>{activePrompt.variables.length} 个变量</span>
@@ -725,6 +796,8 @@ export const PaperMagicApp: React.FC<AppProps> = ({ onClose }) => {
                     ))}
                   </div>
                 )}
+                  </>
+                )}
                 </motion.article>
               </AnimatePresence>
               <AnimatePresence>
@@ -768,7 +841,9 @@ export const PaperMagicApp: React.FC<AppProps> = ({ onClose }) => {
           <button
             type="button"
             className={styles.fab}
+            disabled={activeBookPage.part === 'directory'}
             onClick={() => {
+              if (activeBookPage.part === 'directory') return;
               setFamiliarOpen((current) => !current);
             }}
             aria-label="灵感碰撞"

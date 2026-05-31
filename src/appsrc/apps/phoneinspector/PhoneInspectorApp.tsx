@@ -9,45 +9,89 @@ import { useContactsSnapshotBridge } from '../../shared/business/contacts/snapsh
 import { createContactRoleId } from '../../shared/business/roleIdentity';
 import {
   clearRuntimeActiveRoleId,
+  getRuntimeActiveRoleId,
   setRuntimeActiveRoleId,
 } from '../../shared/business/roleRuntime';
 import { useContactsStore } from '../contacts/store';
 import { useDailyWordsStore } from '../dailywords/store';
-import { useLoveSpaceStore } from '../lovespace/store';
 import { useWeChatStore } from '../WeChat/store';
 import { RolePhoneDesktopPage, RoleSelectPage, type InspectablePhoneApp } from './components';
-import { generatePhoneInspectorSnapshot, getPhoneInspectorDateKey } from './phoneInspectorGenerator';
+import {
+  generatePhoneInspectorInitialSnapshot,
+  generatePhoneInspectorSupplementSnapshot,
+  getPhoneInspectorDateKey,
+  type PhoneInspectorGeneratedSnapshot,
+} from './phoneInspectorGenerator';
 import type { PhoneInspectorAppProps } from './types';
 
-const INSPECTABLE_APP_IDS = ['wechat', 'contacts', 'lovespace', 'memorycenter', 'dailywords'] as const;
+const INSPECTABLE_APP_IDS = ['wechat', 'contacts', 'dailywords'] as const;
 type InspectableAppId = (typeof INSPECTABLE_APP_IDS)[number];
 
 const SUB_APP_PARAMS: Partial<Record<(typeof INSPECTABLE_APP_IDS)[number], Record<string, unknown>>> = {
   wechat: { mode: 'inspector' },
   contacts: { initialTab: 'phone' },
-  lovespace: { mode: 'inspector', readOnly: true },
-  memorycenter: { mode: 'inspector', readOnly: true },
   dailywords: { mode: 'inspector', readOnly: true },
 };
 
 const getBootstrapKey = (contactId: string): string => `${contactId}:bootstrap`;
-const getReconnectKey = (contactId: string): string => `${contactId}:reconnect`;
+const getSupplementKey = (contactId: string, nonce = 0): string => `${contactId}:supplement:${nonce || 'latest'}`;
+const getReconnectKey = (contactId: string, nonce = 0): string => `${contactId}:reconnect:${nonce || 'latest'}`;
 
-const createEmptyLoveSpaceState = () => ({
-  bonds: [],
-  anniversaries: [],
-  moments: [],
-  checkInTasks: [],
-  checkInRecords: [],
-  bondBackgrounds: {},
-  importantTimelineByBond: {},
-  timelineProcessedRecordIdsByBond: {},
-});
+interface PhoneInspectorBackgroundTask {
+  key: string;
+  roleId: string;
+  contactId: string;
+  contactName: string;
+  promise: Promise<PhoneInspectorGeneratedSnapshot>;
+  startedAt: number;
+}
+
+const phoneInspectorBackgroundTasks = new Map<string, PhoneInspectorBackgroundTask>();
+const importedPhoneInspectorBackgroundTaskKeys = new Set<string>();
+
+const getOrCreatePhoneInspectorBackgroundTask = (
+  key: string,
+  roleId: string,
+  contact: { id: string; name: string },
+  runner: () => Promise<PhoneInspectorGeneratedSnapshot>
+): PhoneInspectorBackgroundTask => {
+  const existing = phoneInspectorBackgroundTasks.get(key);
+  if (existing) return existing;
+
+  const task: PhoneInspectorBackgroundTask = {
+    key,
+    roleId,
+    contactId: contact.id,
+    contactName: contact.name,
+    startedAt: Date.now(),
+    promise: runner(),
+  };
+  phoneInspectorBackgroundTasks.set(key, task);
+  task.promise.then(
+    () => phoneInspectorBackgroundTasks.delete(key),
+    () => phoneInspectorBackgroundTasks.delete(key)
+  );
+  return task;
+};
 
 const summarizeGenerationError = (error: unknown): string => {
   if (error instanceof Error && error.message.trim()) return error.message.trim();
   if (typeof error === 'string' && error.trim()) return error.trim();
   return '未知错误';
+};
+
+const withRuntimeRole = <T,>(roleId: string, runner: () => T): T => {
+  const previousRoleId = getRuntimeActiveRoleId();
+  setRuntimeActiveRoleId(roleId);
+  try {
+    return runner();
+  } finally {
+    if (previousRoleId) {
+      setRuntimeActiveRoleId(previousRoleId);
+    } else {
+      clearRuntimeActiveRoleId();
+    }
+  }
 };
 
 export const PhoneInspectorApp: React.FC<PhoneInspectorAppProps> = ({ onClose }) => {
@@ -58,9 +102,12 @@ export const PhoneInspectorApp: React.FC<PhoneInspectorAppProps> = ({ onClose })
   const [generatingKeys, setGeneratingKeys] = useState<Record<string, boolean>>({});
   const [generationErrors, setGenerationErrors] = useState<Record<string, string>>({});
   const [readyContactIds, setReadyContactIds] = useState<Record<string, boolean>>({});
+  const [supplementReadyContactIds, setSupplementReadyContactIds] = useState<Record<string, boolean>>({});
+  const [supplementGeneratingContactIds, setSupplementGeneratingContactIds] = useState<Record<string, boolean>>({});
   const [forceReconnectKeys, setForceReconnectKeys] = useState<Record<string, number>>({});
   const [isClearPickerOpen, setIsClearPickerOpen] = useState(false);
   const generationInFlightRef = useRef<Set<string>>(new Set());
+  const handledGenerationKeysRef = useRef<Set<string>>(new Set());
   const isMountedRef = useRef(true);
   const wechatStateByRoleId = useWeChatStore((state) => state.wechatStateByRoleId);
   const importWeChatInspectorSnapshot = useWeChatStore((state) => state.importWeChatInspectorSnapshot);
@@ -68,6 +115,7 @@ export const PhoneInspectorApp: React.FC<PhoneInspectorAppProps> = ({ onClose })
   const clearWeChatInspectorContacts = useWeChatStore((state) => state.clearWeChatInspectorContacts);
   const setWeChatCurrentSession = useWeChatStore((state) => state.setWeChatCurrentSession);
   const callRecords = useContactsStore((state) => state.callRecords);
+  const dailyWordsStateByRoleId = useDailyWordsStore((state) => state.dailyWordsStateByRoleId);
   const importInspectorCallRecords = useContactsStore((state) => state.importInspectorCallRecords);
   const clearInspectorCallRecords = useContactsStore((state) => state.clearInspectorCallRecords);
   const importInspectorDailyWordsEntries = useDailyWordsStore((state) => state.importInspectorEntries);
@@ -116,7 +164,6 @@ export const PhoneInspectorApp: React.FC<PhoneInspectorAppProps> = ({ onClose })
       isMountedRef.current = true;
       return () => {
         isMountedRef.current = false;
-        generationInFlightRef.current.clear();
       };
     },
     []
@@ -165,19 +212,93 @@ export const PhoneInspectorApp: React.FC<PhoneInspectorAppProps> = ({ onClose })
         record.inspectorGeneratedSourceContactId === selectedContact.id &&
         record.id.includes(runIdPart)
     );
+    const hasDailyWords = (dailyWordsStateByRoleId[roleId]?.entries || []).some(
+      (entry) => entry.id.includes(runIdPart)
+    );
     const forceReconnectKey = forceReconnectKeys[selectedContact.id] || 0;
 
-    if (!forceReconnectKey && readyContactIds[selectedContact.id]) {
-      return;
+    const initialReady = !forceReconnectKey && Boolean(hasContacts && hasChats);
+    const supplementReady = !forceReconnectKey && Boolean(hasTransfers && hasCallRecords && hasDailyWords);
+
+    if (!forceReconnectKey && initialReady && !readyContactIds[selectedContact.id]) {
+      setReadyContactIds((current) => ({ ...current, [selectedContact.id]: true }));
     }
 
-    if (!forceReconnectKey && hasContacts && hasChats && hasTransfers && hasCallRecords) {
-      setReadyContactIds((current) => ({ ...current, [selectedContact.id]: true }));
+    if (!forceReconnectKey && supplementReady && !supplementReadyContactIds[selectedContact.id]) {
+      setSupplementReadyContactIds((current) => ({ ...current, [selectedContact.id]: true }));
+    }
+
+    if (initialReady) {
+      if (supplementReady || supplementGeneratingContactIds[selectedContact.id]) return;
+      const supplementKey = forceReconnectKey
+        ? getReconnectKey(selectedContact.id, forceReconnectKey)
+        : getSupplementKey(selectedContact.id);
+      if (generationInFlightRef.current.has(supplementKey) || generationErrors[supplementKey]) return;
+
+      generationInFlightRef.current.add(supplementKey);
+      setSupplementGeneratingContactIds((current) => ({ ...current, [selectedContact.id]: true }));
+      setGeneratingKeys((current) => ({ ...current, [supplementKey]: true }));
+      setGenerationErrors((current) => {
+        const next = { ...current };
+        delete next[supplementKey];
+        return next;
+      });
+
+      const currentSessions = roleState?.wechatSessions?.filter(
+        (session) =>
+          session.inspectorGeneratedContact?.sourceContactId === selectedContact.id &&
+          session.id.includes(runIdPart)
+      ) || [];
+      const initialSnapshot: PhoneInspectorGeneratedSnapshot = {
+        sourceContactId: selectedContact.id,
+        sessions: currentSessions,
+        bills: [],
+        callRecords: [],
+        dailyWordsEntries: [],
+      };
+
+      const task = getOrCreatePhoneInspectorBackgroundTask(
+        supplementKey,
+        roleId,
+        selectedContact,
+        () => generatePhoneInspectorSupplementSnapshot(roleId, selectedContact, initialSnapshot)
+      );
+      task.promise
+        .then((snapshot) => {
+          if (handledGenerationKeysRef.current.has(supplementKey) || importedPhoneInspectorBackgroundTaskKeys.has(supplementKey)) return;
+          handledGenerationKeysRef.current.add(supplementKey);
+          importedPhoneInspectorBackgroundTaskKeys.add(supplementKey);
+          importWeChatInspectorSnapshot(roleId, snapshot);
+          importInspectorCallRecords(snapshot.sourceContactId, snapshot.callRecords);
+          withRuntimeRole(roleId, () => {
+            importInspectorDailyWordsEntries(roleId, snapshot.dailyWordsEntries);
+          });
+          if (isMountedRef.current) {
+            setSupplementReadyContactIds((current) => ({ ...current, [selectedContact.id]: true }));
+            if (forceReconnectKey) {
+              setForceReconnectKeys((current) => ({ ...current, [selectedContact.id]: 0 }));
+            }
+          }
+        })
+        .catch((error) => {
+          console.error('[PhoneInspector] supplement AI generation failed:', error);
+          const message = `后台补齐失败：${summarizeGenerationError(error)}`;
+          if (isMountedRef.current) {
+            setGenerationErrors((current) => ({ ...current, [supplementKey]: message }));
+          }
+        })
+        .finally(() => {
+          generationInFlightRef.current.delete(supplementKey);
+          if (isMountedRef.current) {
+            setGeneratingKeys((current) => ({ ...current, [supplementKey]: false }));
+            setSupplementGeneratingContactIds((current) => ({ ...current, [selectedContact.id]: false }));
+          }
+        });
       return;
     }
 
     const key = forceReconnectKey
-      ? getReconnectKey(selectedContact.id)
+      ? getReconnectKey(selectedContact.id, forceReconnectKey)
       : getBootstrapKey(selectedContact.id);
     if (generationInFlightRef.current.has(key) || generationErrors[key]) return;
 
@@ -189,11 +310,18 @@ export const PhoneInspectorApp: React.FC<PhoneInspectorAppProps> = ({ onClose })
       return next;
     });
 
-    generatePhoneInspectorSnapshot(roleId, selectedContact)
+    const task = getOrCreatePhoneInspectorBackgroundTask(
+      key,
+      roleId,
+      selectedContact,
+      () => generatePhoneInspectorInitialSnapshot(roleId, selectedContact)
+    );
+    task.promise
       .then((snapshot) => {
+        if (handledGenerationKeysRef.current.has(key) || importedPhoneInspectorBackgroundTaskKeys.has(key)) return;
+        handledGenerationKeysRef.current.add(key);
+        importedPhoneInspectorBackgroundTaskKeys.add(key);
         importWeChatInspectorSnapshot(roleId, snapshot);
-        importInspectorCallRecords(snapshot.sourceContactId, snapshot.callRecords);
-        importInspectorDailyWordsEntries(roleId, snapshot.dailyWordsEntries);
         if (isMountedRef.current) {
           setReadyContactIds((current) => ({ ...current, [selectedContact.id]: true }));
           if (forceReconnectKey) {
@@ -217,12 +345,15 @@ export const PhoneInspectorApp: React.FC<PhoneInspectorAppProps> = ({ onClose })
   }, [
     generationErrors,
     callRecords,
+    dailyWordsStateByRoleId,
     forceReconnectKeys,
     importInspectorCallRecords,
     importInspectorDailyWordsEntries,
     importWeChatInspectorSnapshot,
     readyContactIds,
     selectedContact,
+    supplementGeneratingContactIds,
+    supplementReadyContactIds,
     wechatStateByRoleId,
   ]);
 
@@ -241,6 +372,10 @@ export const PhoneInspectorApp: React.FC<PhoneInspectorAppProps> = ({ onClose })
     onClose();
   };
 
+  const handleHideToDesktop = () => {
+    handleBackToRoles();
+  };
+
   const handleBackToRoles = () => {
     setActiveSubAppId(null);
     setSelectedContactId(null);
@@ -248,7 +383,8 @@ export const PhoneInspectorApp: React.FC<PhoneInspectorAppProps> = ({ onClose })
   };
 
   const handleOpenSubApp = async (appId: string) => {
-    if (isGeneratingSelected || !isSelectedContactReady) return;
+    if (!isSelectedContactReady) return;
+    if (!isSupplementReadySelected && (appId === 'contacts' || appId === 'dailywords')) return;
     setActiveSubAppId(appId);
   };
 
@@ -256,10 +392,21 @@ export const PhoneInspectorApp: React.FC<PhoneInspectorAppProps> = ({ onClose })
     if (!selectedContact) return;
     setActiveSubAppId(null);
     setReadyContactIds((current) => ({ ...current, [selectedContact.id]: false }));
+    setSupplementReadyContactIds((current) => ({ ...current, [selectedContact.id]: false }));
+    setSupplementGeneratingContactIds((current) => ({ ...current, [selectedContact.id]: false }));
+    generationInFlightRef.current.delete(getBootstrapKey(selectedContact.id));
+    generationInFlightRef.current.delete(getSupplementKey(selectedContact.id));
+    handledGenerationKeysRef.current.delete(getBootstrapKey(selectedContact.id));
+    handledGenerationKeysRef.current.delete(getSupplementKey(selectedContact.id));
+    importedPhoneInspectorBackgroundTaskKeys.delete(getBootstrapKey(selectedContact.id));
+    importedPhoneInspectorBackgroundTaskKeys.delete(getSupplementKey(selectedContact.id));
     setGenerationErrors((current) => {
       const next = { ...current };
       delete next[getBootstrapKey(selectedContact.id)];
-      delete next[getReconnectKey(selectedContact.id)];
+      delete next[getSupplementKey(selectedContact.id)];
+      Object.keys(next).forEach((key) => {
+        if (key.startsWith(`${selectedContact.id}:reconnect:`)) delete next[key];
+      });
       return next;
     });
     setForceReconnectKeys((current) => ({
@@ -305,28 +452,10 @@ export const PhoneInspectorApp: React.FC<PhoneInspectorAppProps> = ({ onClose })
     } else if (targetAppId === 'contacts') {
       clearWeChatInspectorContacts(roleId, selectedContact.id);
       clearInspectorCallRecords(selectedContact.id);
-    } else if (targetAppId === 'memorycenter') {
-      clearAppMemories('wechat', undefined, { roleId, space: 'social' });
-      clearAppMemories('dailywords', undefined, { roleId, space: 'personal' });
-      clearAppMemories('dailywords', undefined, { roleId, space: 'social' });
-      clearAppMemories('lovespace', undefined, { roleId, space: 'social' });
     } else if (targetAppId === 'dailywords') {
       clearInspectorDailyWordsEntries(roleId);
       clearAppMemories('dailywords', undefined, { roleId, space: 'personal' });
       clearAppMemories('dailywords', undefined, { roleId, space: 'social' });
-    } else if (targetAppId === 'lovespace') {
-      useLoveSpaceStore.setState((state) => {
-        const emptyState = createEmptyLoveSpaceState();
-        return {
-          ...state,
-          loveSpaceStateByRoleId: {
-            ...state.loveSpaceStateByRoleId,
-            [roleId]: emptyState,
-          },
-          ...(state.activeRoleId === roleId ? emptyState : {}),
-        };
-      });
-      clearAppMemories('lovespace', undefined, { roleId, space: 'social' });
     }
 
     recordClearActionMemory(targetAppId, appName, roleId);
@@ -335,19 +464,28 @@ export const PhoneInspectorApp: React.FC<PhoneInspectorAppProps> = ({ onClose })
     setGenerationErrors((current) => {
       const next = { ...current };
       delete next[getBootstrapKey(selectedContact.id)];
-      delete next[getReconnectKey(selectedContact.id)];
+      Object.keys(next).forEach((key) => {
+        if (key.startsWith(`${selectedContact.id}:reconnect:`)) delete next[key];
+      });
       return next;
     });
   };
 
   const selectedGenerationKeys = selectedContact
-    ? [getBootstrapKey(selectedContact.id), getReconnectKey(selectedContact.id)]
+    ? [
+        getBootstrapKey(selectedContact.id),
+        getReconnectKey(selectedContact.id, forceReconnectKeys[selectedContact.id] || 0),
+      ]
     : [];
   const isGeneratingSelected = selectedGenerationKeys.some((key) => generatingKeys[key]);
   const selectedGenerationError = selectedGenerationKeys
     .map((key) => generationErrors[key])
     .find(Boolean);
   const isSelectedContactReady = selectedContact ? Boolean(readyContactIds[selectedContact.id]) : false;
+  const isSupplementReadySelected = selectedContact ? Boolean(supplementReadyContactIds[selectedContact.id]) : false;
+  const loadingAppIds = selectedContact && isSelectedContactReady && !isSupplementReadySelected
+    ? ['contacts', 'dailywords']
+    : [];
 
   return (
     <motion.div
@@ -392,7 +530,15 @@ export const PhoneInspectorApp: React.FC<PhoneInspectorAppProps> = ({ onClose })
           </div>
         </div>
       ) : !isSelectedContactReady ? (
-        <div className="flex flex-1 flex-col items-center justify-center px-8 text-center">
+        <div className="relative flex flex-1 flex-col items-center justify-center px-8 text-center">
+          <button
+            type="button"
+            onClick={handleHideToDesktop}
+            className="absolute right-5 top-5 rounded-full border border-sky-200/90 bg-white/88 px-4 py-2 text-[13px] font-medium text-slate-700 shadow-[0_10px_24px_-18px_rgba(15,23,42,0.45)] backdrop-blur active:bg-sky-50"
+            style={{ top: 'calc(env(safe-area-inset-top, 0px) + 42px)' }}
+          >
+            隐藏
+          </button>
           <div className="relative mb-7 h-24 w-24">
             <div className="absolute inset-0 rounded-[28px] bg-white/80 shadow-[0_22px_50px_-28px_rgba(15,23,42,0.55)]" />
             <div className="absolute inset-3 rounded-[20px] border border-sky-200 bg-sky-50/70" />
@@ -406,11 +552,12 @@ export const PhoneInspectorApp: React.FC<PhoneInspectorAppProps> = ({ onClose })
           contactName={selectedContact.name}
           isReading={isGeneratingSelected}
           generationStatus={
-            isGeneratingSelected
-              ? '正在读取对方手机中的信息...'
+            !isSupplementReadySelected
+              ? '转账、通话、日记读取中...'
               : selectedGenerationError || ''
           }
           inspectableApps={inspectableApps}
+          loadingAppIds={loadingAppIds}
           clearTargetApps={clearTargetApps}
           isClearPickerOpen={isClearPickerOpen}
           onBackToRoles={handleBackToRoles}
@@ -428,12 +575,12 @@ export const PhoneInspectorApp: React.FC<PhoneInspectorAppProps> = ({ onClose })
                 }}
                 context={activeSubAppContext}
               />
-              {isGeneratingSelected ? (
+              {!isSupplementReadySelected ? (
                 <div
                   className="pointer-events-none absolute left-1/2 top-5 z-[220] -translate-x-1/2 rounded-full bg-black/70 px-4 py-2 text-[13px] text-white shadow-lg backdrop-blur"
                   style={{ top: 'calc(env(safe-area-inset-top, 0px) + 20px)' }}
                 >
-                  正在读取对方手机中的信息...
+                  后台补齐中...
                 </div>
               ) : null}
             </div>

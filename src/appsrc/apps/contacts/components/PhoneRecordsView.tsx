@@ -14,6 +14,21 @@ interface PhoneRecordsViewProps {
   onOpenContact: (contactId: string) => void;
 }
 
+const formatRecordListTime = (record: CallRecord): string => {
+  if (record.inspectorGeneratedSourceContactId) {
+    const date = new Date(record.createdAt);
+    const month = String(date.getMonth() + 1).padStart(2, '0');
+    const day = String(date.getDate()).padStart(2, '0');
+    const time = date.toLocaleTimeString('zh-CN', {
+      hour: '2-digit',
+      minute: '2-digit',
+      hour12: false,
+    });
+    return `${month}/${day} ${time}`;
+  }
+  return formatMonthDay(record.createdAt);
+};
+
 export const PhoneRecordsView: React.FC<PhoneRecordsViewProps> = ({
   callRecords,
   contacts,
@@ -104,12 +119,12 @@ export const PhoneRecordsView: React.FC<PhoneRecordsViewProps> = ({
                     {isMissed ? <DirectionIcon size={16} className="text-slate-400" /> : null}
                   </div>
                   <div className="flex-1 min-w-0">
-                    <p className={`text-[18px] font-semibold truncate ${isMissed ? 'text-[#D5433D]' : 'text-slate-900'}`}>
+                    <p className={`truncate ${record.inspectorGeneratedSourceContactId ? 'text-[17px] font-normal' : 'text-[18px] font-semibold'} ${isMissed ? 'text-[#D5433D]' : 'text-slate-900'}`}>
                       {displayName}
                     </p>
                     <p className="text-[14px] text-slate-500 truncate">{record.phone || '--'}</p>
                   </div>
-                  <p className="text-[14px] text-slate-500">{formatMonthDay(record.createdAt)}</p>
+                  <p className="max-w-[112px] text-right text-[12px] leading-tight text-slate-500">{formatRecordListTime(record)}</p>
                   <button
                     onClick={() => {
                       if (canCall) onQuickCall(record.contactId);

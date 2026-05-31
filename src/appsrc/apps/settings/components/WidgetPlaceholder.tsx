@@ -1,5 +1,6 @@
 import React from 'react';
 import { Clock, Pause, Play, SkipBack, SkipForward } from 'lucide-react';
+import { useTrackLyrics } from '../../dreammusic/hooks';
 import { useDreamMusicStore } from '../../dreammusic/store';
 import { useWeChatStore } from '../../WeChat/store';
 
@@ -500,6 +501,7 @@ export const WidgetPlaceholder: React.FC<WidgetPlaceholderProps> = ({
   const dreamTracks = useDreamMusicStore((state) => state.tracks);
   const dreamCurrentTrackId = useDreamMusicStore((state) => state.currentTrackId);
   const dreamIsPlaying = useDreamMusicStore((state) => state.isPlaying);
+  const dreamCurrentTimeSec = useDreamMusicStore((state) => state.currentTimeSec);
   const dreamTogglePlayback = useDreamMusicStore((state) => state.togglePlayback);
   const dreamPlayNext = useDreamMusicStore((state) => state.playNext);
   const dreamPlayPrev = useDreamMusicStore((state) => state.playPrev);
@@ -631,24 +633,25 @@ export const WidgetPlaceholder: React.FC<WidgetPlaceholderProps> = ({
     wechatUserProfile.name?.trim() || dreamListenTogether?.inviterName?.trim() || '我';
   const listenTogetherInviterInitial = listenTogetherInviterName[0] || '我';
   const listenTogetherCompanionInitial = dreamListenTogether?.companionName?.trim()?.[0] || 'TA';
-  const listenTogetherLyricLines = React.useMemo(() => {
-    const inlineLyrics = dreamCurrentTrack?.lyrics?.map((line) => line.trim()).filter(Boolean) || [];
-    return inlineLyrics.length > 0 ? inlineLyrics : ['音乐传递心声，一起听见此刻'];
-  }, [dreamCurrentTrack?.lyrics]);
-  const [listenTogetherLyricIndex, setListenTogetherLyricIndex] = React.useState(0);
-  const listenTogetherLyricText =
-    listenTogetherLyricLines[listenTogetherLyricIndex % listenTogetherLyricLines.length] ||
-    '音乐传递心声，一起听见此刻';
-
-  React.useEffect(() => {
-    if (templateId !== 'listen-together') return undefined;
-    setListenTogetherLyricIndex(0);
-    if (listenTogetherLyricLines.length <= 1) return undefined;
-    const timer = window.setInterval(() => {
-      setListenTogetherLyricIndex((index) => (index + 1) % listenTogetherLyricLines.length);
-    }, 4200);
-    return () => window.clearInterval(timer);
-  }, [listenTogetherLyricLines.length, templateId]);
+  const dreamEffectiveDurationSec = React.useMemo(
+    () => Math.max(0, Math.round((dreamCurrentTrack?.durationMs || 0) / 1000)),
+    [dreamCurrentTrack?.durationMs]
+  );
+  const {
+    lyricLines: listenTogetherLyricLines,
+    activeLyricIndex: listenTogetherActiveLyricIndex,
+    isLyricLoading: isListenTogetherLyricLoading,
+  } = useTrackLyrics({
+    currentTrack: dreamCurrentTrack,
+    currentTimeSec: dreamCurrentTimeSec,
+    effectiveDurationSec: dreamEffectiveDurationSec,
+  });
+  const listenTogetherLyricText = React.useMemo(() => {
+    if (isListenTogetherLyricLoading) return '正在读取歌词...';
+    const activeLine =
+      listenTogetherActiveLyricIndex >= 0 ? listenTogetherLyricLines[listenTogetherActiveLyricIndex] : '';
+    return activeLine?.trim() || listenTogetherLyricLines.find((line) => line.trim()) || '音乐传递心声，一起听见此刻';
+  }, [isListenTogetherLyricLoading, listenTogetherActiveLyricIndex, listenTogetherLyricLines]);
   const customWidgetSystem = React.useMemo(() => ({
     date: {
       now: now.toISOString(),
@@ -1135,8 +1138,10 @@ window.addEventListener('message',function(event){
               <div className="absolute right-3 top-[22px] w-[48%] min-w-[136px]">
                 <div className="truncate text-center text-[14px] font-black leading-tight">{dreamCurrentTrack?.title || musicTitle || '孙行者'}</div>
                 <div className="relative mt-1 h-3 overflow-hidden text-center text-[9px] leading-3 text-[#6B7280]">
-                  <div key={listenTogetherLyricText} className="truncate animate-[dream-lyric-swap_420ms_ease-out]">
-                    {listenTogetherLyricText}
+                  <div key={listenTogetherLyricText} className="animate-[dream-lyric-swap_420ms_ease-out]">
+                    <div className="truncate">
+                      {listenTogetherLyricText}
+                    </div>
                   </div>
                 </div>
                 <div className="mt-2 flex items-center justify-between gap-2">

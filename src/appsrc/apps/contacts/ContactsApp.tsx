@@ -26,7 +26,7 @@ import {
 import { useActiveRoleId } from './activeRole';
 import { useContactsStore } from './store';
 import { useWeChatStore } from '../WeChat/store';
-import type { CallRecord, Contact, ContactsAppProps, MyCard } from './types';
+import type { CallRecord, Contact, ContactsAppProps } from './types';
 import type { ContactsBottomTab, ContactsPage } from './uiTypes';
 
 const createDefaultInspectorContact = (): Contact => ({
@@ -42,21 +42,6 @@ const createDefaultInspectorContact = (): Contact => ({
   personality: '',
   background: '',
   createdAt: 0,
-});
-
-const mapMyCardToInspectorContact = (card: MyCard): Contact => ({
-  id: card.id,
-  name: card.name || '未命名名片',
-  role: '我的名片',
-  wechatRelation: 'friend',
-  phone: card.phone || '',
-  note: card.introduction || '',
-  avatar: card.avatar || '',
-  description: card.introduction || '',
-  greeting: card.name ? `你好，我是${card.name}` : '你好',
-  personality: '',
-  background: '',
-  createdAt: card.createdAt || 0,
 });
 
 export const ContactsApp: React.FC<ContactsAppProps> = ({ onClose, context }) => {
@@ -84,10 +69,7 @@ export const ContactsApp: React.FC<ContactsAppProps> = ({ onClose, context }) =>
   const inspectorPerspectiveContacts = useMemo<Contact[]>(() => {
     if (!isInspectorContactRoleMode) return contacts;
 
-    const result: Contact[] = [createDefaultInspectorContact()];
-    myCards.forEach((card) => {
-      result.push(mapMyCardToInspectorContact(card));
-    });
+    const result: Contact[] = [];
 
     const generatedSessions = wechatStateByRoleId[activeRoleId]?.wechatSessions || [];
     generatedSessions.forEach((session) => {
@@ -101,7 +83,13 @@ export const ContactsApp: React.FC<ContactsAppProps> = ({ onClose, context }) =>
         name,
         role: generated.role || generated.relationshipGuess || '查手机联系人',
         wechatRelation: 'friend',
-        phone: '',
+        phone:
+          callRecords.find(
+            (record) =>
+              record.inspectorGeneratedSourceContactId === inspectorContactId &&
+              record.contactId === session.characterId &&
+              record.phone
+          )?.phone || '',
         note: generated.note || generated.suspicion || generated.relationshipGuess || '',
         avatar: '',
         description: generated.suspicion || generated.relationshipGuess || '',
@@ -112,8 +100,34 @@ export const ContactsApp: React.FC<ContactsAppProps> = ({ onClose, context }) =>
       });
     });
 
+    callRecords
+      .filter((record) => record.inspectorGeneratedSourceContactId === inspectorContactId)
+      .forEach((record) => {
+        if (result.some((item) => item.id === record.contactId)) return;
+        const existingContact = contacts.find((contact) => contact.id === record.contactId);
+        const name = record.contactName || existingContact?.name || record.phone || '未知号码';
+        result.push({
+          id: record.contactId,
+          name,
+          role: existingContact?.role || '通话记录',
+          wechatRelation: 'friend',
+          phone: record.phone || existingContact?.phone || '',
+          note: existingContact?.note || '查手机通话记录中的联系人',
+          avatar: existingContact?.avatar || '',
+          description: existingContact?.description || '',
+          greeting: existingContact?.greeting || '你好',
+          personality: existingContact?.personality || '',
+          background: existingContact?.background || '',
+          createdAt: record.createdAt || existingContact?.createdAt || 0,
+        });
+      });
+
+    if (result.length === 0) {
+      result.push(createDefaultInspectorContact());
+    }
+
     return result;
-  }, [activeRoleId, contacts, inspectorContactId, isInspectorContactRoleMode, myCards, wechatStateByRoleId]);
+  }, [activeRoleId, callRecords, contacts, inspectorContactId, isInspectorContactRoleMode, wechatStateByRoleId]);
 
   const scopedContacts = isInspectorContactRoleMode
     ? inspectorPerspectiveContacts
