@@ -658,6 +658,7 @@ export const WidgetPlaceholder: React.FC<WidgetPlaceholderProps> = ({
     wechatUserProfile.name?.trim() || dreamListenTogether?.inviterName?.trim() || '我';
   const listenTogetherInviterInitial = listenTogetherInviterName[0] || '我';
   const listenTogetherCompanionInitial = dreamListenTogether?.companionName?.trim()?.[0] || 'TA';
+  const listenTogetherCanShowMultiLineLyrics = templateId === 'listen-together' && (width >= 3 || height >= 3);
   const dreamEffectiveDurationSec = React.useMemo(
     () => Math.max(0, Math.round((dreamCurrentTrack?.durationMs || 0) / 1000)),
     [dreamCurrentTrack?.durationMs]
@@ -673,10 +674,30 @@ export const WidgetPlaceholder: React.FC<WidgetPlaceholderProps> = ({
   });
   const listenTogetherLyricText = React.useMemo(() => {
     if (isListenTogetherLyricLoading) return '正在读取歌词...';
-    const activeLine =
-      listenTogetherActiveLyricIndex >= 0 ? listenTogetherLyricLines[listenTogetherActiveLyricIndex] : '';
-    return activeLine?.trim() || listenTogetherLyricLines.find((line) => line.trim()) || '音乐传递心声，一起听见此刻';
-  }, [isListenTogetherLyricLoading, listenTogetherActiveLyricIndex, listenTogetherLyricLines]);
+    const nonEmptyLines = listenTogetherLyricLines
+      .map((line) => line.trim())
+      .filter(Boolean);
+    if (nonEmptyLines.length === 0) return '音乐传递心声，一起听见此刻';
+
+    if (!listenTogetherCanShowMultiLineLyrics) {
+      return (
+        (listenTogetherActiveLyricIndex >= 0
+          ? listenTogetherLyricLines[listenTogetherActiveLyricIndex]?.trim()
+          : '') ||
+        nonEmptyLines[0] ||
+        '音乐传递心声，一起听见此刻'
+      );
+    }
+
+    const start = listenTogetherActiveLyricIndex < 0
+      ? 0
+      : Math.max(0, listenTogetherActiveLyricIndex - 1);
+    return listenTogetherLyricLines
+      .slice(start, start + 5)
+      .map((line) => line.trim())
+      .filter(Boolean)
+      .join('\n') || nonEmptyLines.slice(0, 5).join('\n');
+  }, [isListenTogetherLyricLoading, listenTogetherActiveLyricIndex, listenTogetherCanShowMultiLineLyrics, listenTogetherLyricLines]);
   const customWidgetSystem = React.useMemo(() => ({
     date: {
       now: now.toISOString(),
@@ -1111,30 +1132,30 @@ window.addEventListener('message',function(event){
                 </button>
               ) : null}
               <div
-                className={`absolute left-9 flex h-10 items-end gap-[4px] transition-[top] duration-300 ${dreamListenTogether ? 'top-3' : 'top-[54px]'}`}
+                className={`absolute left-[10%] flex h-[22%] min-h-8 items-end gap-[clamp(3px,1.2vw,5px)] transition-[top] duration-300 ${dreamListenTogether ? 'top-[22%]' : 'top-[42%]'}`}
                 aria-hidden="true"
               >
                 {listenTogetherBarHeights.map((barHeight, index) => (
                   <span
                     key={index}
-                    className="w-[3px] rounded-full bg-[#30323A] transition-[height] duration-200 ease-out"
+                    className="w-[clamp(2px,0.9vw,4px)] rounded-full bg-[#30323A] transition-[height] duration-200 ease-out"
                     style={{ height: `${barHeight}px` }}
                   />
                 ))}
               </div>
               {dreamListenTogether ? (
-                <div className="absolute left-[30px] top-1.5 max-w-[42%] rounded-full bg-white/62 px-3 py-1.5 text-[10px] font-semibold text-[#7A7F8B] shadow-[0_8px_18px_rgba(15,23,42,0.08)] backdrop-blur">
+                <div className="absolute left-[18%] top-[4%] max-w-[36%] rounded-full bg-white/62 px-3 py-1.5 text-[clamp(9px,2.6vw,12px)] font-semibold text-[#7A7F8B] shadow-[0_8px_18px_rgba(15,23,42,0.08)] backdrop-blur">
                   <div className="truncate">与 {listenTogetherCompanionName} 一起听</div>
                 </div>
               ) : null}
               {dreamListenTogether ? (
-                <div className="absolute bottom-1.5 left-1.5 flex items-center">
-                  <div className="grid h-12 w-12 place-items-center overflow-hidden rounded-full bg-[#E9F5FF] text-[17px] font-bold text-[#5B6C80] shadow-[inset_0_0_0_1px_rgba(148,163,184,0.16)]">
+                <div className="absolute bottom-[5%] left-[6%] flex items-center">
+                  <div className="grid h-[clamp(40px,14vw,54px)] w-[clamp(40px,14vw,54px)] place-items-center overflow-hidden rounded-full bg-[#E9F5FF] text-[17px] font-bold text-[#5B6C80] shadow-[inset_0_0_0_1px_rgba(148,163,184,0.16)]">
                     {wechatUserProfile.avatar ? (
                       <img src={wechatUserProfile.avatar} alt={listenTogetherInviterName} className="h-full w-full object-cover" />
                     ) : null}
                   </div>
-                  <div className="relative mx-[-1px] h-8 w-12">
+                  <div className="relative mx-[-2px] h-[clamp(22px,9vw,32px)] w-[clamp(34px,12vw,46px)]">
                     <svg
                       className="absolute inset-x-0 top-1/2 h-6 w-full -translate-y-1/2 overflow-visible"
                       viewBox="0 0 48 24"
@@ -1149,27 +1170,29 @@ window.addEventListener('message',function(event){
                         strokeLinejoin="round"
                       />
                     </svg>
-                    <div className="absolute left-1/2 top-1/2 h-7 w-7 -translate-x-1/2 -translate-y-1/2 animate-[dream-heart-float_2.8s_linear_infinite] text-center text-[22px] leading-7 text-[#FF4B55]">
+                    <div className="absolute left-1/2 top-1/2 h-6 w-6 -translate-x-1/2 -translate-y-1/2 animate-[dream-heart-float_2.8s_linear_infinite] text-center text-[20px] leading-6 text-[#FF4B55]">
                       ♥
                     </div>
                   </div>
-                  <div className="grid h-12 w-12 place-items-center overflow-hidden rounded-full bg-[#EAF8F1] text-[17px] font-bold text-[#5B7168] shadow-[inset_0_0_0_1px_rgba(148,163,184,0.16)]">
+                  <div className="grid h-[clamp(40px,14vw,54px)] w-[clamp(40px,14vw,54px)] place-items-center overflow-hidden rounded-full bg-[#EAF8F1] text-[17px] font-bold text-[#5B7168] shadow-[inset_0_0_0_1px_rgba(148,163,184,0.16)]">
                     {dreamListenTogether.companionAvatar ? (
                       <img src={dreamListenTogether.companionAvatar} alt={listenTogetherCompanionName} className="h-full w-full object-cover" />
                     ) : null}
                   </div>
                 </div>
               ) : null}
-              <div className="absolute right-3 top-[22px] w-[48%] min-w-[136px]">
-                <div className="truncate text-center text-[14px] font-black leading-tight">{dreamCurrentTrack?.title || musicTitle || '孙行者'}</div>
-                <div className="relative mt-1 h-3 overflow-hidden text-center text-[9px] leading-3 text-[#6B7280]">
-                  <div key={listenTogetherLyricText} className="animate-[dream-lyric-swap_420ms_ease-out]">
-                    <div className="truncate">
+              <div className="absolute bottom-[11%] right-[6%] top-[18%] flex w-[48%] min-w-[136px] max-w-[260px] flex-col items-center justify-between">
+                <div className="flex min-h-0 w-full flex-1 flex-col items-center">
+                <div className="w-full shrink-0 truncate text-center text-[clamp(12px,4vw,20px)] font-black leading-tight">{dreamCurrentTrack?.title || musicTitle || '梦音乐'}</div>
+                <div className={`relative mt-1 w-full flex-1 overflow-hidden text-center text-[clamp(9px,2.6vw,13px)] leading-[1.28] text-[#6B7280] ${listenTogetherCanShowMultiLineLyrics ? 'flex min-h-[2.4em] items-center justify-center' : 'min-h-[1.3em]'}`}>
+                  <div key={listenTogetherLyricText} className="w-full animate-[dream-lyric-swap_420ms_ease-out]">
+                    <div className={listenTogetherCanShowMultiLineLyrics ? 'whitespace-pre-line break-words' : 'truncate whitespace-nowrap'}>
                       {listenTogetherLyricText}
                     </div>
                   </div>
                 </div>
-                <div className="mt-2 flex items-center justify-between gap-2">
+                </div>
+                <div className="mt-[clamp(8px,2.5vw,16px)] flex w-full items-center justify-center gap-[clamp(10px,3vw,20px)]">
                   <button
                     type="button"
                     onClick={() => handleListenTogetherMusicAction('playPrev')}

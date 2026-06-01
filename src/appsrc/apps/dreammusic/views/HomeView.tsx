@@ -163,12 +163,12 @@ export const HomeView: React.FC<HomeViewProps> = ({
               strokeLinecap="round"
             />
           </svg>
-          <div className="absolute left-[31px] top-0 grid h-16 w-16 place-items-center overflow-hidden rounded-full border-2 border-[#F7EFE7] bg-[#F6EFE6] text-[#7A5840] shadow-[0_8px_18px_rgba(0,0,0,0.18)]">
+          <div className="absolute left-[43px] top-0 grid h-16 w-16 place-items-center overflow-hidden rounded-full border-2 border-[#F7EFE7] bg-[#F6EFE6] text-[#7A5840] shadow-[0_8px_18px_rgba(0,0,0,0.18)]">
             {selfAvatar ? (
               <img src={selfAvatar} alt={selfName || '我'} className="h-full w-full object-cover" />
             ) : null}
           </div>
-          <div className="absolute right-[31px] top-0 grid h-16 w-16 place-items-center overflow-hidden rounded-full border-2 border-[#F7EFE7] bg-[#F6EFE6] text-[#7A5840] shadow-[0_8px_18px_rgba(0,0,0,0.18)]">
+          <div className="absolute right-[43px] top-0 grid h-16 w-16 place-items-center overflow-hidden rounded-full border-2 border-[#F7EFE7] bg-[#F6EFE6] text-[#7A5840] shadow-[0_8px_18px_rgba(0,0,0,0.18)]">
             {listenTogether.companionAvatar ? (
               <img src={listenTogether.companionAvatar} alt={listenTogether.companionName} className="h-full w-full object-cover" />
             ) : null}

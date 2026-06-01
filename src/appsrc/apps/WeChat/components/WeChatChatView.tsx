@@ -163,6 +163,17 @@ const enqueueWeChatAutoReply = (
 const isPendingWeChatAutoReplyMessage = (message: WeChatMessage): boolean =>
   message.role === 'user' && Boolean(message.assistantReplyPending);
 
+const inferListenTogetherActionFromReply = (content: string): 'accepted' | 'rejected' => {
+  const normalized = content.replace(/\s+/g, '').toLowerCase();
+  if (/不|别|算了|不了|改天|下次|拒绝|没空|不想|先不|不要|忙|困|累|rejected|reject|no/.test(normalized)) {
+    return 'rejected';
+  }
+  if (/好|行|来|可以|加入|一起|听|陪|嗯|ok|接受|同意|accepted|accept|yes/.test(normalized)) {
+    return 'accepted';
+  }
+  return 'accepted';
+};
+
 const formatChatTimeDivider = (timestamp: number): string => {
   const date = new Date(timestamp);
   const now = new Date();
@@ -2410,17 +2421,20 @@ export const WeChatChatView: React.FC<WeChatChatViewProps> = ({
         );
         if (hasNewPendingUserMessage) return;
 
-        const { action, content } = parseAssistantOrderDecision(replyContentRaw);
-        const latestPendingActionMessage = action
-          ? [...(useWeChatStore.getState().wechatSessions.find((item) => item.id === sessionId)?.messages || [])]
-              .reverse()
-              .find(
-                (message) =>
-                  message.role === 'user' &&
-                  WECHAT_ACTION_MESSAGE_TYPES.has(message.type) &&
-                  message.orderRequestStatus === 'pending'
-              )
-          : undefined;
+        const parsedDecision = parseAssistantOrderDecision(replyContentRaw);
+        let { action, content } = parsedDecision;
+        const latestPendingActionMessage = [...(useWeChatStore.getState().wechatSessions.find((item) => item.id === sessionId)?.messages || [])]
+          .reverse()
+          .find(
+            (message) =>
+              message.role === 'user' &&
+              WECHAT_ACTION_MESSAGE_TYPES.has(message.type) &&
+              message.orderRequestStatus === 'pending'
+          );
+        if (!action && latestPendingActionMessage?.type === 'dream_music_invite') {
+          action = inferListenTogetherActionFromReply(replyContentRaw);
+          content = replyContentRaw.trim();
+        }
         const defaultActionReply = (() => {
           if (!action) return '';
           if (latestPendingActionMessage?.type === 'dream_music_invite') {

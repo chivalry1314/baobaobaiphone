@@ -126,7 +126,14 @@ export const ContactsApp: React.FC<ContactsAppProps> = ({ onClose, context }) =>
       result.push(createDefaultInspectorContact());
     }
 
-    return result;
+    const seenNames = new Set<string>();
+    return result.filter((item) => {
+      const normalizedName = item.name.replace(/\s+/g, '').trim().toLowerCase();
+      if (!normalizedName) return true;
+      if (seenNames.has(normalizedName)) return false;
+      seenNames.add(normalizedName);
+      return true;
+    });
   }, [activeRoleId, callRecords, contacts, inspectorContactId, isInspectorContactRoleMode, wechatStateByRoleId]);
 
   const scopedContacts = isInspectorContactRoleMode

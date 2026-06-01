@@ -1121,7 +1121,7 @@ export const generatePhoneInspectorContactsSnapshot = async (
   );
   const now = Date.now();
   const runPrefix = makeGeneratedRunPrefix(sourceContactId, getPhoneInspectorDateKey(now));
-  const sessions = readContactsPayload(contactsJson).map((item, index) =>
+  const sessions = filterGeneratedContactsByOwner(readContactsPayload(contactsJson), characterName).map((item, index) =>
     buildEmptyContactSession(roleId, sourceContactId, item, index, now, runPrefix)
   );
 

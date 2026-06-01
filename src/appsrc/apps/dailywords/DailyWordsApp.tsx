@@ -130,6 +130,7 @@ export const DailyWordsApp: React.FC<DailyWordsAppProps> = ({ onClose, context }
 
   const [editorMode, setEditorMode] = useState<EditorMode>(null);
   const [editingEntryId, setEditingEntryId] = useState<string | null>(null);
+  const [detailEntryId, setDetailEntryId] = useState<string | null>(null);
 
   useEffect(() => {
     if (!isInspectorMode && runtimeRoleId) {
@@ -152,6 +153,7 @@ export const DailyWordsApp: React.FC<DailyWordsAppProps> = ({ onClose, context }
   useEffect(() => {
     setEditorMode(null);
     setEditingEntryId(null);
+    setDetailEntryId(null);
     clearDraft();
   }, [activeRoleId, clearDraft]);
 
@@ -180,6 +182,10 @@ export const DailyWordsApp: React.FC<DailyWordsAppProps> = ({ onClose, context }
   }, [draft.content, draft.title]);
 
   const isEditorOpen = editorMode !== null;
+  const detailEntry = useMemo(
+    () => entries.find((entry) => entry.id === detailEntryId) || null,
+    [detailEntryId, entries]
+  );
   const editorTitle = editorMode === 'edit' ? '编辑日记' : '新建日记';
   const viewportPageStyle = useMobileViewportPageStyle(!isEditorOpen);
   const editorPageStyle = useMobileViewportPageStyle(false);
@@ -378,6 +384,15 @@ export const DailyWordsApp: React.FC<DailyWordsAppProps> = ({ onClose, context }
                       }}
                     />
                     <article
+                      role="button"
+                      tabIndex={0}
+                      onClick={() => setDetailEntryId(entry.id)}
+                      onKeyDown={(event) => {
+                        if (event.key === 'Enter' || event.key === ' ') {
+                          event.preventDefault();
+                          setDetailEntryId(entry.id);
+                        }
+                      }}
                       className="relative rounded-[12px] border border-neutral-400/80 px-10 py-4 text-neutral-900"
                       style={PAPER_CARD_STYLE}
                     >
@@ -443,7 +458,10 @@ export const DailyWordsApp: React.FC<DailyWordsAppProps> = ({ onClose, context }
                         <div className="pt-1 grid grid-cols-3 gap-2">
                           <button
                             type="button"
-                            onClick={() => handleStartEdit(entry.id)}
+                            onClick={(event) => {
+                              event.stopPropagation();
+                              handleStartEdit(entry.id);
+                            }}
                             className="h-9 rounded-xl bg-slate-100 text-slate-700 text-[12px] font-medium hover:bg-slate-200 transition-colors flex items-center justify-center gap-1"
                           >
                             <Pencil size={13} />
@@ -452,7 +470,10 @@ export const DailyWordsApp: React.FC<DailyWordsAppProps> = ({ onClose, context }
                           {entry.isSyncedToMemory ? (
                             <button
                               type="button"
-                              onClick={() => unsyncEntryMemory(entry.id)}
+                              onClick={(event) => {
+                                event.stopPropagation();
+                                unsyncEntryMemory(entry.id);
+                              }}
                               className="h-9 rounded-xl bg-amber-100 text-amber-700 text-[12px] font-medium hover:bg-amber-200 transition-colors flex items-center justify-center gap-1"
                             >
                               <Brain size={13} />
@@ -461,7 +482,10 @@ export const DailyWordsApp: React.FC<DailyWordsAppProps> = ({ onClose, context }
                           ) : (
                             <button
                               type="button"
-                              onClick={() => syncEntryMemory(entry.id)}
+                              onClick={(event) => {
+                                event.stopPropagation();
+                                syncEntryMemory(entry.id);
+                              }}
                               className="h-9 rounded-xl bg-emerald-100 text-emerald-700 text-[12px] font-medium hover:bg-emerald-200 transition-colors flex items-center justify-center gap-1"
                             >
                               <Brain size={13} />
@@ -470,7 +494,10 @@ export const DailyWordsApp: React.FC<DailyWordsAppProps> = ({ onClose, context }
                           )}
                           <button
                             type="button"
-                            onClick={() => removeEntry(entry.id)}
+                            onClick={(event) => {
+                              event.stopPropagation();
+                              removeEntry(entry.id);
+                            }}
                             className="h-9 rounded-xl bg-red-50 text-red-800 text-[12px] font-medium hover:bg-red-100 transition-colors flex items-center justify-center gap-1"
                           >
                             <Trash2 size={13} />
@@ -505,6 +532,52 @@ export const DailyWordsApp: React.FC<DailyWordsAppProps> = ({ onClose, context }
           <span className="absolute left-1/2 top-1/2 z-10 h-[24px] w-[2px] -translate-x-1/2 -translate-y-1/2 rounded-full bg-red-950/45" />
           <span className="absolute left-1/2 top-1/2 z-10 h-[2px] w-[24px] -translate-x-1/2 -translate-y-1/2 rounded-full bg-red-950/45" />
         </button>
+      ) : null}
+
+      {detailEntry ? (
+        <div className="absolute inset-0 z-[130] flex flex-col bg-[#f8f8f6]" style={NOTEBOOK_GRID_BACKGROUND}>
+          <header className="sticky top-0 z-20 shrink-0 pt-11 px-3 pb-3 bg-white/45 border-b border-neutral-200 backdrop-blur">
+            <div className="flex items-center">
+              <button
+                type="button"
+                onClick={() => setDetailEntryId(null)}
+                className="w-10 h-10 grid place-items-center text-slate-700 active:scale-95 transition-transform"
+                aria-label="返回"
+              >
+                <ChevronLeft size={26} />
+              </button>
+              <div className="min-w-0 flex-1 text-center pr-10">
+                <h2 className="truncate text-[19px] font-semibold tracking-wide">
+                  {resolveEntryDisplayTitle(detailEntry)}
+                </h2>
+                <p className="mt-0.5 text-[12px] text-slate-500">
+                  更新于 {formatDateTime(detailEntry.updatedAt)}
+                </p>
+              </div>
+            </div>
+          </header>
+          <main className="min-h-0 flex-1 overflow-y-auto px-5 py-5">
+            <article className="rounded-[12px] border border-neutral-400/80 px-7 py-5 text-neutral-900" style={PAPER_CARD_STYLE}>
+              {detailEntry.mood || detailEntry.tags.length > 0 ? (
+                <div className="mb-4 flex flex-wrap gap-1.5">
+                  {detailEntry.mood ? (
+                    <span className="rounded-full bg-amber-100 px-2 py-1 text-[11px] text-amber-700">
+                      心情：{detailEntry.mood}
+                    </span>
+                  ) : null}
+                  {detailEntry.tags.map((tag) => (
+                    <span key={`${detailEntry.id}-detail-${tag}`} className="rounded-full bg-red-50 px-2 py-1 text-[11px] text-red-800">
+                      #{tag}
+                    </span>
+                  ))}
+                </div>
+              ) : null}
+              <p className="whitespace-pre-wrap text-[15px] leading-[1.85] text-slate-800">
+                {detailEntry.content || '（无正文）'}
+              </p>
+            </article>
+          </main>
+        </div>
       ) : null}
 
       {isEditorOpen ? (

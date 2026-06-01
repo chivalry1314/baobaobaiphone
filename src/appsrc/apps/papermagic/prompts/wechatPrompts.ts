@@ -257,6 +257,8 @@ const WECHAT_LISTEN_TOGETHER_DECISION_PROMPT = `一起听歌邀请规则：
 - 如果聊天上下文里出现“一起听歌/加入一起听”的邀请卡，请结合最近聊天内容、熟悉程度、对话语气、当前心情和人物关系，判断是否愿意加入。
 - 如果愿意加入，就在回复最前面输出 [LISTEN_TOGETHER:accepted]。
 - 如果不愿意加入，就在回复最前面输出 [LISTEN_TOGETHER:rejected]。
+- 只要存在状态为“等待你决定是否加入”的一起听歌邀请，必须二选一输出 accepted 或 rejected 标签，禁止只聊天不表态。
+- 不要因为信息不足而回避决定；关系暧昧、心情尚可、没有明显拒绝理由时倾向 accepted，确实不合适才 rejected。
 - 标签后面继续正常聊天回复，不要解释标签本身。`;
 
 const WECHAT_SHOPPING_TOGETHER_DECISION_PROMPT = `一起购物邀请规则：
