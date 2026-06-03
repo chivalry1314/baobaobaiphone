@@ -430,6 +430,16 @@ const DEFAULT_THEME_TOKENS: Required<ThemeVisualTokens> = {
   statusBatteryBorderWidth: '1px',
 };
 
+const DEFAULT_BOOT_SCREEN_TOKENS: Pick<
+  ThemeVisualTokens,
+  'systemBg' | 'accent' | 'statusFg' | 'statusMuted'
+> = {
+  systemBg: '#000000',
+  accent: '#ffffff',
+  statusFg: '#ffffff',
+  statusMuted: 'rgba(255,255,255,0.72)',
+};
+
 const THEME_TOKEN_VAR_MAP: Record<keyof ThemeVisualTokens, string> = {
   desktopOverlay: '--sys-desktop-overlay',
   systemBg: '--sys-system-bg',
@@ -796,20 +806,32 @@ export default function App() {
     }
   }, [settings.fontFamily, settings.customFontData, settings.customFontName, settings.customFontFormat]);
 
-  useEffect(() => {
-    const activeTheme = resolveThemeById(activeThemeId, uploadedThemes);
-    const themeTokens = {
-      ...DEFAULT_THEME_TOKENS,
-      ...(activeTheme?.tokens || {}),
-    };
+  const resolvedThemeTokens = useMemo(
+    () => {
+      const activeTheme = resolveThemeById(activeThemeId, uploadedThemes);
+      return {
+        ...DEFAULT_THEME_TOKENS,
+        ...(activeTheme?.tokens || {}),
+      };
+    },
+    [activeThemeId, uploadedThemes]
+  );
 
+  const resolvedBootScreenTokens = useMemo(
+    () => (activeThemeId ? resolvedThemeTokens : DEFAULT_BOOT_SCREEN_TOKENS),
+    [activeThemeId, resolvedThemeTokens]
+  );
+
+  useEffect(() => {
     Object.entries(THEME_TOKEN_VAR_MAP).forEach(([tokenKey, cssVar]) => {
-      const value = themeTokens[tokenKey as keyof ThemeVisualTokens];
+      const value = resolvedThemeTokens[tokenKey as keyof ThemeVisualTokens];
       if (value) {
         document.documentElement.style.setProperty(cssVar, value);
+      } else {
+        document.documentElement.style.removeProperty(cssVar);
       }
     });
-  }, [activeThemeId, uploadedThemes]);
+  }, [resolvedThemeTokens]);
 
   // ================= 新增：桌面初始化逻辑 =================
   useEffect(() => {
@@ -2075,10 +2097,12 @@ export default function App() {
       }}
     >
       {activeAppId !== 'dreammusic' ? <DreamMusicAudioHost /> : null}
-      <AnimatePresence>{isBooting && <SystemBootScreen version={__APP_VERSION__} />}</AnimatePresence>
+      <AnimatePresence>
+        {isBooting && <SystemBootScreen version={__APP_VERSION__} tokens={resolvedBootScreenTokens} />}
+      </AnimatePresence>
 
       <AnimatePresence>
-        {isLocked && <LockScreen onUnlock={() => setIsLocked(false)} />}
+        {isLocked && <LockScreen onUnlock={() => setIsLocked(false)} tokens={resolvedThemeTokens} />}
       </AnimatePresence>
 
       <AnimatePresence>
