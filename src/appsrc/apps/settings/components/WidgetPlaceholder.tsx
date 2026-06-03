@@ -672,32 +672,45 @@ export const WidgetPlaceholder: React.FC<WidgetPlaceholderProps> = ({
     currentTimeSec: dreamCurrentTimeSec,
     effectiveDurationSec: dreamEffectiveDurationSec,
   });
-  const listenTogetherLyricText = React.useMemo(() => {
-    if (isListenTogetherLyricLoading) return '正在读取歌词...';
-    const nonEmptyLines = listenTogetherLyricLines
-      .map((line) => line.trim())
-      .filter(Boolean);
-    if (nonEmptyLines.length === 0) return '音乐传递心声，一起听见此刻';
-
-    if (!listenTogetherCanShowMultiLineLyrics) {
-      return (
-        (listenTogetherActiveLyricIndex >= 0
-          ? listenTogetherLyricLines[listenTogetherActiveLyricIndex]?.trim()
-          : '') ||
-        nonEmptyLines[0] ||
-        '音乐传递心声，一起听见此刻'
-      );
+  const listenTogetherLyricRows = React.useMemo(() => {
+    if (isListenTogetherLyricLoading) {
+      return [{ text: '正在读取歌词...', active: true }];
     }
 
-    const start = listenTogetherActiveLyricIndex < 0
+    const lyricRows = listenTogetherLyricLines
+      .map((line, index) => ({ text: line.trim(), index }))
+      .filter((line) => line.text);
+    if (lyricRows.length === 0) {
+      return [{ text: '音乐传递心声，一起听见此刻', active: true }];
+    }
+
+    if (!listenTogetherCanShowMultiLineLyrics) {
+      const activeText = listenTogetherActiveLyricIndex >= 0
+        ? listenTogetherLyricLines[listenTogetherActiveLyricIndex]?.trim()
+        : '';
+      return [{
+        text: activeText || lyricRows[0].text,
+        active: true,
+      }];
+    }
+
+    const activeRowPosition = listenTogetherActiveLyricIndex < 0
       ? 0
-      : Math.max(0, listenTogetherActiveLyricIndex - 1);
-    return listenTogetherLyricLines
-      .slice(start, start + 5)
-      .map((line) => line.trim())
-      .filter(Boolean)
-      .join('\n') || nonEmptyLines.slice(0, 5).join('\n');
+      : Math.max(0, lyricRows.findIndex((line) => line.index === listenTogetherActiveLyricIndex));
+    const start = Math.max(0, activeRowPosition - 1);
+    const visibleRows = lyricRows.slice(start, start + 5);
+    return visibleRows.map((line) => ({
+      text: line.text,
+      active:
+        listenTogetherActiveLyricIndex >= 0
+          ? line.index === listenTogetherActiveLyricIndex
+          : line.index === visibleRows[0]?.index,
+    }));
   }, [isListenTogetherLyricLoading, listenTogetherActiveLyricIndex, listenTogetherCanShowMultiLineLyrics, listenTogetherLyricLines]);
+  const listenTogetherLyricKey = React.useMemo(
+    () => listenTogetherLyricRows.map((line) => `${line.active ? '1' : '0'}:${line.text}`).join('|'),
+    [listenTogetherLyricRows]
+  );
   const customWidgetSystem = React.useMemo(() => ({
     date: {
       now: now.toISOString(),
@@ -1185,9 +1198,16 @@ window.addEventListener('message',function(event){
                 <div className="flex min-h-0 w-full flex-1 flex-col items-center">
                 <div className="w-full shrink-0 truncate text-center text-[clamp(12px,4vw,20px)] font-black leading-tight">{dreamCurrentTrack?.title || musicTitle || '梦音乐'}</div>
                 <div className={`relative mt-1 w-full flex-1 overflow-hidden text-center text-[clamp(9px,2.6vw,13px)] leading-[1.28] text-[#6B7280] ${listenTogetherCanShowMultiLineLyrics ? 'flex min-h-[2.4em] items-center justify-center' : 'min-h-[1.3em]'}`}>
-                  <div key={listenTogetherLyricText} className="w-full animate-[dream-lyric-swap_420ms_ease-out]">
-                    <div className={listenTogetherCanShowMultiLineLyrics ? 'whitespace-pre-line break-words' : 'truncate whitespace-nowrap'}>
-                      {listenTogetherLyricText}
+                  <div key={listenTogetherLyricKey} className="w-full animate-[dream-lyric-swap_420ms_ease-out]">
+                    <div className={listenTogetherCanShowMultiLineLyrics ? 'space-y-0.5 whitespace-normal break-words' : 'truncate whitespace-nowrap'}>
+                      {listenTogetherLyricRows.map((line, index) => (
+                        <div
+                          key={`${index}-${line.text}`}
+                          className={line.active ? 'font-semibold text-[#6B7280]' : 'text-[#6B7280]/72'}
+                        >
+                          {line.text}
+                        </div>
+                      ))}
                     </div>
                   </div>
                 </div>

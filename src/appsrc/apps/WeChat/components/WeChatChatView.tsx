@@ -2389,6 +2389,7 @@ export const WeChatChatView: React.FC<WeChatChatViewProps> = ({
           renderPaperMagicText('wechat.chat.orderRequestDecision'),
           renderPaperMagicText('wechat.chat.listenTogetherDecision'),
           renderPaperMagicText('wechat.chat.shoppingTogetherDecision'),
+          renderPaperMagicText('wechat.chat.listenSummaryReply'),
           renderPaperMagicText('wechat.chat.movieTicketDecision'),
           renderPaperMagicText('wechat.chat.giftDecision'),
           renderPaperMagicText('wechat.chat.recipeDecision'),

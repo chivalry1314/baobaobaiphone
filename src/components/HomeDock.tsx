@@ -35,7 +35,7 @@ export const HomeDock: React.FC<HomeDockProps> = ({
     typeof document !== 'undefined' &&
     getComputedStyle(document.documentElement).getPropertyValue('--sys-dock-item-mode').trim() === 'compact-paper';
 
-  const endDockDrag = React.useCallback((event: React.PointerEvent<HTMLDivElement>) => {
+  const endDockDrag = React.useCallback((event: React.PointerEvent<HTMLElement>) => {
     const drag = draggingRef.current;
     if (!drag || drag.pointerId !== event.pointerId) return;
 

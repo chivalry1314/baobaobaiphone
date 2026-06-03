@@ -1272,7 +1272,10 @@ export const DeliveryApp: React.FC<AppProps> = ({ onClose, context }) => {
       pushToast('发送失败', '没有找到对应的微信聊天');
       return;
     }
-    addWeChatMessage(sessionId, message);
+    addWeChatMessage(sessionId, {
+      ...message,
+      assistantReplyPending: message.assistantReplyPending ?? true,
+    });
     openWeChatChat(contact.id, message.orderIds);
   }, [addWeChatMessage, ensureWeChatSession, openWeChatChat, pushToast]);
 

@@ -479,6 +479,7 @@ export const DreamMusicApp: React.FC<DreamMusicAppProps> = ({ onClose }) => {
           role: 'user',
           type: 'dream_music_listen_summary',
           content: '我们一起听了',
+          assistantReplyPending: true,
           dreamMusicListenSummary: {
             durationMs,
             selfAvatar: wechatUserProfile.avatar || '',

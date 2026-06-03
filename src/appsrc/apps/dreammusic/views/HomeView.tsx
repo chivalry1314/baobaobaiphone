@@ -108,6 +108,19 @@ export const HomeView: React.FC<HomeViewProps> = ({
     : isTogetherPending
       ? '音乐传递心声，等待对方一起听'
       : '';
+  const listenAvatarLayout = isTogetherActive
+      ? {
+          left: 43,
+          right: 43,
+          leftEarX: 43,
+          rightEarX: 171,
+        }
+      : {
+          left: 18,
+          right: 18,
+          leftEarX: 18,
+          rightEarX: 196,
+        };
 
   React.useEffect(() => {
     if (!listenTogether) return undefined;
@@ -135,40 +148,48 @@ export const HomeView: React.FC<HomeViewProps> = ({
             aria-hidden="true"
           >
             <path
-              d="M31 33 C20 37 20 49 26 56"
+              d={`M${listenAvatarLayout.leftEarX} 34 C${listenAvatarLayout.leftEarX - 16} 44 ${listenAvatarLayout.leftEarX - 18} 62 ${listenAvatarLayout.leftEarX - 8} 78 C${listenAvatarLayout.leftEarX - 3} 87 ${listenAvatarLayout.leftEarX + 2} 96 ${listenAvatarLayout.leftEarX + 7} 106`}
               fill="none"
-              stroke="rgba(235,220,205,0.5)"
-              strokeWidth="1.8"
+              stroke="rgba(235,220,205,0.42)"
+              strokeWidth="1.35"
               strokeLinecap="round"
             />
             <path
-              d="M26 56 C28 69 37 82 49 92"
+              d={`M${listenAvatarLayout.rightEarX} 34 C${listenAvatarLayout.rightEarX + 16} 44 ${listenAvatarLayout.rightEarX + 18} 62 ${listenAvatarLayout.rightEarX + 8} 78 C${listenAvatarLayout.rightEarX + 3} 87 ${listenAvatarLayout.rightEarX - 2} 96 ${listenAvatarLayout.rightEarX - 7} 106`}
               fill="none"
-              stroke="rgba(235,220,205,0.5)"
-              strokeWidth="1.8"
+              stroke="rgba(235,220,205,0.42)"
+              strokeWidth="1.35"
               strokeLinecap="round"
             />
-            <path
-              d="M183 33 C194 37 194 49 188 56"
-              fill="none"
-              stroke="rgba(235,220,205,0.5)"
-              strokeWidth="1.8"
-              strokeLinecap="round"
+            <circle
+              cx={listenAvatarLayout.leftEarX}
+              cy="34"
+              r="2.2"
+              fill="#F7EFE7"
+              stroke="rgba(122,88,64,0.16)"
+              strokeWidth="0.6"
             />
-            <path
-              d="M188 56 C186 69 177 82 165 92"
-              fill="none"
-              stroke="rgba(235,220,205,0.5)"
-              strokeWidth="1.8"
-              strokeLinecap="round"
+            <circle
+              cx={listenAvatarLayout.rightEarX}
+              cy="34"
+              r="2.2"
+              fill="#F7EFE7"
+              stroke="rgba(122,88,64,0.16)"
+              strokeWidth="0.6"
             />
           </svg>
-          <div className="absolute left-[43px] top-0 grid h-16 w-16 place-items-center overflow-hidden rounded-full border-2 border-[#F7EFE7] bg-[#F6EFE6] text-[#7A5840] shadow-[0_8px_18px_rgba(0,0,0,0.18)]">
+          <div
+            className="absolute top-0 grid h-16 w-16 place-items-center overflow-hidden rounded-full border-2 border-[#F7EFE7] bg-[#F6EFE6] text-[#7A5840] shadow-[0_8px_18px_rgba(0,0,0,0.18)] transition-[left] duration-500"
+            style={{ left: `${listenAvatarLayout.left}px` }}
+          >
             {selfAvatar ? (
               <img src={selfAvatar} alt={selfName || '我'} className="h-full w-full object-cover" />
             ) : null}
           </div>
-          <div className="absolute right-[43px] top-0 grid h-16 w-16 place-items-center overflow-hidden rounded-full border-2 border-[#F7EFE7] bg-[#F6EFE6] text-[#7A5840] shadow-[0_8px_18px_rgba(0,0,0,0.18)]">
+          <div
+            className="absolute top-0 grid h-16 w-16 place-items-center overflow-hidden rounded-full border-2 border-[#F7EFE7] bg-[#F6EFE6] text-[#7A5840] shadow-[0_8px_18px_rgba(0,0,0,0.18)] transition-[right] duration-500"
+            style={{ right: `${listenAvatarLayout.right}px` }}
+          >
             {listenTogether.companionAvatar ? (
               <img src={listenTogether.companionAvatar} alt={listenTogether.companionName} className="h-full w-full object-cover" />
             ) : null}

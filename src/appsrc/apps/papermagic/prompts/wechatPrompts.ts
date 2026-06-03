@@ -267,34 +267,25 @@ const WECHAT_SHOPPING_TOGETHER_DECISION_PROMPT = `一起购物邀请规则：
 - 如果不愿意一起购物，就在回复最前面输出 [SHOPPING_TOGETHER:rejected]。
 - 标签后面继续正常聊天回复，不要解释标签本身。`;
 
-const WECHAT_MOVIE_TICKET_DECISION_PROMPT = `电影票规则：
-- 如果聊天上下文里出现电影票卡片，请结合电影、影院、时间、座位、关系亲近度和当前语气，判断角色是否愿意去看或如何回应。
-- 如果愿意去或表现出接受，就在回复最前面输出 [MOVIE_TICKET:accepted]。
-- 如果不愿意去或明确拒绝，就在回复最前面输出 [MOVIE_TICKET:rejected]。
-- 如果需要改时间、问细节或暂不确定，就不要输出标签，直接自然追问或回应。
-- 标签后面继续正常聊天回复，不要解释标签本身。`;
+const WECHAT_LISTEN_SUMMARY_REPLY_PROMPT = `一起听歌记录回复规则：
+- 如果聊天上下文里出现“一起听歌记录/我们一起听了”的记录卡片，请结合一起听歌时长、当前关系和最近聊天氛围自然回应。
+- 回复要像真人看到共同记录后的反应，可以轻轻回味、调侃、撒娇、感慨或顺势接一句，不要像系统总结。`;
 
-const WECHAT_GIFT_DECISION_PROMPT = `礼物规则：
-- 如果聊天上下文里出现礼物卡片，请结合礼物内容、关系亲近度、角色性格和当前语气，判断角色是否接受、害羞感谢、拒绝或追问。
-- 如果愿意接受礼物，就在回复最前面输出 [GIFT:accepted]。
-- 如果不愿意接受或明确拒绝，就在回复最前面输出 [GIFT:rejected]。
-- 如果只是惊讶、确认收件信息或需要继续问，不要输出标签，直接自然回复。
-- 标签后面继续正常聊天回复，不要解释标签本身。`;
+const WECHAT_MOVIE_TICKET_DECISION_PROMPT = `电影票卡片回复规则：
+- 如果聊天上下文里出现电影票卡片，请结合电影、影院、时间、座位、关系亲近度和当前语气自然回应。
+- 可以表达想去、不想去、改时间、问细节、吐槽电影或接住对方心意，但必须直接用角色口吻自然回复。`;
 
-const WECHAT_RECIPE_DECISION_PROMPT = `菜谱规则：
-- 如果聊天上下文里出现菜谱卡片，请结合菜名、食材、角色口味、关系语气和当前话题，判断角色是否想尝试、喜欢、拒绝或追问做法。
-- 如果愿意尝试或表示喜欢，就在回复最前面输出 [RECIPE_CARD:accepted]。
-- 如果不想吃、不适合或明确拒绝，就在回复最前面输出 [RECIPE_CARD:rejected]。
-- 如果只是评价、开玩笑或追问细节，不要输出标签，直接自然回复。
-- 标签后面继续正常聊天回复，不要解释标签本身。`;
+const WECHAT_GIFT_DECISION_PROMPT = `礼物卡片回复规则：
+- 如果聊天上下文里出现礼物卡片，请结合礼物内容、关系亲近度、角色性格和当前语气自然回应。
+- 可以害羞感谢、嘴硬、确认细节、拒绝得体或顺势撒娇，但必须直接用角色口吻自然回复。`;
 
-const WECHAT_IMAGE_DECISION_PROMPT = `图片规则：
-- 如果聊天上下文里出现用户发送的图片，请优先基于图片内容和附言自然回应，不要只说“我看到了”。
-- 如果图片表达的是邀请、展示成果、求评价或求安慰，请结合角色关系给出明确态度。
-- 如果喜欢、认可或愿意回应图片里的邀约，就在回复最前面输出 [IMAGE_MESSAGE:accepted]。
-- 如果不喜欢、拒绝图片里的邀约或明确否定，就在回复最前面输出 [IMAGE_MESSAGE:rejected]。
-- 如果只是描述、追问或安慰，不要输出标签，直接自然回复。
-- 标签后面继续正常聊天回复，不要解释标签本身。`;
+const WECHAT_RECIPE_DECISION_PROMPT = `菜谱卡片回复规则：
+- 如果聊天上下文里出现菜谱卡片，请结合菜名、食材、角色口味、关系语气和当前话题自然回应。
+- 可以评价菜谱、说想吃/不想吃、追问做法、开玩笑或顺势约饭，但必须直接用角色口吻自然回复。`;
+
+const WECHAT_IMAGE_DECISION_PROMPT = `图片回复规则：
+- 如果聊天上下文里出现用户发送的图片，请优先基于图片内容、附言和最近聊天语境自然回应，不要只说“我看到了”。
+- 可以评价图片、接住情绪、追问细节、吐槽、安慰或顺着图片里的邀约自然回答，但必须直接用角色口吻回复。`;
 
 const WECHAT_VOICE_TTS_PAYLOAD_PROMPT = `{
   "model": "\${model}",
@@ -538,43 +529,53 @@ export const WECHAT_PROMPTS: PaperMagicPrompt[] = [
     variables: ['inviterName', 'statusText', 'inviteText'],
   }),
   definePaperMagicPrompt({
+    id: 'wechat.chat.listenSummaryReply',
+    moduleId: 'social-bonds',
+    title: '微信聊天：一起听歌记录回复',
+    source: 'src/appsrc/apps/WeChat/components/WeChatChatView.tsx',
+    kind: 'chat',
+    content: WECHAT_LISTEN_SUMMARY_REPLY_PROMPT,
+    description: '出现一起听歌记录卡片时，要求角色按上下文自然回复。',
+    variables: ['durationText'],
+  }),
+  definePaperMagicPrompt({
     id: 'wechat.chat.movieTicketDecision',
     moduleId: 'social-bonds',
-    title: '微信聊天：电影票决策标签',
+    title: '微信聊天：电影票卡片回复',
     source: 'src/appsrc/apps/WeChat/components/WeChatChatView.tsx',
     kind: 'chat',
     content: WECHAT_MOVIE_TICKET_DECISION_PROMPT,
-    description: '出现电影票卡片时，要求角色判断是否接受邀约或自然追问。',
+    description: '出现电影票卡片时，要求角色按上下文自然回复。',
     variables: ['title', 'cinema', 'date', 'time', 'hall', 'seat', 'qty', 'pickupCode'],
   }),
   definePaperMagicPrompt({
     id: 'wechat.chat.giftDecision',
     moduleId: 'social-bonds',
-    title: '微信聊天：礼物决策标签',
+    title: '微信聊天：礼物卡片回复',
     source: 'src/appsrc/apps/WeChat/components/WeChatChatView.tsx',
     kind: 'chat',
     content: WECHAT_GIFT_DECISION_PROMPT,
-    description: '出现礼物卡片时，要求角色判断是否接受礼物或自然回应。',
+    description: '出现礼物卡片时，要求角色按上下文自然回复。',
     variables: ['productName', 'amount', 'orderId'],
   }),
   definePaperMagicPrompt({
     id: 'wechat.chat.recipeDecision',
     moduleId: 'social-bonds',
-    title: '微信聊天：菜谱决策标签',
+    title: '微信聊天：菜谱卡片回复',
     source: 'src/appsrc/apps/WeChat/components/WeChatChatView.tsx',
     kind: 'chat',
     content: WECHAT_RECIPE_DECISION_PROMPT,
-    description: '出现菜谱卡片时，要求角色判断是否想尝试或自然回应。',
+    description: '出现菜谱卡片时，要求角色按上下文自然回复。',
     variables: ['title', 'subtitle', 'time', 'servings', 'ingredientText'],
   }),
   definePaperMagicPrompt({
     id: 'wechat.chat.imageDecision',
     moduleId: 'social-bonds',
-    title: '微信聊天：图片决策标签',
+    title: '微信聊天：图片回复',
     source: 'src/appsrc/apps/WeChat/components/WeChatChatView.tsx',
     kind: 'chat',
     content: WECHAT_IMAGE_DECISION_PROMPT,
-    description: '出现图片消息时，要求角色基于图片内容做出明确或自然的回应。',
+    description: '出现图片消息时，要求角色基于图片内容与上下文自然回复。',
     variables: ['normalizedCaption'],
   }),
   definePaperMagicPrompt({

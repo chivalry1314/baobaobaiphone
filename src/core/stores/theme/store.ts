@@ -14,10 +14,11 @@ import { createThemePersistOptions } from './storePersistRepo';
 
 const BUILTIN_THEME_ID_SET = new Set(BUILTIN_THEME_CATALOG.map((theme) => theme.id));
 const DEFAULT_THEME_MANAGED_SETTINGS = extractThemeManagedSettings(defaultSettings);
+type UploadedThemeDefinition = ThemeDefinition & { source: 'imported' };
 
 export interface ThemeStoreState {
   installedThemeIds: string[];
-  uploadedThemes: ThemeDefinition[];
+  uploadedThemes: UploadedThemeDefinition[];
   activeThemeId: string | null;
   previousManualSettings: ThemeSettingsPatch | null;
   installTheme: (themeId: string) => void;
@@ -29,7 +30,7 @@ export interface ThemeStoreState {
   detachFromTheme: () => void;
 }
 
-const findThemeById = (themeId: string, uploadedThemes: ThemeDefinition[]): ThemeDefinition | null => {
+const findThemeById = (themeId: string, uploadedThemes: UploadedThemeDefinition[]): ThemeDefinition | null => {
   const builtin = BUILTIN_THEME_CATALOG.find((theme) => theme.id === themeId);
   if (builtin) return builtin;
   return uploadedThemes.find((theme) => theme.id === themeId) || null;
@@ -37,7 +38,7 @@ const findThemeById = (themeId: string, uploadedThemes: ThemeDefinition[]): Them
 
 const ensureUniqueThemeId = (
   baseId: string,
-  uploadedThemes: ThemeDefinition[]
+  uploadedThemes: UploadedThemeDefinition[]
 ): string => {
   const normalizedBaseId = slugifyThemeId(baseId);
   const usedIds = new Set([
@@ -94,7 +95,7 @@ export const useThemeStore = create<ThemeStoreState>()(
           source: 'imported' as const,
         };
 
-        let storedTheme = normalizedTheme;
+        let storedTheme: UploadedThemeDefinition = normalizedTheme;
         set((state) => {
           const sameThemeIndex = state.uploadedThemes.findIndex(
             (item) => item.id === normalizedTheme.id
