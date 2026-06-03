@@ -15,24 +15,41 @@ export const HtmlRuntimeApp: React.FC<HtmlRuntimeAppProps> = ({ name, html, onCl
       {...APP_OPEN_MOTION}
       exit={APP_CLOSE_MOTION}
       transition={{ type: 'spring', damping: 20, stiffness: 200 }}
-      className="absolute inset-0 z-50 bg-white flex flex-col"
+      className="absolute inset-0 z-50 flex flex-col"
+      style={{
+        backgroundColor: 'var(--sys-system-bg)',
+        color: 'var(--sys-surface-text)',
+      }}
     >
-      <header className="px-2 pt-12 pb-3 bg-white/80 backdrop-blur-md border-b border-slate-100 flex items-center">
+      <header
+        className="flex items-center px-2 pb-3 pt-12 backdrop-blur-md"
+        style={{
+          backgroundColor: 'color-mix(in srgb, var(--sys-surface-strong) 82%, transparent)',
+          borderBottom: '1px solid var(--sys-border)',
+        }}
+      >
         <button
           type="button"
           onClick={onClose}
-          className="text-slate-500 flex items-center gap-1 p-2 active:scale-95 transition-transform"
+          className="flex items-center gap-1 p-2 transition-transform active:scale-95"
+          style={{ color: 'var(--sys-muted-text)' }}
         >
           <ChevronLeft size={28} />
           <span className="text-[16px]">返回</span>
         </button>
-        <h1 className="flex-1 text-center text-[17px] font-semibold text-slate-800 pr-10">{name}</h1>
+        <h1
+          className="flex-1 pr-10 text-center text-[17px] font-semibold"
+          style={{ color: 'var(--sys-surface-text)' }}
+        >
+          {name}
+        </h1>
       </header>
 
       <iframe
         title={name}
         srcDoc={html}
-        className="w-full flex-1 border-0 bg-white"
+        className="w-full flex-1 border-0"
+        style={{ backgroundColor: 'var(--sys-system-bg)' }}
         sandbox="allow-scripts allow-forms allow-modals allow-pointer-lock allow-popups allow-popups-to-escape-sandbox"
       />
     </motion.div>

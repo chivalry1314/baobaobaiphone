@@ -73,22 +73,38 @@ export const AppIcon: React.FC<AppIconProps> = ({
       {isEditing ? (
         <button
           type="button"
-          className="absolute -right-2 -top-2 z-20 flex h-7 w-7 items-center justify-center rounded-full border border-white/45 bg-white/18 p-0 text-black shadow-[inset_0_1px_0_rgba(255,255,255,0.42),0_6px_14px_rgba(15,23,42,0.14)] backdrop-blur-xl"
+          className="absolute -right-2 -top-2 z-20 flex h-7 w-7 items-center justify-center rounded-full p-0 backdrop-blur-xl"
           aria-label={canRemove ? '卸载应用' : '不可卸载'}
+          style={{
+            border: '1px solid var(--sys-icon-border)',
+            backgroundColor: 'var(--sys-surface)',
+            color: 'var(--sys-icon-glyph)',
+            boxShadow: 'inset 0 1px 0 rgba(255,255,255,0.42), 0 6px 14px var(--sys-shadow-color)',
+          }}
           onClick={(event) => {
             event.stopPropagation();
             if (canRemove) onRemove?.();
           }}
         >
-          <span className="h-1 w-4 rounded-full bg-white shadow-[0_1px_3px_rgba(15,23,42,0.28)]" />
+          <span
+            className="h-1 w-4 rounded-full"
+            style={{
+              backgroundColor: 'var(--sys-icon-border)',
+              boxShadow: '0 1px 3px var(--sys-shadow-color)',
+            }}
+          />
         </button>
       ) : null}
       {normalizedBadgeCount > 0 ? (
         <span
-          className="absolute z-30 flex h-5 min-w-[20px] items-center justify-center rounded-full bg-[#FF3B30] px-1.5 text-[11px] font-semibold leading-none text-white shadow-[0_2px_6px_rgba(0,0,0,0.22)] ring-2 ring-white"
+          className="absolute z-30 flex h-5 min-w-[20px] items-center justify-center rounded-full px-1.5 text-[11px] font-semibold leading-none"
           style={{
             right: '8px',
             top: '-7px',
+            backgroundColor: 'var(--sys-badge-bg)',
+            color: 'var(--sys-badge-text)',
+            boxShadow: '0 2px 6px var(--sys-shadow-color)',
+            border: '2px solid var(--sys-badge-ring)',
           }}
         >
           {badgeLabel}
@@ -100,15 +116,35 @@ export const AppIcon: React.FC<AppIconProps> = ({
           width: `${size}px`,
           height: `${size}px`,
           borderRadius: `${radius}px`,
-          backgroundColor: 'rgba(255, 255, 255, 0.25)',
+          backgroundColor: 'var(--sys-icon-bg)',
           backdropFilter: frosted > 0 ? `blur(${frosted}px)` : 'none',
           WebkitBackdropFilter: frosted > 0 ? `blur(${frosted}px)` : 'none',
-          boxShadow: `0 ${shadow}px ${shadow * 2}px rgba(0,0,0,0.15)`,
-          border: '1px solid rgba(255,255,255,0.5)'
+          boxShadow: `0 ${shadow}px ${shadow * 2}px var(--sys-icon-shadow-color)`,
+          border: 'var(--sys-icon-border-width) solid var(--sys-icon-border)',
+          color: 'var(--sys-icon-glyph)',
         }}
       >
+        <div
+          aria-hidden="true"
+          className="pointer-events-none absolute"
+          style={{
+            inset: 'var(--sys-icon-inner-inset)',
+            borderRadius: `calc(${radius}px - var(--sys-icon-inner-inset))`,
+            backgroundColor: 'var(--sys-icon-inner-bg)',
+          }}
+        />
+        <div
+          aria-hidden="true"
+          className="pointer-events-none absolute"
+          style={{
+            inset: 'var(--sys-icon-inner-inset)',
+            borderRadius: `calc(${radius}px - var(--sys-icon-inner-inset))`,
+            backgroundImage: 'var(--sys-icon-texture)',
+            opacity: 0.85,
+          }}
+        />
         {isClock ? (
-          <div className="relative w-full h-full p-2">
+          <div className="relative h-full w-full p-2">
             <svg viewBox="0 0 100 100" className="w-full h-full">
               <defs>
                 <radialGradient id={`clock-face-${clockId}`} cx="50%" cy="35%" r="65%">
@@ -148,16 +184,30 @@ export const AppIcon: React.FC<AppIconProps> = ({
         ) : isFolder ? (
           <div className="grid grid-cols-3 gap-1.5 p-2">
             {[...Array(9)].map((_, i) => (
-              <div key={i} className="w-2.5 h-2.5 bg-black/30 rounded-[3px] border border-black/10" />
+              <div
+                key={i}
+                className="h-2.5 w-2.5 rounded-[3px]"
+                style={{
+                  backgroundColor: 'color-mix(in srgb, var(--sys-icon-glyph) 24%, transparent)',
+                  border: '1px solid color-mix(in srgb, var(--sys-icon-glyph) 10%, transparent)',
+                }}
+              />
             ))}
           </div>
         ) : customIcon ? (
           customIcon
         ) : IconComponent ? (
-          <IconComponent size={size * 0.5} className="text-black" strokeWidth={1.5} />
+          <IconComponent size={size * 0.5} strokeWidth={2.2} className="relative z-10" />
         ) : null}
       </div>
-      {label && <span className="text-[11px] font-medium text-black/90 tracking-wide">{label}</span>}
+      {label ? (
+        <span
+          className="text-[11px] font-medium tracking-wide"
+          style={{ color: 'var(--sys-icon-label)' }}
+        >
+          {label}
+        </span>
+      ) : null}
     </motion.div>
   );
 };

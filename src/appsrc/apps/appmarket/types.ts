@@ -1,5 +1,8 @@
+import type { AppContext } from '../../../core/sdk/types';
+
 export interface AppMarketAppProps {
   onClose: () => void;
+  context?: AppContext;
 }
 
 export interface OnlineMarketApp {

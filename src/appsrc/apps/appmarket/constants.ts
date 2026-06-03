@@ -1,12 +1,14 @@
 import type { AppManifest } from '@baobaobaiOS/sdk';
-import type { MarketTab } from './uiTypes';
+import type { MarketChannel, MarketTab } from './uiTypes';
 import type { OnlineMarketApp } from './types';
 
 export const FONT_STACK = '"PingFang SC", "SF Pro Display", "Microsoft YaHei", sans-serif';
 
 export const TEXT = {
   title: '应用市场',
-  subtitle: '管理线上应用、离线应用和开发者发布',
+  subtitle: '浏览应用资源与主题资源',
+  apps: '应用',
+  themes: '主题',
   online: '线上市场',
   offline: '离线市场',
   developer: '开发者平台',
@@ -45,6 +47,11 @@ export const TEXT = {
   sourceOnline: '线上来源',
   sourceOffline: '离线来源',
 } as const;
+
+export const CHANNEL_LABELS: Record<MarketChannel, string> = {
+  apps: TEXT.apps,
+  themes: TEXT.themes,
+};
 
 export const TAB_LABELS: Record<MarketTab, string> = {
   online: TEXT.online,

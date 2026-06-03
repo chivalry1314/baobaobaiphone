@@ -20,10 +20,11 @@ export const StatusBar: React.FC<StatusBarProps> = ({ dark, isFullscreen = false
 
   return (
     <div
-      className={`flex justify-between items-center px-8 pb-2 w-full z-50 font-medium text-[15px] transition-colors duration-300 ${
-        dark ? 'text-black' : 'text-white'
-      }`}
-      style={{ paddingTop: topPadding }}
+      className="flex w-full items-center justify-between px-8 pb-2 text-[15px] font-medium transition-colors duration-300 z-50"
+      style={{
+        paddingTop: topPadding,
+        color: dark ? 'var(--sys-surface-text)' : 'var(--sys-status-fg)',
+      }}
     >
       <div className="flex items-center gap-2.5">
         {time.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit', hour12: false })}
@@ -31,9 +32,10 @@ export const StatusBar: React.FC<StatusBarProps> = ({ dark, isFullscreen = false
           type="button"
           onClick={onToggleFullscreen}
           aria-label={isFullscreen ? '退出全屏' : '进入全屏'}
-          className={`h-6 px-0.5 flex items-center leading-none transition-all duration-200 active:scale-95 ${
-            dark ? 'text-black/70 hover:text-black/95' : 'text-white/80 hover:text-white'
-          } ${isFullscreen ? 'gap-0' : 'gap-1'}`}
+          className={`flex h-6 items-center px-0.5 leading-none transition-all duration-200 active:scale-95 ${isFullscreen ? 'gap-0' : 'gap-1'}`}
+          style={{
+            color: dark ? 'var(--sys-muted-text)' : 'var(--sys-status-muted)',
+          }}
         >
           {isFullscreen ? <Minimize2 size={12} /> : <Maximize2 size={12} />}
           {!isFullscreen && <span className="text-[11px] font-medium tracking-[0.01em]">全屏</span>}
@@ -42,17 +44,35 @@ export const StatusBar: React.FC<StatusBarProps> = ({ dark, isFullscreen = false
       <div className="flex items-center gap-1.5">
         <SignalHigh size={16} />
         <span className="text-[12px] font-bold">5G</span>
-        <div className={`flex items-center rounded-full px-1.5 py-0.5 gap-1 border ${
-          dark ? 'bg-black/5 border-black/10' : 'bg-white/20 border-white/20'
-        }`}>
+        <div
+          className="flex items-center gap-1 rounded-full border px-1.5 py-0.5"
+          style={{
+            backgroundColor: dark ? 'var(--sys-surface)' : 'var(--sys-status-chip-bg)',
+            borderColor: dark ? 'var(--sys-border)' : 'var(--sys-status-chip-border)',
+            borderWidth: 'var(--sys-status-chip-border-width)',
+          }}
+        >
           <span className="text-[10px] font-bold">81</span>
-          <div className={`w-5 h-2.5 border rounded-[3px] relative flex items-center p-[1px] ${
-            dark ? 'border-black/40' : 'border-white/60'
-          }`}>
-            <div className={`h-full rounded-[1px] ${dark ? 'bg-black' : 'bg-white'}`} style={{ width: '81%' }} />
-            <div className={`absolute -right-[3px] w-[2px] h-1.5 rounded-r-full ${
-              dark ? 'bg-black/40' : 'bg-white/60'
-            }`} />
+          <div
+            className="relative flex h-2.5 w-5 items-center rounded-[3px] border p-[1px]"
+            style={{
+              borderColor: dark ? 'var(--sys-muted-text)' : 'var(--sys-status-chip-border)',
+              borderWidth: 'var(--sys-status-battery-border-width)',
+            }}
+          >
+            <div
+              className="h-full rounded-[1px]"
+              style={{
+                width: '81%',
+                backgroundColor: dark ? 'var(--sys-surface-text)' : 'var(--sys-status-battery-bg)',
+              }}
+            />
+            <div
+              className="absolute -right-[3px] h-1.5 w-[2px] rounded-r-full"
+              style={{
+                backgroundColor: dark ? 'var(--sys-muted-text)' : 'var(--sys-status-battery-cap)',
+              }}
+            />
           </div>
         </div>
       </div>

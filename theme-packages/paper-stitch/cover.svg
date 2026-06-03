@@ -1,0 +1,22 @@
+<svg width="900" height="620" viewBox="0 0 900 620" fill="none" xmlns="http://www.w3.org/2000/svg">
+  <defs>
+    <linearGradient id="bg" x1="40" y1="30" x2="860" y2="590" gradientUnits="userSpaceOnUse">
+      <stop offset="0" stop-color="#F8F4EB"/>
+      <stop offset="1" stop-color="#EEE4D3"/>
+    </linearGradient>
+  </defs>
+  <rect width="900" height="620" rx="36" fill="url(#bg)"/>
+  <rect x="50" y="54" width="270" height="208" rx="26" fill="#FFFDF8" stroke="#111111" stroke-width="6" transform="rotate(-6 50 54)"/>
+  <rect x="548" y="72" width="274" height="196" rx="24" fill="#F8F2E7" stroke="#111111" stroke-width="6" transform="rotate(5 548 72)"/>
+  <rect x="110" y="322" width="212" height="168" rx="22" fill="#E6D7C2" stroke="#111111" stroke-width="6" transform="rotate(3 110 322)"/>
+  <rect x="388" y="276" width="370" height="244" rx="30" fill="#FFFCF5" stroke="#111111" stroke-width="6" transform="rotate(-4 388 276)"/>
+  <text x="86" y="150" fill="#111111" font-size="62" font-family="Arial Black, Arial, sans-serif">纸感拼贴</text>
+  <text x="88" y="204" fill="#444444" font-size="24" font-family="Trebuchet MS, Arial, sans-serif">Paper collage desktop theme package</text>
+  <rect x="462" y="332" width="108" height="108" rx="28" fill="#FFFFFF" stroke="#111111" stroke-width="6"/>
+  <path d="M494 370H538" stroke="#111111" stroke-width="8" stroke-linecap="round"/>
+  <path d="M516 350V392" stroke="#111111" stroke-width="8" stroke-linecap="round"/>
+  <rect x="592" y="332" width="108" height="108" rx="28" fill="#FFFFFF" stroke="#111111" stroke-width="6"/>
+  <circle cx="646" cy="386" r="24" stroke="#111111" stroke-width="8"/>
+  <rect x="462" y="458" width="238" height="20" rx="10" fill="#111111"/>
+  <rect x="462" y="492" width="188" height="14" rx="7" fill="#7A6F62"/>
+</svg>

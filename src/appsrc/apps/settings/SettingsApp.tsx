@@ -6,6 +6,7 @@ import { useGlobalDesktopStore } from '@baobaobaiOS/sdk';
 import type { AppContext } from '../../../core/sdk/types';
 import { APP_OPEN_MOTION, APP_CLOSE_MOTION } from '../../../core/appOpenMotion';
 import { useMobileViewportPageStyle } from '../../../core/mobileViewport';
+import { PUSH_OPEN_APP_MESSAGE_TYPE } from '../../../core/push/webPush';
 import {
   CUSTOM_WIDGET_LIBRARY_CHANGED_EVENT,
   readCustomWidgetLibrary,
@@ -64,6 +65,20 @@ export const SettingsApp: React.FC<SettingsAppProps> = ({ onClose, context }) =>
   const [localCustomWidgets, setLocalCustomWidgets] = useState(() => readCustomWidgetLibrary());
   const shouldFreezeViewport = currentView === 'api' || currentView === 'editMode';
   const viewportPageStyle = useMobileViewportPageStyle(!shouldFreezeViewport);
+
+  const openThemeMarket = () => {
+    window.dispatchEvent(
+      new CustomEvent(PUSH_OPEN_APP_MESSAGE_TYPE, {
+        detail: {
+          type: PUSH_OPEN_APP_MESSAGE_TYPE,
+          appId: 'appmarket',
+          params: {
+            initialChannel: 'themes',
+          },
+        },
+      })
+    );
+  };
 
   useEffect(() => {
     const syncLocalCustomWidgets = () => setLocalCustomWidgets(readCustomWidgetLibrary());
@@ -371,7 +386,7 @@ export const SettingsApp: React.FC<SettingsAppProps> = ({ onClose, context }) =>
           transition={{ duration: 0.2 }}
           className="flex-1 min-h-0 flex flex-col overflow-hidden"
         >
-          {currentView === 'main' ? renderMainView() : currentView === 'api' ? renderApiView() : currentView === 'notifications' ? <PushNotificationView settings={settings} updateSettings={updateSettings} /> : currentView === 'beautify' ? <BeautifyView onNavigateToThemeManage={() => setCurrentView('themeManage')} onNavigateToIconManage={() => setCurrentView('iconManage')} onNavigateToFontManage={() => setCurrentView('fontManage')} onNavigateToWidgetManage={() => setCurrentView('widgetManage')} onNavigateToLayout={() => setCurrentView('layout')} /> : currentView === 'themeManage' ? <ThemeManageView onBack={() => setCurrentView('beautify')} /> : currentView === 'iconManage' ? <IconManageView /> : currentView === 'fontManage' ? <FontManageView /> : currentView === 'widgetManage' ? <WidgetManageView onNavigateToEditor={(id) => { setWidgetEditorId(id); setWidgetEditorReturnTo('widgetManage'); setCurrentView('widgetEditor'); }} /> : currentView === 'widgetEditor' ? (
+          {currentView === 'main' ? renderMainView() : currentView === 'api' ? renderApiView() : currentView === 'notifications' ? <PushNotificationView settings={settings} updateSettings={updateSettings} /> : currentView === 'beautify' ? <BeautifyView onNavigateToThemeManage={() => setCurrentView('themeManage')} onNavigateToIconManage={() => setCurrentView('iconManage')} onNavigateToFontManage={() => setCurrentView('fontManage')} onNavigateToWidgetManage={() => setCurrentView('widgetManage')} onNavigateToLayout={() => setCurrentView('layout')} /> : currentView === 'themeManage' ? <ThemeManageView onBack={() => setCurrentView('beautify')} onOpenThemeMarket={openThemeMarket} /> : currentView === 'iconManage' ? <IconManageView /> : currentView === 'fontManage' ? <FontManageView /> : currentView === 'widgetManage' ? <WidgetManageView onNavigateToEditor={(id) => { setWidgetEditorId(id); setWidgetEditorReturnTo('widgetManage'); setCurrentView('widgetEditor'); }} /> : currentView === 'widgetEditor' ? (
             <WidgetEditorView
               widgetId={widgetEditorId}
               initialConfig={initialWidgetConfig}

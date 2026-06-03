@@ -13,6 +13,8 @@ import type { DesktopItem } from './core/stores/types';
 import { useDesktopCoreStore } from './core/stores/desktop/store';
 import { hasCoreStoresHydrated, onCoreStoresHydrated } from './core/stores/hydration';
 import { useSettingsCoreStore } from './core/stores/settings/store';
+import { useThemeStore } from './core/stores/theme/store';
+import { BUILTIN_THEME_CATALOG } from './core/theme/presetThemes';
 import { ensureWebPushSubscription, isPushOpenAppMessage, PUSH_OPEN_APP_MESSAGE_TYPE } from './core/push/webPush';
 import { isSystemAppId, SYSTEM_APP_IDS } from './core/systemApps';
 import { CUSTOM_WIDGET_LIBRARY_CHANGED_EVENT, readCustomWidgetLibrary } from './core/customWidgetLibrary';
@@ -24,6 +26,7 @@ import { useWeChatStore } from './appsrc/apps/WeChat/store';
 import type { WeChatSession } from './appsrc/apps/WeChat/types';
 import { useContactsSnapshot, useMyCardsSnapshot } from './appsrc/apps/contacts/selectors';
 import { parseRoleCharacterId } from './appsrc/shared/business/roleIdentity';
+import type { ThemeDefinition, ThemeVisualTokens } from './core/theme/types';
 
 // 默认壁纸
 const DEFAULT_WALLPAPER = `data:image/svg+xml;utf8,${encodeURIComponent(`
@@ -376,6 +379,120 @@ const clearPendingPushLaunch = (): void => {
   window.history.replaceState({}, '', nextUrl);
 };
 
+const DEFAULT_THEME_TOKENS: Required<ThemeVisualTokens> = {
+  desktopOverlay: 'none',
+  systemBg: '#eff6ff',
+  surface: 'rgba(255,255,255,0.18)',
+  surfaceStrong: 'rgba(255,255,255,0.34)',
+  surfaceText: '#0f172a',
+  mutedText: 'rgba(15,23,42,0.68)',
+  border: 'rgba(255,255,255,0.5)',
+  shadowColor: 'rgba(15,23,42,0.15)',
+  accent: '#10b981',
+  accentText: '#ffffff',
+  accentSoft: 'rgba(16,185,129,0.14)',
+  accentMuted: '#059669',
+  danger: '#ef4444',
+  dangerText: '#ffffff',
+  dangerSoft: 'rgba(239,68,68,0.12)',
+  glassBg: 'rgba(255,255,255,0.20)',
+  glassBorder: 'rgba(255,255,255,0.30)',
+  glassIconBg: 'rgba(255,255,255,0.25)',
+  dockItemMode: 'default',
+  dockBg: 'rgba(255,255,255,0.20)',
+  dockBorder: 'rgba(255,255,255,0.30)',
+  dockBorderWidth: '1px',
+  dockRadius: '2.5rem',
+  dockBlur: '24px',
+  dockShadow: '0 12px 36px rgba(15,23,42,0.15)',
+  dockActiveBg: 'transparent',
+  dockActiveFg: '#111827',
+  dockActiveBorder: 'transparent',
+  iconBg: 'rgba(255,255,255,0.25)',
+  iconBorder: 'rgba(255,255,255,0.5)',
+  iconBorderWidth: '1px',
+  iconInnerBg: 'transparent',
+  iconInnerInset: '0px',
+  iconTexture: 'none',
+  iconLabel: '#111827',
+  iconGlyph: '#111827',
+  iconShadowColor: 'rgba(0,0,0,0.15)',
+  badgeBg: '#ff3b30',
+  badgeText: '#ffffff',
+  badgeRing: 'rgba(255,255,255,0.92)',
+  statusFg: '#111827',
+  statusMuted: 'rgba(17,24,39,0.78)',
+  statusChipBg: 'rgba(255,255,255,0.22)',
+  statusChipBorder: 'rgba(255,255,255,0.28)',
+  statusChipBorderWidth: '1px',
+  statusBatteryBg: '#111827',
+  statusBatteryCap: 'rgba(17,24,39,0.4)',
+  statusBatteryBorderWidth: '1px',
+};
+
+const THEME_TOKEN_VAR_MAP: Record<keyof ThemeVisualTokens, string> = {
+  desktopOverlay: '--sys-desktop-overlay',
+  systemBg: '--sys-system-bg',
+  surface: '--sys-surface',
+  surfaceStrong: '--sys-surface-strong',
+  surfaceText: '--sys-surface-text',
+  mutedText: '--sys-muted-text',
+  border: '--sys-border',
+  shadowColor: '--sys-shadow-color',
+  accent: '--sys-accent',
+  accentText: '--sys-accent-text',
+  accentSoft: '--sys-accent-soft',
+  accentMuted: '--sys-accent-muted',
+  danger: '--sys-danger',
+  dangerText: '--sys-danger-text',
+  dangerSoft: '--sys-danger-soft',
+  glassBg: '--sys-glass-bg',
+  glassBorder: '--sys-glass-border',
+  glassIconBg: '--sys-glass-icon-bg',
+  dockItemMode: '--sys-dock-item-mode',
+  dockBg: '--sys-dock-bg',
+  dockBorder: '--sys-dock-border',
+  dockBorderWidth: '--sys-dock-border-width',
+  dockRadius: '--sys-dock-radius',
+  dockBlur: '--sys-dock-blur',
+  dockShadow: '--sys-dock-shadow',
+  dockActiveBg: '--sys-dock-active-bg',
+  dockActiveFg: '--sys-dock-active-fg',
+  dockActiveBorder: '--sys-dock-active-border',
+  iconBg: '--sys-icon-bg',
+  iconBorder: '--sys-icon-border',
+  iconBorderWidth: '--sys-icon-border-width',
+  iconInnerBg: '--sys-icon-inner-bg',
+  iconInnerInset: '--sys-icon-inner-inset',
+  iconTexture: '--sys-icon-texture',
+  iconLabel: '--sys-icon-label',
+  iconGlyph: '--sys-icon-glyph',
+  iconShadowColor: '--sys-icon-shadow-color',
+  badgeBg: '--sys-badge-bg',
+  badgeText: '--sys-badge-text',
+  badgeRing: '--sys-badge-ring',
+  statusFg: '--sys-status-fg',
+  statusMuted: '--sys-status-muted',
+  statusChipBg: '--sys-status-chip-bg',
+  statusChipBorder: '--sys-status-chip-border',
+  statusChipBorderWidth: '--sys-status-chip-border-width',
+  statusBatteryBg: '--sys-status-battery-bg',
+  statusBatteryCap: '--sys-status-battery-cap',
+  statusBatteryBorderWidth: '--sys-status-battery-border-width',
+};
+
+const resolveThemeById = (
+  themeId: string | null,
+  uploadedThemes: ThemeDefinition[]
+): ThemeDefinition | null => {
+  if (!themeId) return null;
+  return (
+    uploadedThemes.find((theme) => theme.id === themeId) ||
+    BUILTIN_THEME_CATALOG.find((theme) => theme.id === themeId) ||
+    null
+  );
+};
+
 export default function App() {
   const [isBooting, setIsBooting] = useState(true);
   const [isLocked, setIsLocked] = useState(false);
@@ -397,6 +514,8 @@ export default function App() {
   const removeDesktopItem = useDesktopCoreStore((state) => state.removeDesktopItem);
   const updateDesktopLayout = useDesktopCoreStore((state) => state.updateDesktopLayout);
   const { installedAppIds, uploadedApps, uninstallApp } = useAppMarketStore();
+  const activeThemeId = useThemeStore((state) => state.activeThemeId);
+  const uploadedThemes = useThemeStore((state) => state.uploadedThemes);
   const wechatUnreadCount = useWeChatStore((state) =>
     state.wechatSessions.reduce(
       (total, session) => total + Math.max(0, Number(session.unreadCount) || 0),
@@ -676,6 +795,21 @@ export default function App() {
       existing.remove();
     }
   }, [settings.fontFamily, settings.customFontData, settings.customFontName, settings.customFontFormat]);
+
+  useEffect(() => {
+    const activeTheme = resolveThemeById(activeThemeId, uploadedThemes);
+    const themeTokens = {
+      ...DEFAULT_THEME_TOKENS,
+      ...(activeTheme?.tokens || {}),
+    };
+
+    Object.entries(THEME_TOKEN_VAR_MAP).forEach(([tokenKey, cssVar]) => {
+      const value = themeTokens[tokenKey as keyof ThemeVisualTokens];
+      if (value) {
+        document.documentElement.style.setProperty(cssVar, value);
+      }
+    });
+  }, [activeThemeId, uploadedThemes]);
 
   // ================= 新增：桌面初始化逻辑 =================
   useEffect(() => {
@@ -1933,8 +2067,12 @@ export default function App() {
 
   return (
     <div
-      className="fixed left-0 right-0 top-0 bg-white overflow-hidden flex flex-col"
-      style={{ height: 'var(--app-physical-height, var(--app-dvh, 100dvh))' }}
+      className="fixed left-0 right-0 top-0 flex flex-col overflow-hidden"
+      style={{
+        height: 'var(--app-physical-height, var(--app-dvh, 100dvh))',
+        backgroundColor: 'var(--sys-system-bg)',
+        color: 'var(--sys-surface-text)',
+      }}
     >
       {activeAppId !== 'dreammusic' ? <DreamMusicAudioHost /> : null}
       <AnimatePresence>{isBooting && <SystemBootScreen version={__APP_VERSION__} />}</AnimatePresence>
@@ -1960,10 +2098,22 @@ export default function App() {
               }
             }}
             onClick={openWeChatNotificationBanner}
-            className="absolute left-4 right-4 z-[240] flex items-center gap-3 rounded-[26px] border border-white/70 bg-white/88 px-4 py-3 text-left text-slate-900 shadow-[0_18px_42px_-24px_rgba(15,23,42,0.85)] backdrop-blur-2xl"
-            style={{ top: 'calc(env(safe-area-inset-top, 0px) + 16px)' }}
+            className="absolute left-4 right-4 z-[240] flex items-center gap-3 rounded-[26px] px-4 py-3 text-left backdrop-blur-2xl"
+            style={{
+              top: 'calc(env(safe-area-inset-top, 0px) + 16px)',
+              border: '1px solid var(--sys-border)',
+              backgroundColor: 'color-mix(in srgb, var(--sys-surface-strong) 82%, transparent)',
+              color: 'var(--sys-surface-text)',
+              boxShadow: '0 18px 42px -24px var(--sys-shadow-color)',
+            }}
           >
-            <span className="relative flex h-12 w-12 shrink-0 items-center justify-center rounded-full bg-slate-100 text-slate-700 shadow-inner">
+            <span
+              className="relative flex h-12 w-12 shrink-0 items-center justify-center rounded-full shadow-inner"
+              style={{
+                backgroundColor: 'var(--sys-surface)',
+                color: 'var(--sys-muted-text)',
+              }}
+            >
               {wechatBanner.avatar ? (
                 <img src={wechatBanner.avatar} alt="" className="h-full w-full rounded-full object-cover" />
               ) : (
@@ -1973,9 +2123,12 @@ export default function App() {
             <span className="min-w-0 flex-1">
               <span className="flex items-center justify-between gap-3">
                 <span className="text-[15px] font-semibold leading-5">{wechatBanner.title}</span>
-                <span className="text-[13px] text-slate-500">现在</span>
+                <span className="text-[13px]" style={{ color: 'var(--sys-muted-text)' }}>现在</span>
               </span>
-              <span className="mt-0.5 block truncate text-[15px] leading-5 text-slate-700">
+              <span
+                className="mt-0.5 block truncate text-[15px] leading-5"
+                style={{ color: 'var(--sys-muted-text)' }}
+              >
                 {wechatBanner.body}
               </span>
             </span>
@@ -1998,7 +2151,7 @@ export default function App() {
       </AnimatePresence>
 
       {/* 壁纸 */}
-      <div className="absolute inset-0 z-0 bg-white">
+      <div className="absolute inset-0 z-0" style={{ backgroundColor: 'var(--sys-system-bg)' }}>
         <img
           src={wallpaperUrl}
           alt="Wallpaper"
@@ -2007,11 +2160,21 @@ export default function App() {
           referrerPolicy="no-referrer"
         />
         <div className="absolute inset-0 bg-blue-400/10" />
+        <div
+          className="pointer-events-none absolute inset-0"
+          style={{
+            backgroundImage: 'var(--sys-desktop-overlay)',
+            backgroundSize: 'auto',
+            backgroundRepeat: 'repeat',
+            opacity: 0.58,
+            mixBlendMode: 'multiply',
+          }}
+        />
       </div>
 
       {/* Status Bar */}
       {shouldRenderCustomStatusBar && (
-        <StatusBar dark={true} isFullscreen={isFullscreen} onToggleFullscreen={toggleFullscreen} />
+        <StatusBar isFullscreen={isFullscreen} onToggleFullscreen={toggleFullscreen} />
       )}
 
       <AnimatePresence>
@@ -2021,11 +2184,14 @@ export default function App() {
             initial={{ opacity: 0, y: -10 }}
             animate={{ opacity: 1, y: 0 }}
             exit={{ opacity: 0, y: -10 }}
-            className="pointer-events-none absolute left-1/2 z-[70] w-[min(90vw,360px)] -translate-x-1/2 rounded-2xl bg-black/55 px-4 py-3 text-center text-[13px] leading-5 text-white shadow-lg backdrop-blur-xl"
+            className="pointer-events-none absolute left-1/2 z-[70] w-[min(90vw,360px)] -translate-x-1/2 rounded-2xl px-4 py-3 text-center text-[13px] leading-5 backdrop-blur-xl"
             style={{
               top: shouldRenderCustomStatusBar
                 ? 'max(env(safe-area-inset-top, 0px), 56px)'
                 : 'max(env(safe-area-inset-top, 0px), 12px)',
+              backgroundColor: 'color-mix(in srgb, var(--sys-surface-strong) 88%, transparent)',
+              color: 'var(--sys-surface-text)',
+              boxShadow: '0 10px 28px var(--sys-shadow-color)',
             }}
           >
             {fullscreenHint}
@@ -2045,7 +2211,13 @@ export default function App() {
           <div className="pointer-events-auto relative">
             <button
               type="button"
-              className="h-7 rounded-full border border-white/60 bg-white/12 px-4 text-[12px] font-semibold text-white/100 shadow-[inset_0_1px_0_rgba(255,255,255,0.38),0_6px_18px_rgba(15,23,42,0.10)] backdrop-blur-xl"
+              className="h-7 rounded-full px-4 text-[12px] font-semibold backdrop-blur-xl"
+              style={{
+                border: '1px solid var(--sys-border)',
+                backgroundColor: 'color-mix(in srgb, var(--sys-surface) 74%, transparent)',
+                color: 'var(--sys-surface-text)',
+                boxShadow: 'inset 0 1px 0 rgba(255,255,255,0.38), 0 6px 18px var(--sys-shadow-color)',
+              }}
               onClick={() => setIsDesktopEditMenuOpen((open) => !open)}
             >
               编辑
@@ -2057,25 +2229,39 @@ export default function App() {
                   animate={{ opacity: 1, scale: 1, y: 0 }}
                   exit={{ opacity: 0, scale: 0.96, y: -6 }}
                   transition={{ duration: 0.18, ease: [0.22, 1, 0.36, 1] }}
-                  className={`absolute left-0 top-10 overflow-hidden rounded-[26px] border border-white/35 px-4 py-3 text-white ${
+                  className={`absolute left-0 top-10 overflow-hidden rounded-[26px] px-4 py-3 ${
                     isDesktopWidgetPickerOpen ? 'w-[min(82vw,300px)]' : 'w-[min(58vw,220px)]'
                   }`}
                   style={{
+                    border: '1px solid var(--sys-border)',
+                    color: 'var(--sys-surface-text)',
                     background:
-                      'linear-gradient(135deg, rgba(255,255,255,0.16), rgba(255,255,255,0.035) 46%, rgba(255,255,255,0.10))',
+                      'linear-gradient(135deg, color-mix(in srgb, var(--sys-surface-strong) 76%, transparent), color-mix(in srgb, var(--sys-surface) 42%, transparent) 46%, color-mix(in srgb, var(--sys-surface-strong) 54%, transparent))',
                     backdropFilter: 'blur(10px) saturate(180%)',
                     WebkitBackdropFilter: 'blur(10px) saturate(180%)',
                     boxShadow:
-                      'inset 0 1px 1px rgba(255,255,255,0.42), inset 0 -1px 1px rgba(255,255,255,0.16), inset 1px 0 0 rgba(255,255,255,0.22), inset -1px 0 0 rgba(125,211,252,0.18), 0 16px 42px rgba(15,23,42,0.16)',
+                      'inset 0 1px 1px rgba(255,255,255,0.42), inset 0 -1px 1px rgba(255,255,255,0.16), inset 1px 0 0 rgba(255,255,255,0.22), 0 16px 42px var(--sys-shadow-color)',
                   }}
                 >
-                  <div className="pointer-events-none absolute inset-0 rounded-[26px] bg-gradient-to-br from-white/14 via-transparent to-white/6" />
+                  <div
+                    className="pointer-events-none absolute inset-0 rounded-[26px]"
+                    style={{
+                      background:
+                        'linear-gradient(to bottom right, color-mix(in srgb, white 14%, transparent), transparent, color-mix(in srgb, white 6%, transparent))',
+                    }}
+                  />
                   {isDesktopWidgetPickerOpen ? (
                     <div className="relative">
-                      <div className="mb-4 flex items-center justify-between gap-3 text-left text-[12px] font-semibold leading-none text-white drop-shadow-[0_1px_2px_rgba(15,23,42,0.22)]">
+                      <div
+                        className="mb-4 flex items-center justify-between gap-3 text-left text-[12px] font-semibold leading-none"
+                        style={{
+                          color: 'var(--sys-surface-text)',
+                          textShadow: '0 1px 2px rgba(15,23,42,0.22)',
+                        }}
+                      >
                         <button
                           type="button"
-                          className="text-white/85"
+                          style={{ color: 'var(--sys-muted-text)' }}
                           onClick={() => setIsDesktopWidgetPickerOpen(false)}
                         >
                           添加小组件
@@ -2086,14 +2272,23 @@ export default function App() {
                           <button
                             key={size.label}
                             type="button"
-                            className="flex h-[78px] flex-col items-center justify-center gap-2 rounded-[16px] border border-white/24 bg-white/8 text-[12px] font-semibold text-white shadow-[inset_0_1px_0_rgba(255,255,255,0.22)]"
+                            className="flex h-[78px] flex-col items-center justify-center gap-2 rounded-[16px] text-[12px] font-semibold"
+                            style={{
+                              border: '1px solid color-mix(in srgb, var(--sys-border) 44%, transparent)',
+                              backgroundColor: 'color-mix(in srgb, var(--sys-surface) 46%, transparent)',
+                              color: 'var(--sys-surface-text)',
+                              boxShadow: 'inset 0 1px 0 rgba(255,255,255,0.22)',
+                            }}
                             onClick={() => addDesktopWidgetSize(size)}
                           >
                             <span
-                              className="rounded-[5px] border border-white/20 bg-white/35 shadow-[inset_0_1px_0_rgba(255,255,255,0.28)]"
+                              className="rounded-[5px]"
                               style={{
                                 width: `${Math.max(12, size.w * 14)}px`,
                                 height: `${Math.max(12, size.h * 12)}px`,
+                                border: '1px solid color-mix(in srgb, var(--sys-border) 40%, transparent)',
+                                backgroundColor: 'color-mix(in srgb, var(--sys-surface-strong) 82%, transparent)',
+                                boxShadow: 'inset 0 1px 0 rgba(255,255,255,0.28)',
                               }}
                             />
                             <span>{size.label} 类型</span>
@@ -2124,7 +2319,11 @@ export default function App() {
                         <button
                           key={item.label}
                           type="button"
-                          className="relative flex w-full items-center gap-3 py-2.5 text-left text-[12px] font-semibold leading-none text-white drop-shadow-[0_1px_2px_rgba(15,23,42,0.22)]"
+                          className="relative flex w-full items-center gap-3 py-2.5 text-left text-[12px] font-semibold leading-none"
+                          style={{
+                            color: 'var(--sys-surface-text)',
+                            textShadow: '0 1px 2px rgba(15,23,42,0.22)',
+                          }}
                           onClick={item.onClick}
                         >
                           <MenuIcon size={16} strokeWidth={1.9} />
@@ -2139,7 +2338,13 @@ export default function App() {
           </div>
           <button
             type="button"
-            className="pointer-events-auto h-7 rounded-full border border-white/60 bg-white/12 px-4 text-[12px] font-semibold text-white/100 shadow-[inset_0_1px_0_rgba(255,255,255,0.38),0_6px_18px_rgba(15,23,42,0.10)] backdrop-blur-xl"
+            className="pointer-events-auto h-7 rounded-full px-4 text-[12px] font-semibold backdrop-blur-xl"
+            style={{
+              border: '1px solid var(--sys-border)',
+              backgroundColor: 'color-mix(in srgb, var(--sys-surface) 74%, transparent)',
+              color: 'var(--sys-surface-text)',
+              boxShadow: 'inset 0 1px 0 rgba(255,255,255,0.38), 0 6px 18px var(--sys-shadow-color)',
+            }}
             onClick={() => {
               setIsDesktopEditMenuOpen(false);
               setIsDesktopEditing(false);
@@ -2286,18 +2491,34 @@ export default function App() {
                         <>
                           <button
                             type="button"
-                            className="absolute left-1 top-1 z-20 flex h-6 w-6 items-center justify-center rounded-full border border-white/45 bg-white/18 p-0 shadow-[inset_0_1px_0_rgba(255,255,255,0.42),0_6px_14px_rgba(15,23,42,0.14)] backdrop-blur-xl"
+                            className="absolute left-1 top-1 z-20 flex h-6 w-6 items-center justify-center rounded-full p-0 backdrop-blur-xl"
+                            style={{
+                              border: '1px solid var(--sys-border)',
+                              backgroundColor: 'color-mix(in srgb, var(--sys-surface) 72%, transparent)',
+                              boxShadow: 'inset 0 1px 0 rgba(255,255,255,0.42), 0 6px 14px var(--sys-shadow-color)',
+                            }}
                             aria-label="删除小组件"
                             onClick={(event) => {
                               event.stopPropagation();
                               removeDesktopItem(widgetItem.instanceId);
                             }}
                           >
-                            <span className="h-0.5 w-3.5 rounded-full bg-white shadow-[0_1px_3px_rgba(15,23,42,0.28)]" />
+                            <span
+                              className="h-0.5 w-3.5 rounded-full"
+                              style={{
+                                backgroundColor: 'var(--sys-surface-text)',
+                                boxShadow: '0 1px 3px var(--sys-shadow-color)',
+                              }}
+                            />
                           </button>
                           <button
                             type="button"
-                            className="absolute bottom-1 right-1 z-20 h-5 w-5 rounded-full border border-white/45 bg-white/20 shadow-[inset_0_1px_0_rgba(255,255,255,0.42),0_6px_14px_rgba(15,23,42,0.14)] backdrop-blur-xl"
+                            className="absolute bottom-1 right-1 z-20 h-5 w-5 rounded-full backdrop-blur-xl"
+                            style={{
+                              border: '1px solid var(--sys-border)',
+                              backgroundColor: 'color-mix(in srgb, var(--sys-surface) 76%, transparent)',
+                              boxShadow: 'inset 0 1px 0 rgba(255,255,255,0.42), 0 6px 14px var(--sys-shadow-color)',
+                            }}
                             aria-label="调整小组件大小"
                             onPointerDown={(event) => startDesktopWidgetResize(event, widgetItem)}
                             onPointerMove={moveDesktopWidgetResize}
@@ -2340,8 +2561,14 @@ export default function App() {
                       widgetItem.data?.templateId === 'glass-frame' &&
                       activeWidgetFrameMenuId === widgetItem.instanceId ? (
                         <div
-                          className="absolute left-1 top-8 z-30 w-[min(180px,calc(100vw-48px))] overflow-y-auto rounded-[18px] border border-white/35 bg-white/18 p-2 text-slate-700 shadow-[inset_0_1px_0_rgba(255,255,255,0.34),0_14px_32px_rgba(15,23,42,0.18)] backdrop-blur-xl"
-                          style={{ maxHeight: 'min(320px, calc(100vh - 180px))' }}
+                          className="absolute left-1 top-8 z-30 w-[min(180px,calc(100vw-48px))] overflow-y-auto rounded-[18px] p-2 backdrop-blur-xl"
+                          style={{
+                            maxHeight: 'min(320px, calc(100vh - 180px))',
+                            border: '1px solid var(--sys-border)',
+                            backgroundColor: 'color-mix(in srgb, var(--sys-surface) 84%, transparent)',
+                            color: 'var(--sys-surface-text)',
+                            boxShadow: 'inset 0 1px 0 rgba(255,255,255,0.34), 0 14px 32px var(--sys-shadow-color)',
+                          }}
                           onPointerDown={(event) => event.stopPropagation()}
                           onClick={(event) => event.stopPropagation()}
                         >
@@ -2352,7 +2579,13 @@ export default function App() {
                                 <button
                                   key={template.id}
                                   type="button"
-                                  className="flex items-center gap-2 rounded-[12px] border border-white/14 bg-white/10 px-2 py-1.5 text-left text-[11px] font-semibold text-slate-700 shadow-[inset_0_1px_0_rgba(255,255,255,0.16)]"
+                                  className="flex items-center gap-2 rounded-[12px] px-2 py-1.5 text-left text-[11px] font-semibold"
+                                  style={{
+                                    border: '1px solid color-mix(in srgb, var(--sys-border) 40%, transparent)',
+                                    backgroundColor: 'color-mix(in srgb, var(--sys-surface) 72%, transparent)',
+                                    color: 'var(--sys-surface-text)',
+                                    boxShadow: 'inset 0 1px 0 rgba(255,255,255,0.16)',
+                                  }}
                                   onClick={() => convertDesktopWidgetFrame(widgetItem.instanceId, template.id)}
                                 >
                                   <TemplateIcon size={14} strokeWidth={1.9} />
@@ -2364,7 +2597,13 @@ export default function App() {
                               <button
                                 key={widget.instanceId}
                                 type="button"
-                                className="flex items-center gap-2 rounded-[12px] border border-white/14 bg-white/10 px-2 py-1.5 text-left text-[11px] font-semibold text-slate-700 shadow-[inset_0_1px_0_rgba(255,255,255,0.16)]"
+                                className="flex items-center gap-2 rounded-[12px] px-2 py-1.5 text-left text-[11px] font-semibold"
+                                style={{
+                                  border: '1px solid color-mix(in srgb, var(--sys-border) 40%, transparent)',
+                                  backgroundColor: 'color-mix(in srgb, var(--sys-surface) 72%, transparent)',
+                                  color: 'var(--sys-surface-text)',
+                                  boxShadow: 'inset 0 1px 0 rgba(255,255,255,0.16)',
+                                }}
                                 onClick={() => convertDesktopWidgetFrameToCustom(widgetItem.instanceId, widget)}
                               >
                                 <Palette size={14} strokeWidth={1.9} />
@@ -2543,9 +2782,15 @@ export default function App() {
                 aria-label={`Go to page ${index + 1}`}
                 className={`h-2 rounded-full transition-all ${
                   index === activePage
-                    ? 'w-5 bg-white/90'
-                    : 'w-2 bg-white/40 hover:bg-white/60'
+                    ? 'w-5'
+                    : 'w-2'
                 }`}
+                style={{
+                  backgroundColor:
+                    index === activePage
+                      ? 'var(--sys-surface-strong)'
+                      : 'var(--sys-glass-border)',
+                }}
               />
             ))}
           </div>
@@ -2564,8 +2809,11 @@ export default function App() {
       {/* Home Indicator - Only show when no app is active */}
       {!activeAppId && shouldRenderCustomHomeIndicator && (
         <div 
-          className="absolute left-1/2 -translate-x-1/2 w-32 h-1.5 bg-white/30 rounded-full z-50"
-          style={{ bottom: 'max(env(safe-area-inset-bottom, 0px), 8px)' }}
+          className="absolute left-1/2 z-50 h-1.5 w-32 -translate-x-1/2 rounded-full"
+          style={{
+            bottom: 'max(env(safe-area-inset-bottom, 0px), 8px)',
+            backgroundColor: 'var(--sys-glass-border)',
+          }}
         />
       )}
     </div>

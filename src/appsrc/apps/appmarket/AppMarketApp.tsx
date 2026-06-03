@@ -1,4 +1,4 @@
-import React, { useCallback, useMemo, useState } from 'react';
+import React, { useCallback, useEffect, useMemo, useState } from 'react';
 import { AnimatePresence, motion } from 'motion/react';
 import { AlertTriangle } from 'lucide-react';
 
@@ -12,15 +12,23 @@ import { FONT_STACK, TEXT, resolveOnlineMarketApps } from './constants';
 import {
   AppMarketHeader,
   DeveloperPlatformView,
+  MarketChannelTabs,
   MarketTabs,
   OfflineMarketView,
   OnlineMarketView,
+  ThemeMarketView,
 } from './components';
 import { useAppMarketStore } from './store';
 import type { AppMarketAppProps, CreateUploadedAppPayload, UploadedMarketApp } from './types';
-import type { MarketTab } from './uiTypes';
+import type { MarketChannel, MarketTab } from './uiTypes';
 
 const ONLINE_MARKET_DESKTOP_SOURCE = 'online-market';
+
+const isMarketChannel = (value: unknown): value is MarketChannel =>
+  value === 'apps' || value === 'themes';
+
+const isMarketTab = (value: unknown): value is MarketTab =>
+  value === 'online' || value === 'offline' || value === 'developer';
 
 type PendingUninstallApp = {
   id: string;
@@ -52,8 +60,13 @@ const findNextAppSlot = (items: DesktopItem[], rows: number, cols: number) => {
   return { page: maxPage + 1, x: 0, y: 0 };
 };
 
-export const AppMarketApp: React.FC<AppMarketAppProps> = ({ onClose }) => {
-  const [activeTab, setActiveTab] = useState<MarketTab>('online');
+export const AppMarketApp: React.FC<AppMarketAppProps> = ({ onClose, context }) => {
+  const [activeChannel, setActiveChannel] = useState<MarketChannel>(() =>
+    isMarketChannel(context?.params?.initialChannel) ? context.params.initialChannel : 'apps'
+  );
+  const [activeTab, setActiveTab] = useState<MarketTab>(() =>
+    isMarketTab(context?.params?.initialTab) ? context.params.initialTab : 'online'
+  );
   const [pendingDeleteApp, setPendingDeleteApp] = useState<UploadedMarketApp | null>(null);
   const [pendingUninstallApp, setPendingUninstallApp] = useState<PendingUninstallApp | null>(null);
 
@@ -74,6 +87,18 @@ export const AppMarketApp: React.FC<AppMarketAppProps> = ({ onClose }) => {
   const onlineMarketApps = useMemo(() => resolveOnlineMarketApps(getRegisteredApps()), []);
 
   const onlineAppIdSet = useMemo(() => new Set(onlineMarketApps.map((app) => app.id)), [onlineMarketApps]);
+
+  useEffect(() => {
+    const maybeChannel = context?.params?.initialChannel;
+    if (isMarketChannel(maybeChannel)) {
+      setActiveChannel(maybeChannel);
+    }
+
+    const maybeTab = context?.params?.initialTab;
+    if (isMarketTab(maybeTab)) {
+      setActiveTab(maybeTab);
+    }
+  }, [context?.params]);
 
   const effectiveInstalledOnlineAppIds = useMemo(() => {
     const installedSet = new Set(installedAppIds);
@@ -172,33 +197,43 @@ export const AppMarketApp: React.FC<AppMarketAppProps> = ({ onClose }) => {
       <AppMarketHeader onClose={onClose} />
 
       <div className="flex-1 min-h-0 px-4 pb-8 overflow-y-auto">
-        <MarketTabs activeTab={activeTab} onChange={setActiveTab} />
+        <MarketChannelTabs activeChannel={activeChannel} onChange={setActiveChannel} />
 
         <div className="mt-4">
-          {activeTab === 'online' && (
-            <OnlineMarketView
-              apps={onlineMarketApps}
-              installedAppIds={effectiveInstalledOnlineAppIds}
-              onInstall={handleInstallOnlineApp}
-              onUninstall={handleRequestOnlineUninstall}
-            />
-          )}
+          {activeChannel === 'apps' ? (
+            <>
+              <MarketTabs activeTab={activeTab} onChange={setActiveTab} />
 
-          {activeTab === 'offline' && (
-            <OfflineMarketView
-              apps={uploadedApps}
-              installedAppIds={installedAppIds}
-              onInstall={installApp}
-              onUninstall={handleRequestOfflineUninstall}
-              onDeletePermanent={setPendingDeleteApp}
-            />
-          )}
+              <div className="mt-4">
+                {activeTab === 'online' && (
+                  <OnlineMarketView
+                    apps={onlineMarketApps}
+                    installedAppIds={effectiveInstalledOnlineAppIds}
+                    onInstall={handleInstallOnlineApp}
+                    onUninstall={handleRequestOnlineUninstall}
+                  />
+                )}
 
-          {activeTab === 'developer' && (
-            <DeveloperPlatformView
-              totalUploadedApps={uploadedApps.length}
-              onCreateApp={handleCreateApp}
-            />
+                {activeTab === 'offline' && (
+                  <OfflineMarketView
+                    apps={uploadedApps}
+                    installedAppIds={installedAppIds}
+                    onInstall={installApp}
+                    onUninstall={handleRequestOfflineUninstall}
+                    onDeletePermanent={setPendingDeleteApp}
+                  />
+                )}
+
+                {activeTab === 'developer' && (
+                  <DeveloperPlatformView
+                    totalUploadedApps={uploadedApps.length}
+                    onCreateApp={handleCreateApp}
+                  />
+                )}
+              </div>
+            </>
+          ) : (
+            <ThemeMarketView />
           )}
         </div>
       </div>

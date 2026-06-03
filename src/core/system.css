@@ -8,6 +8,54 @@
   --app-physical-height: calc(var(--app-dvh, 100dvh) + var(--app-safe-bottom));
   --app-bottom-nav-lift: 8px;
   --app-bottom-action-lift: 32px;
+  --sys-desktop-overlay: none;
+  --sys-system-bg: #eff6ff;
+  --sys-surface: rgba(255, 255, 255, 0.18);
+  --sys-surface-strong: rgba(255, 255, 255, 0.34);
+  --sys-surface-text: #0f172a;
+  --sys-muted-text: rgba(15, 23, 42, 0.68);
+  --sys-border: rgba(255, 255, 255, 0.5);
+  --sys-shadow-color: rgba(15, 23, 42, 0.15);
+  --sys-accent: #10b981;
+  --sys-accent-text: #ffffff;
+  --sys-accent-soft: rgba(16, 185, 129, 0.14);
+  --sys-accent-muted: #059669;
+  --sys-danger: #ef4444;
+  --sys-danger-text: #ffffff;
+  --sys-danger-soft: rgba(239, 68, 68, 0.12);
+  --sys-glass-bg: rgba(255, 255, 255, 0.2);
+  --sys-glass-border: rgba(255, 255, 255, 0.3);
+  --sys-glass-icon-bg: rgba(255, 255, 255, 0.25);
+  --sys-dock-item-mode: default;
+  --sys-dock-bg: rgba(255, 255, 255, 0.2);
+  --sys-dock-border: rgba(255, 255, 255, 0.3);
+  --sys-dock-border-width: 1px;
+  --sys-dock-radius: 2.5rem;
+  --sys-dock-blur: 24px;
+  --sys-dock-shadow: 0 12px 36px rgba(15, 23, 42, 0.15);
+  --sys-dock-active-bg: rgba(255, 255, 255, 0.92);
+  --sys-dock-active-fg: #111827;
+  --sys-dock-active-border: rgba(255, 255, 255, 0.28);
+  --sys-icon-bg: rgba(255, 255, 255, 0.25);
+  --sys-icon-border: rgba(255, 255, 255, 0.5);
+  --sys-icon-border-width: 1px;
+  --sys-icon-inner-bg: transparent;
+  --sys-icon-inner-inset: 0px;
+  --sys-icon-texture: none;
+  --sys-icon-label: #111827;
+  --sys-icon-glyph: #111827;
+  --sys-icon-shadow-color: rgba(0, 0, 0, 0.15);
+  --sys-badge-bg: #ff3b30;
+  --sys-badge-text: #ffffff;
+  --sys-badge-ring: rgba(255, 255, 255, 0.92);
+  --sys-status-fg: #111827;
+  --sys-status-muted: rgba(17, 24, 39, 0.78);
+  --sys-status-chip-bg: rgba(255, 255, 255, 0.22);
+  --sys-status-chip-border: rgba(255, 255, 255, 0.28);
+  --sys-status-chip-border-width: 1px;
+  --sys-status-battery-bg: #111827;
+  --sys-status-battery-cap: rgba(17, 24, 39, 0.4);
+  --sys-status-battery-border-width: 1px;
 }
 
 /* ============================================
@@ -17,10 +65,10 @@
   --font-sans: "Inter", ui-sans-serif, system-ui, sans-serif;
 
   /* 系统主题色 */
-  --color-system-bg: #8fb6c7;
-  --color-glass-bg: rgb(255 255 255 / 0.2);
-  --color-glass-border: rgb(255 255 255 / 0.3);
-  --color-glass-icon: rgb(255 255 255 / 0.25);
+  --color-system-bg: var(--sys-system-bg);
+  --color-glass-bg: var(--sys-glass-bg);
+  --color-glass-border: var(--sys-glass-border);
+  --color-glass-icon: var(--sys-glass-icon-bg);
 }
 
 /* ============================================
@@ -34,7 +82,7 @@ html, body {
   padding: 0;
   overflow: hidden;
   overscroll-behavior-y: none;
-  background-color: #EFF6FF;
+  background-color: var(--sys-system-bg);
 }
 
 #root {
@@ -76,18 +124,30 @@ body {
 @layer utilities {
   /* 毛玻璃效果 - 系统级UI组件基类 */
   .glass {
-    @apply bg-white/20 backdrop-blur-2xl border border-white/30 shadow-[0_8px_32px_0_rgba(31,38,135,0.15)];
+    background-color: var(--sys-glass-bg);
+    border: 1px solid var(--sys-glass-border);
+    box-shadow: 0 8px 32px 0 var(--sys-shadow-color);
+    backdrop-filter: blur(24px);
+    -webkit-backdrop-filter: blur(24px);
   }
   .glass-icon {
-    @apply bg-white/25 backdrop-blur-xl border border-white/40 shadow-sm;
+    background-color: var(--sys-glass-icon-bg);
+    border: 1px solid var(--sys-glass-border);
+    box-shadow: 0 4px 12px var(--sys-shadow-color);
+    backdrop-filter: blur(16px);
+    -webkit-backdrop-filter: blur(16px);
   }
   .glass-dark {
-    @apply bg-black/20 backdrop-blur-3xl border border-white/10 shadow-2xl;
+    background-color: var(--sys-surface-strong);
+    border: 1px solid var(--sys-border);
+    box-shadow: 0 16px 40px var(--sys-shadow-color);
+    backdrop-filter: blur(28px);
+    -webkit-backdrop-filter: blur(28px);
   }
 
   /* iOS 风格阴影 - 系统级 */
   .ios-shadow {
-    box-shadow: 0 4px 12px rgba(0, 0, 0, 0.1);
+    box-shadow: 0 4px 12px var(--sys-shadow-color);
   }
 
   /* 浮动动画 - 系统级 */

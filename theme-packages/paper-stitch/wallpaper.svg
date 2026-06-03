@@ -1,0 +1,32 @@
+<svg width="1440" height="3120" viewBox="0 0 1440 3120" fill="none" xmlns="http://www.w3.org/2000/svg">
+  <defs>
+    <linearGradient id="bg" x1="120" y1="40" x2="1320" y2="3040" gradientUnits="userSpaceOnUse">
+      <stop offset="0" stop-color="#F7F3EA"/>
+      <stop offset="0.48" stop-color="#FBF8F1"/>
+      <stop offset="1" stop-color="#EEE5D7"/>
+    </linearGradient>
+    <filter id="grain" x="-10%" y="-10%" width="120%" height="120%">
+      <feTurbulence type="fractalNoise" baseFrequency="0.9" numOctaves="2" stitchTiles="stitch"/>
+      <feColorMatrix type="saturate" values="0"/>
+      <feComponentTransfer>
+        <feFuncA type="table" tableValues="0 0.08"/>
+      </feComponentTransfer>
+    </filter>
+  </defs>
+  <rect width="1440" height="3120" fill="url(#bg)"/>
+  <rect x="86" y="188" width="548" height="786" rx="52" fill="#FDFBF5" stroke="#111111" stroke-width="8" transform="rotate(-6 86 188)"/>
+  <rect x="754" y="326" width="526" height="722" rx="48" fill="#FFFDFC" stroke="#111111" stroke-width="8" transform="rotate(5 754 326)"/>
+  <rect x="188" y="1212" width="428" height="426" rx="42" fill="#EADFC8" stroke="#111111" stroke-width="8" transform="rotate(4 188 1212)"/>
+  <rect x="706" y="1162" width="578" height="912" rx="54" fill="#F8F3E8" stroke="#111111" stroke-width="8" transform="rotate(-4 706 1162)"/>
+  <rect x="104" y="1912" width="618" height="936" rx="54" fill="#FFFDF8" stroke="#111111" stroke-width="8" transform="rotate(3 104 1912)"/>
+  <rect x="804" y="2148" width="454" height="542" rx="42" fill="#E6D7C2" stroke="#111111" stroke-width="8" transform="rotate(-5 804 2148)"/>
+  <path d="M250 548C384 462 556 436 698 494" stroke="#111111" stroke-width="10" stroke-linecap="round"/>
+  <path d="M834 634C954 572 1116 548 1224 602" stroke="#111111" stroke-width="10" stroke-linecap="round"/>
+  <path d="M284 1472C392 1398 516 1370 620 1408" stroke="#111111" stroke-width="10" stroke-linecap="round"/>
+  <path d="M774 1650C894 1556 1068 1518 1192 1562" stroke="#111111" stroke-width="10" stroke-linecap="round"/>
+  <path d="M204 2346C356 2240 530 2208 666 2258" stroke="#111111" stroke-width="10" stroke-linecap="round"/>
+  <path d="M828 2438C922 2382 1042 2360 1148 2394" stroke="#111111" stroke-width="10" stroke-linecap="round"/>
+  <g filter="url(#grain)">
+    <rect width="1440" height="3120" fill="#000000"/>
+  </g>
+</svg>

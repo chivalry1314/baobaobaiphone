@@ -1,0 +1,31 @@
+{
+  "id": "paper-stitch",
+  "name": "纸感拼贴",
+  "author": "baobaobaiOS",
+  "version": "1.0.0",
+  "description": "纸张肌理、黑色描边与拼贴漫画排版结合，整体更克制、更平面，也更适合做个性化桌面陈列。",
+  "tags": ["纸感", "拼贴", "黑白", "扁平"],
+  "coverImage": "cover.svg",
+  "previewImages": ["cover.svg", "wallpaper.svg"],
+  "wallpaper": "wallpaper.svg",
+  "iconPack": {
+    "settings": "icons/settings.svg",
+    "contacts": "icons/contacts.svg",
+    "wechat": "icons/wechat.svg",
+    "appmarket": "icons/appmarket.svg",
+    "shopping": "icons/shopping.svg",
+    "seller": "icons/seller.svg",
+    "warmtrack": "icons/warmtrack.svg",
+    "dreammusic": "icons/dreammusic.svg"
+  },
+  "settingsPatch": {
+    "wallpaperOpacity": 96,
+    "fontFamily": "\"Arial Black\", \"Trebuchet MS\", \"PingFang SC\", \"Microsoft YaHei\", sans-serif",
+    "iconSize": 60,
+    "iconRadius": 18,
+    "iconFrosted": 0,
+    "iconShadow": 6,
+    "showAppName": true
+  },
+  "tokens": "tokens.json"
+}
