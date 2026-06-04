@@ -160,7 +160,7 @@ export const ThemeManageView: React.FC<ThemeManageViewProps> = ({
                   <Compass size={18} />
                 </div>
                 <div className="min-w-0">
-                  <div className="text-[14px] font-semibold">前往主题市场</div>
+                  <div className="whitespace-nowrap text-[12px] font-semibold">前往主题市场</div>
                   <div
                     className="mt-0.5 text-[11px]"
                     style={{ color: 'color-mix(in srgb, var(--sys-accent-text) 74%, transparent)' }}
@@ -191,7 +191,7 @@ export const ThemeManageView: React.FC<ThemeManageViewProps> = ({
                   <ImageIcon size={18} />
                 </div>
                 <div className="min-w-0">
-                  <div className="text-[14px] font-semibold">手动更换壁纸</div>
+                  <div className="whitespace-nowrap text-[12px] font-semibold">手动更换壁纸</div>
                   <div className="mt-0.5 text-[11px]" style={{ color: 'var(--sys-muted-text)' }}>会解除当前主题绑定</div>
                 </div>
               </button>
@@ -346,8 +346,8 @@ export const ThemeManageView: React.FC<ThemeManageViewProps> = ({
           >
             <div className="flex flex-col gap-3">
               <div className="flex items-center justify-between">
-                <span className="text-[15px] font-medium" style={{ color: 'var(--sys-surface-text)' }}>壁纸透明度</span>
-                <span className="text-sm font-semibold" style={{ color: 'var(--sys-muted-text)' }}>{settings.wallpaperOpacity}%</span>
+                <span className="text-[12px] font-medium" style={{ color: 'var(--sys-surface-text)' }}>壁纸透明度</span>
+                <span className="text-xs font-semibold" style={{ color: 'var(--sys-muted-text)' }}>{settings.wallpaperOpacity}%</span>
               </div>
               <div
                 className="relative h-24 overflow-hidden rounded-2xl"
@@ -364,7 +364,7 @@ export const ThemeManageView: React.FC<ThemeManageViewProps> = ({
                     style={{ opacity: settings.wallpaperOpacity / 100 }}
                   />
                 ) : (
-                  <div className="absolute inset-0 grid place-items-center text-sm" style={{ color: 'var(--sys-muted-text)' }}>
+                  <div className="absolute inset-0 grid place-items-center text-xs" style={{ color: 'var(--sys-muted-text)' }}>
                     暂无壁纸
                   </div>
                 )}

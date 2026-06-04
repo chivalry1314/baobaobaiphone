@@ -40,7 +40,7 @@ const managedWidgetTemplates: ManagedWidgetTemplate[] = [
     id: 'listen-together',
     name: '一起听歌',
     defaultWidth: 4,
-    defaultHeight: 2,
+    defaultHeight: 3,
     data: { name: '一起听歌', templateId: 'listen-together', subtitle: '双人音乐播放器', cornerRadius: 22, frosted: 6, shadow: 12 },
   },
   {

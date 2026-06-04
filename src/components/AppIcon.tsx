@@ -197,7 +197,7 @@ export const AppIcon: React.FC<AppIconProps> = ({
         ) : customIcon ? (
           customIcon
         ) : IconComponent ? (
-          <IconComponent size={size * 0.5} strokeWidth={2.2} className="relative z-10" />
+          <IconComponent size={size * 0.5} strokeWidth={1.8} className="relative z-10" />
         ) : null}
       </div>
       {label ? (

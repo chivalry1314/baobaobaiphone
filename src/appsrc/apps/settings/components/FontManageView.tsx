@@ -33,6 +33,12 @@ const FONT_PRESETS = [
     sample: '圆润风格 ABC 你好',
   },
   {
+    id: 'handwriting',
+    name: '手写字体',
+    stack: '"NaniFont Light", "PingFang SC", "Microsoft YaHei", sans-serif',
+    sample: '手写字体 ABC 你好',
+  },
+  {
     id: 'mono',
     name: '等宽字体',
     stack: '"JetBrains Mono", "SF Mono", Menlo, Consolas, monospace',

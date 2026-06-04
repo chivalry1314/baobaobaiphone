@@ -1,6 +1,9 @@
 import React from 'react';
 import * as LucideIcons from 'lucide-react';
 import { AppIcon } from './AppIcon';
+import { useSettingsCoreStore } from '../core/stores/settings/store';
+import { useThemeStore } from '../core/stores/theme/store';
+import { BUILTIN_THEME_CATALOG } from '../core/theme/presetThemes';
 
 interface HomeDockProps {
   onOpenPhone?: () => void;
@@ -13,11 +16,20 @@ export const HomeDock: React.FC<HomeDockProps> = ({
   bottomOffset = 18,
   isEditing = false,
 }) => {
+  const settings = useSettingsCoreStore((state) => state.settings);
+  const activeThemeId = useThemeStore((state) => state.activeThemeId);
+  const uploadedThemes = useThemeStore((state) => state.uploadedThemes);
+  const activeTheme = React.useMemo(
+    () => uploadedThemes.find((theme) => theme.id === activeThemeId) ||
+      BUILTIN_THEME_CATALOG.find((theme) => theme.id === activeThemeId) ||
+      null,
+    [activeThemeId, uploadedThemes]
+  );
   const defaultDockIcons = [
-    { name: 'Phone', icon: 'Phone' as const, onClick: onOpenPhone },
-    { name: 'Safari', icon: 'Compass' as const },
-    { name: 'Messages', icon: 'MessageCircle' as const },
-    { name: 'Camera', icon: 'Camera' as const },
+    { id: 'phone', name: 'Phone', icon: 'Phone' as const, onClick: onOpenPhone },
+    { id: 'safari', name: 'Safari', icon: 'Compass' as const },
+    { id: 'messages', name: 'Messages', icon: 'MessageCircle' as const },
+    { id: 'camera', name: 'Camera', icon: 'Camera' as const },
   ];
   const [dockOrder, setDockOrder] = React.useState(() => defaultDockIcons.map((item) => item.name));
   const dockIconRefs = React.useRef(new Map<string, HTMLDivElement>());
@@ -92,6 +104,10 @@ export const HomeDock: React.FC<HomeDockProps> = ({
           {dockIcons.map((item, index) => {
             const draggingOffset = draggingDockIcon?.name === item.name ? draggingDockIcon : null;
             const DockIconComponent = LucideIcons[item.icon] as React.ElementType;
+            const customIcon = activeTheme?.settingsPatch.customIcons?.[item.id] || settings.customIcons?.[item.id];
+            const customIconNode = customIcon
+              ? <img src={customIcon} alt={item.name} className="h-full w-full object-cover" />
+              : undefined;
             return (
               <div
                 key={item.name}
@@ -155,13 +171,14 @@ export const HomeDock: React.FC<HomeDockProps> = ({
                         color: 'var(--sys-icon-glyph)',
                       }}
                     >
-                      <DockIconComponent size={28} strokeWidth={2.35} />
+                      {customIconNode || <DockIconComponent size={28} strokeWidth={1.8} />}
                     </div>
                   </button>
                 ) : (
                   <AppIcon
                     name={item.name}
                     icon={item.icon}
+                    customIcon={customIconNode}
                     onClick={item.onClick}
                     isEditing={isEditing}
                     jiggleDelayMs={-index * 180}

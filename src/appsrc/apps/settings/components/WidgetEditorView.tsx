@@ -118,9 +118,9 @@ export const WidgetEditorView: React.FC<WidgetEditorViewProps> = ({ widgetId, in
   const templateId = initialConfig?.templateId || templateFromId;
   const [widgetName, setWidgetName] = useState<string>(templateId ? templateNameMap[templateId] || '组件' : '自定义组件');
   const [gridW, setGridW] = useState<number>(initialConfig?.width || (templateId === 'clock-card' || templateId === 'listen-together' ? 4 : 2));
-  const [gridH, setGridH] = useState<number>(initialConfig?.height || (templateId === 'clock-card' ? 1 : 2));
+  const [gridH, setGridH] = useState<number>(initialConfig?.height || (templateId === 'clock-card' ? 1 : templateId === 'listen-together' ? 3 : 2));
   const [gridWInput, setGridWInput] = useState<string>(String(initialConfig?.width || (templateId === 'clock-card' || templateId === 'listen-together' ? 4 : 2)));
-  const [gridHInput, setGridHInput] = useState<string>(String(initialConfig?.height || (templateId === 'clock-card' ? 1 : 2)));
+  const [gridHInput, setGridHInput] = useState<string>(String(initialConfig?.height || (templateId === 'clock-card' ? 1 : templateId === 'listen-together' ? 3 : 2)));
   const [cornerRadius, setCornerRadius] = useState<number>(initialConfig?.cornerRadius ?? 22);
   const [frosted, setFrosted] = useState<number>(initialConfig?.frosted ?? 8);
   const [shadow, setShadow] = useState<number>(initialConfig?.shadow ?? 12);
@@ -133,8 +133,8 @@ export const WidgetEditorView: React.FC<WidgetEditorViewProps> = ({ widgetId, in
   useEffect(() => {
     if (!initialConfig && !templateId) return;
     setWidgetName(initialConfig?.name || (templateId ? templateNameMap[templateId] : '') || '自定义组件');
-    const nextGridW = initialConfig?.width || (templateId === 'clock-card' ? 4 : 2);
-    const nextGridH = initialConfig?.height || (templateId === 'clock-card' ? 1 : 2);
+    const nextGridW = initialConfig?.width || (templateId === 'clock-card' || templateId === 'listen-together' ? 4 : 2);
+    const nextGridH = initialConfig?.height || (templateId === 'clock-card' ? 1 : templateId === 'listen-together' ? 3 : 2);
     setGridW(nextGridW);
     setGridH(nextGridH);
     setGridWInput(String(nextGridW));

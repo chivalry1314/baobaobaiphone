@@ -785,6 +785,14 @@ export default function App() {
   }, []);
 
   useEffect(() => {
+    const builtinFontStyleId = 'builtin-handwriting-font-face';
+    if (!document.getElementById(builtinFontStyleId)) {
+      const styleTag = document.createElement('style');
+      styleTag.id = builtinFontStyleId;
+      styleTag.textContent = '@font-face { font-family: "NaniFont Light"; src: url("/fonts/NaniFont-Light.ttf") format("truetype"); font-display: swap; }';
+      document.head.appendChild(styleTag);
+    }
+
     const fontFamily = settings.fontFamily || fallbackFontStack;
     document.documentElement.style.setProperty('--font-sans', fontFamily);
 
@@ -806,15 +814,19 @@ export default function App() {
     }
   }, [settings.fontFamily, settings.customFontData, settings.customFontName, settings.customFontFormat]);
 
+  const activeTheme = useMemo(
+    () => resolveThemeById(activeThemeId, uploadedThemes),
+    [activeThemeId, uploadedThemes]
+  );
+
   const resolvedThemeTokens = useMemo(
     () => {
-      const activeTheme = resolveThemeById(activeThemeId, uploadedThemes);
       return {
         ...DEFAULT_THEME_TOKENS,
         ...(activeTheme?.tokens || {}),
       };
     },
-    [activeThemeId, uploadedThemes]
+    [activeTheme]
   );
 
   const resolvedBootScreenTokens = useMemo(
@@ -1133,6 +1145,7 @@ export default function App() {
 
   // 壁纸 URL：优先使用用户设置的壁纸，否则使用默认壁纸
   const wallpaperUrl = settings.wallpaper || DEFAULT_WALLPAPER;
+  const hasCustomWallpaper = Boolean(settings.wallpaper);
 
   const computedPageCount = Math.max(pageCount, items.reduce((max, item) => Math.max(max, item.page ?? 0), 0) + 1);
 
@@ -1475,7 +1488,7 @@ export default function App() {
       },
     };
     updateDesktopItem(instanceId, {
-      ...(templateId === 'listen-together' ? { w: 4, h: 2 } : {}),
+      ...(templateId === 'listen-together' ? { w: 4, h: 3 } : {}),
       data: {
         name: template.name,
         templateId,
@@ -2180,17 +2193,17 @@ export default function App() {
           src={wallpaperUrl}
           alt="Wallpaper"
           className="w-full h-full object-cover"
-          style={{ opacity: (settings.wallpaperOpacity || 80) / 100 }}
+          style={{ opacity: hasCustomWallpaper ? 1 : (settings.wallpaperOpacity || 80) / 100 }}
           referrerPolicy="no-referrer"
         />
-        <div className="absolute inset-0 bg-blue-400/10" />
+        {!hasCustomWallpaper ? <div className="absolute inset-0 bg-blue-400/10" /> : null}
         <div
           className="pointer-events-none absolute inset-0"
           style={{
             backgroundImage: 'var(--sys-desktop-overlay)',
             backgroundSize: 'auto',
             backgroundRepeat: 'repeat',
-            opacity: 0.58,
+            opacity: hasCustomWallpaper ? 0 : 0.58,
             mixBlendMode: 'multiply',
           }}
         />
@@ -2646,7 +2659,7 @@ export default function App() {
                   // 渲染 App 图标 - 设置 grid 位置
                   const app = desktopAppMap.get(appItem.componentId);
                   if (app) {
-                    const customIcon = settings.customIcons?.[app.id];
+                    const customIcon = activeTheme?.settingsPatch.customIcons?.[app.id] || settings.customIcons?.[app.id];
                     const runtimeIcon = app.runtimeIcon;
                     const customIconNode = customIcon
                       ? <img src={customIcon} alt={app.name} className="w-full h-full object-cover" />
@@ -2717,7 +2730,7 @@ export default function App() {
         const item = items.find((entry) => entry.instanceId === draggingDesktopIcon.instanceId);
         const app = item ? desktopAppMap.get(item.componentId) : null;
         if (!item || !app) return null;
-        const customIcon = settings.customIcons?.[app.id];
+        const customIcon = activeTheme?.settingsPatch.customIcons?.[app.id] || settings.customIcons?.[app.id];
         const runtimeIcon = app.runtimeIcon;
         const customIconNode = customIcon
           ? <img src={customIcon} alt={app.name} className="w-full h-full object-cover" />

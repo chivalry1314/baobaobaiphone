@@ -19,7 +19,7 @@ import type { DeliveryOrderRecord } from '../../delivery/types';
 import { useShoppingStore } from '../../shopping/store';
 import { updateShoppingOrdersInStorage } from '../../../shared/business/commerce/domain/ordersStorage';
 import { useDreamMusicStore } from '../../dreammusic/store';
-import { renderPaperMagicText } from '../../papermagic/promptCatalog';
+import { getOrderedPaperMagicPromptIds, renderPaperMagicText } from '../../papermagic/promptCatalog';
 
 import { WeChatChatHeader } from './WeChatChatHeader';
 import { WeChatChatMessageItem } from './WeChatChatMessageItem';
@@ -72,6 +72,25 @@ type ChatCompletionContentPart =
 type ChatCompletionMessage = {
   role: 'system' | 'user' | 'assistant';
   content: string | ChatCompletionContentPart[];
+};
+
+const WECHAT_CHAT_REPLY_PROMPT_IDS = [
+  'wechat.chat.reply',
+  'wechat.chat.orderRequestDecision',
+  'wechat.chat.listenTogetherDecision',
+  'wechat.chat.shoppingTogetherDecision',
+  'wechat.chat.listenSummaryReply',
+  'wechat.chat.movieTicketDecision',
+  'wechat.chat.giftDecision',
+  'wechat.chat.recipeDecision',
+  'wechat.chat.imageDecision',
+  'wechat.chat.transferDecision',
+];
+
+const getOrderedWeChatChatPromptIds = (allowedPromptIds: string[] = WECHAT_CHAT_REPLY_PROMPT_IDS): string[] => {
+  const allowedSet = new Set(allowedPromptIds);
+  return getOrderedPaperMagicPromptIds('wechat')
+    .filter((id) => allowedSet.has(id));
 };
 
 const CHAT_TIME_DIVIDER_INTERVAL_MS = 5 * 60_000;
@@ -482,6 +501,14 @@ const WECHAT_EMOJI_MEANING_MAP: Record<string, string> = {
   害羞: '不好意思、羞涩',
   震惊: '惊讶、疑惑',
   亲亲: '亲昵、撒娇',
+  伤心哭: '委屈、难过、求哄',
+  做鬼脸: '调皮、逗人、缓和气氛',
+  害怕: '害怕、心虚、被吓到',
+  害羞包包白: '害羞、脸红、不好意思',
+  开心: '开心、得意、被逗笑',
+  爱心包包白: '喜欢、黏人、表达爱意',
+  生气包包白: '生气、炸毛、嘴硬不爽',
+  送花花: '示好、哄人、道歉或表达喜欢',
   睡觉: '困了、想睡',
   便便: '吐槽、嫌弃、玩笑',
   庆祝: '开心庆祝',
@@ -510,8 +537,17 @@ const WECHAT_DEFAULT_EMOJI_TEXT_MAP: Record<string, string> = {
   赞: '[点赞]',
   强: '[点赞]',
   害羞: '[害羞]',
+  害羞包包白: '[害羞包包白]',
   震惊: '[震惊]',
   惊讶: '[震惊]',
+  亲亲: '[亲亲]',
+  伤心哭: '[伤心哭]',
+  做鬼脸: '[做鬼脸]',
+  害怕: '[害怕]',
+  开心: '[开心]',
+  爱心包包白: '[爱心包包白]',
+  生气包包白: '[生气包包白]',
+  送花花: '[送花花]',
   睡觉: '[睡觉]',
   睡: '[睡觉]',
   眨眼: '[眨眼]',
@@ -2357,7 +2393,7 @@ export const WeChatChatView: React.FC<WeChatChatViewProps> = ({
       '- 当前最后一轮没有出现的人物、地点、事件，不要突然引入；需要细节时可以顺着当前话题轻轻补一句。',
       '- 像微信真人聊天：自然、有来有回，可以短，可以停顿，可以追问，不要像客服、旁白、总结器或设定说明。',
       '- 优先复现人物的句长、语气词、表情/标点、玩笑方式、解释习惯、拒绝边界和情绪反应。',
-      '- 如果要表达表情，只能使用默认表情短码：[冷笑]、[流泪]、[大哭]、[大笑]、[发怒]、[酷]、[爱心]、[点赞]、[害羞]、[震惊]、[睡觉]、[眨眼]、[生病]、[不要]、[便便]、[庆祝]，界面会渲染成表情图片；不要输出“[动画表情]”“[奸笑]”这类不存在的表情文字。',
+      '- 如果要表达表情，只能使用系统表情短码：[冷笑]、[流泪]、[大哭]、[大笑]、[发怒]、[酷]、[爱心]、[点赞]、[害羞]、[震惊]、[睡觉]、[眨眼]、[生病]、[不要]、[便便]、[庆祝]、[亲亲]、[伤心哭]、[做鬼脸]、[害怕]、[害羞包包白]、[开心]、[爱心包包白]、[生气包包白]、[送花花]，界面会渲染成表情图片；不要输出“[动画表情]”“[奸笑]”这类不存在的表情文字。',
       '- 不要连续两轮使用同一句开场或同一个问题；最近已经表达过的意思，只接新的信息，或换一个更自然的角度回应。',
       '- 不要复述世界书，不要解释你在扮演谁，不要输出“作为xxx”。',
       '- 不要每次都很完整地解决问题；关系里可以犹豫、吐槽、敷衍一下、转移话题或只接半句，但要贴合人物。',
@@ -2384,17 +2420,10 @@ export const WeChatChatView: React.FC<WeChatChatViewProps> = ({
     try {
       const systemPrompt = buildCharacterSystemPrompt(
         'chat',
-        [
-          renderPaperMagicText('wechat.chat.reply', { characterName: character.name }),
-          renderPaperMagicText('wechat.chat.orderRequestDecision'),
-          renderPaperMagicText('wechat.chat.listenTogetherDecision'),
-          renderPaperMagicText('wechat.chat.shoppingTogetherDecision'),
-          renderPaperMagicText('wechat.chat.listenSummaryReply'),
-          renderPaperMagicText('wechat.chat.movieTicketDecision'),
-          renderPaperMagicText('wechat.chat.giftDecision'),
-          renderPaperMagicText('wechat.chat.recipeDecision'),
-          renderPaperMagicText('wechat.chat.imageDecision'),
-        ].filter(Boolean).join('\n\n')
+        getOrderedWeChatChatPromptIds()
+          .map((id) => renderPaperMagicText(id, { characterName: character.name }))
+          .filter(Boolean)
+          .join('\n\n')
       );
 
       const response = await fetch(`${settings.baseUrl}/chat/completions`, {
@@ -2744,10 +2773,10 @@ export const WeChatChatView: React.FC<WeChatChatViewProps> = ({
     try {
       const systemPrompt = buildCharacterSystemPrompt(
         'chat',
-        [
-          renderPaperMagicText('wechat.chat.reply', { characterName: character.name }),
-          renderPaperMagicText('wechat.chat.transferDecision', { amount }),
-        ].filter(Boolean).join('\n\n')
+        getOrderedWeChatChatPromptIds(['wechat.chat.reply', 'wechat.chat.transferDecision'])
+          .map((id) => renderPaperMagicText(id, { characterName: character.name, amount }))
+          .filter(Boolean)
+          .join('\n\n')
       );
 
       const response = await fetch(`${settings.baseUrl}/chat/completions`, {

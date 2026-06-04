@@ -17,6 +17,8 @@ import {
   PAPER_MAGIC_MODULES,
   PAPER_MAGIC_PROMPTS,
   getPaperMagicPrompt,
+  getOrderedPaperMagicPromptIds,
+  savePaperMagicPromptOrder,
   type PaperMagicAppGroup,
   type PaperMagicModule,
   type PaperMagicPrompt,
@@ -210,6 +212,7 @@ export const PaperMagicApp: React.FC<AppProps> = ({ onClose }) => {
   const [drafts, setDrafts] = React.useState<Record<string, string>>(() =>
     Object.fromEntries(getAllPromptBookPages().map((item) => [item.key, item.text]))
   );
+  const [promptOrderVersion, setPromptOrderVersion] = React.useState(0);
   const [familiarOpen, setFamiliarOpen] = React.useState(false);
   const [familiarInput, setFamiliarInput] = React.useState('');
   const [familiarPending, setFamiliarPending] = React.useState(false);
@@ -231,11 +234,18 @@ export const PaperMagicApp: React.FC<AppProps> = ({ onClose }) => {
     { role: 'ai', text: '把你想加进咒语的规则告诉我，我会整理成可以插入的短句。' },
   ]);
   const bookStageRef = React.useRef<HTMLDivElement | null>(null);
+  const directoryDragRef = React.useRef<{ promptId: string; moved: boolean } | null>(null);
+  const directoryPointerRef = React.useRef<{ promptId: string; pointerId: number; startY: number; moved: boolean } | null>(null);
+  const [draggingDirectoryPromptId, setDraggingDirectoryPromptId] = React.useState<string | null>(null);
 
   const activeModule = PAPER_MAGIC_MODULES.find((item) => item.id === activeModuleId) || PAPER_MAGIC_MODULES[0];
   const moduleAppGroups = PAPER_MAGIC_APP_GROUPS.filter((item) => item.moduleId === activeModule.id);
   const activeAppGroup = PAPER_MAGIC_APP_GROUPS.find((item) => item.id === activeAppGroupId) || moduleAppGroups[0] || PAPER_MAGIC_APP_GROUPS[0];
-  const modulePrompts = activeAppGroup.promptIds.map(getPaperMagicPrompt);
+  const orderedPromptIds = React.useMemo(
+    () => getOrderedPaperMagicPromptIds(activeAppGroup.id, activeAppGroup.promptIds),
+    [activeAppGroup.id, activeAppGroup.promptIds, promptOrderVersion]
+  );
+  const modulePrompts = orderedPromptIds.map(getPaperMagicPrompt);
   const contentBookPages = modulePrompts.flatMap(getPromptBookPages);
   const directoryPage = getDirectoryPage(activeAppGroup.id);
   const bookPages: PromptBookPage[] = [directoryPage, ...contentBookPages];
@@ -272,6 +282,63 @@ export const PaperMagicApp: React.FC<AppProps> = ({ onClose }) => {
     }
     setActivePageKey(pageKey);
     setTurningPage(null);
+  };
+
+  const reorderPromptInDirectory = (promptId: string, targetPromptId: string) => {
+    const currentIndex = orderedPromptIds.indexOf(promptId);
+    const nextIndex = orderedPromptIds.indexOf(targetPromptId);
+    if (currentIndex < 0 || nextIndex < 0 || currentIndex === nextIndex) return;
+    const nextPromptIds = [...orderedPromptIds];
+    const [movedPromptId] = nextPromptIds.splice(currentIndex, 1);
+    nextPromptIds.splice(nextIndex, 0, movedPromptId);
+    savePaperMagicPromptOrder(activeAppGroup.id, nextPromptIds);
+    if (directoryDragRef.current?.promptId === promptId) {
+      directoryDragRef.current.moved = true;
+    }
+    setPromptOrderVersion((version) => version + 1);
+  };
+
+  const startDirectoryPointerDrag = (event: React.PointerEvent<HTMLElement>, promptId: string) => {
+    directoryPointerRef.current = {
+      promptId,
+      pointerId: event.pointerId,
+      startY: event.clientY,
+      moved: false,
+    };
+    directoryDragRef.current = { promptId, moved: false };
+    setDraggingDirectoryPromptId(promptId);
+    event.currentTarget.setPointerCapture(event.pointerId);
+  };
+
+  const moveDirectoryPointerDrag = (event: React.PointerEvent<HTMLElement>) => {
+    const drag = directoryPointerRef.current;
+    if (!drag || drag.pointerId !== event.pointerId) return;
+    if (Math.abs(event.clientY - drag.startY) < 8 && !drag.moved) return;
+    drag.moved = true;
+    if (directoryDragRef.current) directoryDragRef.current.moved = true;
+    const target = document.elementFromPoint(event.clientX, event.clientY);
+    const targetPromptId = target instanceof HTMLElement
+      ? target.closest<HTMLElement>('[data-paper-magic-prompt-id]')?.dataset.paperMagicPromptId
+      : undefined;
+    if (targetPromptId && targetPromptId !== drag.promptId) {
+      reorderPromptInDirectory(drag.promptId, targetPromptId);
+    }
+  };
+
+  const endDirectoryPointerDrag = (event: React.PointerEvent<HTMLElement>, targetPageKey: string) => {
+    const drag = directoryPointerRef.current;
+    if (!drag || drag.pointerId !== event.pointerId) return;
+    if (event.currentTarget.hasPointerCapture(event.pointerId)) {
+      event.currentTarget.releasePointerCapture(event.pointerId);
+    }
+    directoryPointerRef.current = null;
+    setDraggingDirectoryPromptId(null);
+    window.setTimeout(() => {
+      directoryDragRef.current = null;
+    }, 0);
+    if (!drag.moved) {
+      navigateToBookPage(targetPageKey, 1);
+    }
   };
 
   const handleBookBack = () => {
@@ -321,6 +388,7 @@ export const PaperMagicApp: React.FC<AppProps> = ({ onClose }) => {
     target instanceof HTMLElement && Boolean(target.closest('textarea, input, select, button, a, [role="button"], [contenteditable="true"]'));
 
   const handleBookTouchStartCapture = (event: React.TouchEvent<HTMLElement>) => {
+    if (directoryPointerRef.current) return;
     if (isEditableGestureTarget(event.target)) return;
     const touch = event.touches[0];
     if (!touch) return;
@@ -329,6 +397,7 @@ export const PaperMagicApp: React.FC<AppProps> = ({ onClose }) => {
   };
 
   const handleBookTouchMoveCapture = (event: React.TouchEvent<HTMLElement>) => {
+    if (directoryPointerRef.current) return;
     const start = bookTouchStartRef.current;
     const touch = event.touches[0];
     if (!start || !touch || bookTouchHandledRef.current) return;
@@ -346,6 +415,7 @@ export const PaperMagicApp: React.FC<AppProps> = ({ onClose }) => {
   };
 
   const handleBookMouseDownCapture = (event: React.MouseEvent<HTMLElement>) => {
+    if (directoryPointerRef.current) return;
     if (isEditableGestureTarget(event.target)) return;
     event.preventDefault();
     bookMouseStartRef.current = { x: event.clientX, y: event.clientY };
@@ -354,6 +424,7 @@ export const PaperMagicApp: React.FC<AppProps> = ({ onClose }) => {
   };
 
   const handleBookMouseMoveCapture = (event: React.MouseEvent<HTMLElement>) => {
+    if (directoryPointerRef.current) return;
     if (!bookDragging) return;
     event.preventDefault();
   };
@@ -727,15 +798,23 @@ export const PaperMagicApp: React.FC<AppProps> = ({ onClose }) => {
                       {modulePrompts.map((prompt, index) => {
                         const targetPage = getPromptBookPages(prompt)[0];
                         return (
-                          <button
+                          <div
                             key={prompt.id}
-                            type="button"
-                            onClick={() => navigateToBookPage(targetPage.key, 1)}
+                            data-paper-magic-prompt-id={prompt.id}
+                            className={`${styles.bookDirectoryItem} ${draggingDirectoryPromptId === prompt.id ? styles.bookDirectoryItemDragging : ''}`}
+                            onPointerDown={(event) => startDirectoryPointerDrag(event, prompt.id)}
+                            onPointerMove={moveDirectoryPointerDrag}
+                            onPointerUp={(event) => endDirectoryPointerDrag(event, targetPage.key)}
+                            onPointerCancel={(event) => endDirectoryPointerDrag(event, targetPage.key)}
                           >
-                            <span>{String(index + 1).padStart(2, '0')}</span>
-                            <strong>{prompt.title}</strong>
-                            <small>{prompt.kind} · {prompt.variables.length} 个变量</small>
-                          </button>
+                            <div
+                              className={styles.bookDirectoryLink}
+                            >
+                              <span>{String(index + 1).padStart(2, '0')}</span>
+                              <strong>{prompt.title}</strong>
+                              <small>{prompt.kind} · {prompt.variables.length} 个变量</small>
+                            </div>
+                          </div>
                         );
                       })}
                     </div>

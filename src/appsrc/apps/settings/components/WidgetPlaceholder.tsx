@@ -653,6 +653,8 @@ export const WidgetPlaceholder: React.FC<WidgetPlaceholderProps> = ({
   const frostedOpacity = Math.min(0.6, resolvedFrosted / 40);
   const isWideVinyl = templateId === 'vinyl-record' && width > height;
   const isTransparentTemplate = templateId === 'calendar-card' || templateId === 'clock-card' || templateId === 'text-card';
+  const isListenTogetherActive = dreamListenTogether?.status === 'active';
+  const isListenTogetherPending = dreamListenTogether?.status === 'pending';
   const listenTogetherCompanionName = dreamListenTogether?.companionName || '哥哥';
   const listenTogetherInviterName =
     wechatUserProfile.name?.trim() || dreamListenTogether?.inviterName?.trim() || '我';
@@ -1145,7 +1147,7 @@ window.addEventListener('message',function(event){
                 </button>
               ) : null}
               <div
-                className={`absolute left-[10%] flex h-[22%] min-h-8 items-end gap-[clamp(3px,1.2vw,5px)] transition-[top] duration-300 ${dreamListenTogether ? 'top-[22%]' : 'top-[42%]'}`}
+                className={`absolute left-[10%] flex h-[22%] min-h-8 items-end gap-[clamp(3px,1.2vw,5px)] transition-[top] duration-300 ${isListenTogetherActive ? 'top-[22%]' : 'top-[42%]'}`}
                 aria-hidden="true"
               >
                 {listenTogetherBarHeights.map((barHeight, index) => (
@@ -1156,12 +1158,18 @@ window.addEventListener('message',function(event){
                   />
                 ))}
               </div>
-              {dreamListenTogether ? (
+              {isListenTogetherActive ? (
                 <div className="absolute left-[18%] top-[4%] max-w-[36%] rounded-full bg-white/62 px-3 py-1.5 text-[clamp(9px,2.6vw,12px)] font-semibold text-[#7A7F8B] shadow-[0_8px_18px_rgba(15,23,42,0.08)] backdrop-blur">
                   <div className="truncate">与 {listenTogetherCompanionName} 一起听</div>
                 </div>
               ) : null}
-              {dreamListenTogether ? (
+              {isListenTogetherPending ? (
+                <div className="absolute left-[7%] top-[8%] max-w-[45%] rounded-[18px] bg-white/62 px-3 py-2 text-[clamp(9px,2.6vw,12px)] font-semibold leading-tight text-[#7A7F8B] shadow-[0_8px_18px_rgba(15,23,42,0.08)] backdrop-blur">
+                  <div className="truncate">等待 {listenTogetherCompanionName}</div>
+                  <div className="mt-0.5 text-[clamp(8px,2.2vw,10px)] font-medium text-[#9AA1AC]">邀请已发送</div>
+                </div>
+              ) : null}
+              {isListenTogetherActive ? (
                 <div className="absolute bottom-[5%] left-[6%] flex items-center">
                   <div className="grid h-[clamp(40px,14vw,54px)] w-[clamp(40px,14vw,54px)] place-items-center overflow-hidden rounded-full bg-[#E9F5FF] text-[17px] font-bold text-[#5B6C80] shadow-[inset_0_0_0_1px_rgba(148,163,184,0.16)]">
                     {wechatUserProfile.avatar ? (
@@ -1188,7 +1196,7 @@ window.addEventListener('message',function(event){
                     </div>
                   </div>
                   <div className="grid h-[clamp(40px,14vw,54px)] w-[clamp(40px,14vw,54px)] place-items-center overflow-hidden rounded-full bg-[#EAF8F1] text-[17px] font-bold text-[#5B7168] shadow-[inset_0_0_0_1px_rgba(148,163,184,0.16)]">
-                    {dreamListenTogether.companionAvatar ? (
+                    {dreamListenTogether?.companionAvatar ? (
                       <img src={dreamListenTogether.companionAvatar} alt={listenTogetherCompanionName} className="h-full w-full object-cover" />
                     ) : null}
                   </div>
