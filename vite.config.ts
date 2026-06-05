@@ -7,6 +7,7 @@ import { viteSingleFile } from "vite-plugin-singlefile";
 
 export default defineConfig(({mode}) => {
   const env = loadEnv(mode, '.', '');
+  const singleFileBuild = mode === 'singlefile';
   const packageJsonPath = path.resolve(__dirname, 'package.json');
   const packageVersion =
     (JSON.parse(fs.readFileSync(packageJsonPath, 'utf8')) as { version?: string }).version || '0.0.0';
@@ -15,7 +16,7 @@ export default defineConfig(({mode}) => {
     plugins: [
       react(),
       tailwindcss(),
-      viteSingleFile(),
+      ...(singleFileBuild ? [viteSingleFile()] : []),
       {
         name: 'emit-service-worker',
         apply: 'build',
@@ -31,8 +32,8 @@ export default defineConfig(({mode}) => {
     build: {
       minify: 'terser',
       cssMinify: 'lightningcss',
-      copyPublicDir: false,
-      assetsInlineLimit: 100000000,
+      copyPublicDir: true,
+      assetsInlineLimit: singleFileBuild ? 100000000 : 4096,
       terserOptions: {
         compress: {
           drop_console: true,
