@@ -244,6 +244,7 @@ export interface WeChatUiSettings {
   customChatFonts: WeChatCustomFontStyle[];
   customRendererEnabled: boolean;
   customRendererSource: string;
+  hideFloatingBubble: boolean;
 }
 
 export interface WeChatAiMomentsSettings {

@@ -777,6 +777,7 @@ export const WeChatChatView: React.FC<WeChatChatViewProps> = ({
     customBubbleStyles: session?.customBubbleStyles || [],
     customChatFonts: session?.customChatFonts || [],
   };
+  const hideFloatingBubble = Boolean(wechatUiSettings.hideFloatingBubble);
   const updateCurrentSessionUiSettings = useCallback(
     (settings: Parameters<typeof updateWeChatSessionSettings>[1]) => {
       const normalizedCharacterId = characterId.trim();
@@ -804,6 +805,12 @@ export const WeChatChatView: React.FC<WeChatChatViewProps> = ({
     setQuotingMessage(null);
     setPendingVoiceDraft(null);
   }, [readOnly]);
+
+  useEffect(() => {
+    if (hideFloatingBubble) {
+      setOocCorrectionPanelOpen(false);
+    }
+  }, [hideFloatingBubble]);
 
   useEffect(() => {
     const normalizedCharacterId = characterId.trim();
@@ -3588,7 +3595,7 @@ export const WeChatChatView: React.FC<WeChatChatViewProps> = ({
           onOpenVoiceRecorder={handleOpenVoiceRecorderModal}
           onForwardMulti={() => setForwardTargetModal({ messageIds: selectedMessageIds })} onDeleteMulti={() => setDeleteTarget('multi')}
         />
-        {!readOnly ? (
+        {!readOnly && !hideFloatingBubble ? (
           <>
             {oocCorrectionPanelOpen ? (
               <div

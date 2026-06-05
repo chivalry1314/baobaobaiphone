@@ -170,7 +170,7 @@ export const WeChatAiChatContextConfigView: React.FC<WeChatAiChatContextConfigVi
 
         <div className="rounded-xl bg-white border border-gray-100 p-3">
           <div className="flex items-center justify-between gap-3">
-            <div>
+            <div className="min-w-0 flex-1">
               <div className="text-[15px] font-semibold text-gray-900">跨 App 个人记忆注入</div>
               <div className="text-[12px] text-gray-500 mt-0.5">
                 开启后会读取个人空间中其他 App 的记忆作为参考。
@@ -179,14 +179,14 @@ export const WeChatAiChatContextConfigView: React.FC<WeChatAiChatContextConfigVi
             <button
               type="button"
               onClick={togglePersonalProfileMemory}
-              className={`relative h-7 w-12 rounded-full transition-colors ${
+              className={`relative h-7 w-[52px] shrink-0 rounded-full transition-colors ${
                 includePersonalProfileMemory ? 'bg-[#4E83C5]' : 'bg-gray-300'
               }`}
               aria-pressed={includePersonalProfileMemory}
             >
               <span
-                className={`absolute top-0.5 h-6 w-6 rounded-full bg-white shadow transition-transform ${
-                  includePersonalProfileMemory ? 'translate-x-5' : 'translate-x-0.5'
+                className={`absolute left-0.5 top-0.5 h-6 w-6 rounded-full bg-white shadow transition-transform ${
+                  includePersonalProfileMemory ? 'translate-x-6' : 'translate-x-0'
                 }`}
               />
             </button>

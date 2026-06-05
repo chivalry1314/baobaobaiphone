@@ -33,6 +33,7 @@ const defaultUiSettings: WeChatUiSettings = {
   customChatFonts: [],
   customRendererEnabled: false,
   customRendererSource: '',
+  hideFloatingBubble: false,
 };
 
 const defaultAiMomentsSettings: WeChatAiMomentsSettings = {
