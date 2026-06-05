@@ -518,7 +518,7 @@ VISION_TEST_IMAGE_DATA_URL
 ## 24. 微信：朋友圈图片能力探测
 
 - 路径：`src/appsrc/apps/WeChat/components/WeChatAiMomentsConfigView.tsx`
-- 起始行：约 67
+- 起始行：约67
 - 用途：探测图片生成接口是否可用。
 
 ```text
