@@ -352,9 +352,11 @@ export const PaperMagicApp: React.FC<AppProps> = ({ onClose }) => {
     }
   };
 
-  const endDirectoryPointerDrag = (event: React.PointerEvent<HTMLElement>, targetPageKey: string) => {
+  const endDirectoryPointerDrag = (event: React.PointerEvent<HTMLElement>) => {
     const drag = directoryPointerRef.current;
-    if (!drag || drag.pointerId !== event.pointerId) return;
+    if (!drag || drag.pointerId !== event.pointerId) {
+      return;
+    }
     if (directoryLongPressTimerRef.current !== null) {
       window.clearTimeout(directoryLongPressTimerRef.current);
       directoryLongPressTimerRef.current = null;
@@ -367,9 +369,6 @@ export const PaperMagicApp: React.FC<AppProps> = ({ onClose }) => {
     window.setTimeout(() => {
       directoryDragRef.current = null;
     }, 0);
-    if (!directorySortMode || !drag.active) {
-      navigateToBookPage(targetPageKey, 1);
-    }
   };
 
   const handleBookBack = () => {
@@ -856,8 +855,12 @@ export const PaperMagicApp: React.FC<AppProps> = ({ onClose }) => {
                             className={`${styles.bookDirectoryItem} ${directorySortMode ? styles.bookDirectoryItemSortable : ''} ${draggingDirectoryPromptId === prompt.id ? styles.bookDirectoryItemDragging : ''}`}
                             onPointerDown={(event) => startDirectoryPointerDrag(event, prompt.id)}
                             onPointerMove={moveDirectoryPointerDrag}
-                            onPointerUp={(event) => endDirectoryPointerDrag(event, targetPage.key)}
-                            onPointerCancel={(event) => endDirectoryPointerDrag(event, targetPage.key)}
+                            onPointerUp={endDirectoryPointerDrag}
+                            onPointerCancel={endDirectoryPointerDrag}
+                            onClick={() => {
+                              if (directorySortMode) return;
+                              navigateToBookPage(targetPage.key, 1);
+                            }}
                           >
                             <div
                               className={styles.bookDirectoryLink}

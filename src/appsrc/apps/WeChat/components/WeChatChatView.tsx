@@ -3723,12 +3723,6 @@ export const WeChatChatView: React.FC<WeChatChatViewProps> = ({
                   onChange={(event) => setOocCorrectionInput(event.target.value)}
                   disabled={oocCorrectionPending}
                   placeholder="AI注意，你对上一个剧情理解有偏差..."
-                  autoCapitalize="off"
-                  autoCorrect="off"
-                  autoComplete="off"
-                  spellCheck={false}
-                  inputMode="text"
-                  enterKeyHint="send"
                   className="h-[78px] w-full resize-none rounded-xl border border-slate-200 bg-white/80 px-2.5 py-2 text-[12px] leading-5 text-slate-700 outline-none focus:border-[#7dd3fc]"
                 />
                 {oocCorrectionNotice ? (

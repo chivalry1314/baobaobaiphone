@@ -710,7 +710,7 @@ export const WeChatChatMessageItem: React.FC<WeChatChatMessageItemProps> = ({
                   )}
                 </div>
               ) : isDreamMusicInvite ? (
-                <div className="flex w-[284px] max-w-full flex-col overflow-hidden rounded-[10px] border border-[#F1F1F1] bg-white p-3 text-[12px] text-[#2F3035] shadow-[0_6px_18px_rgba(15,23,42,0.08)]">
+                <div className="flex w-[244px] max-w-full flex-col overflow-hidden rounded-[10px] border border-[#F1F1F1] bg-white p-3 text-[12px] text-[#2F3035] shadow-[0_6px_18px_rgba(15,23,42,0.08)]">
                   <div className="text-[12px] font-medium leading-[1.35] text-[#2F3035]">
                     我的耳机分你一半，和我一起听歌吧~
                   </div>
@@ -722,10 +722,10 @@ export const WeChatChatMessageItem: React.FC<WeChatChatMessageItemProps> = ({
                     <button
                       type="button"
                       onClick={(event) => handleOrderRequestAction(event, 'accepted')}
-                      className="mt-2 flex h-[58px] items-center gap-3 rounded-[8px] bg-[#F7F7F7] px-3 text-left text-[12px] font-medium text-[#2F3035] active:bg-[#EFEFEF]"
+                      className="mt-2 flex h-[54px] items-center gap-2.5 rounded-[8px] bg-[#F7F7F7] px-3 text-left text-[12px] font-medium text-[#2F3035] active:bg-[#EFEFEF]"
                       aria-label="加入一起听"
                     >
-                      <span className="relative h-[46px] w-[46px] shrink-0 overflow-hidden rounded-[8px] bg-[#F9E7E9]">
+                      <span className="relative h-[42px] w-[42px] shrink-0 overflow-hidden rounded-[8px] bg-[#F9E7E9]">
                         {message.dreamMusicInvite?.inviterAvatar ? (
                           <img src={message.dreamMusicInvite.inviterAvatar} alt={message.dreamMusicInvite.inviterName} className="h-full w-full object-cover" />
                         ) : (

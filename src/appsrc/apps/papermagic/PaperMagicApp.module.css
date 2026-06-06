@@ -916,12 +916,14 @@
   touch-action: pan-y;
   user-select: none;
   -webkit-user-select: none;
+  will-change: transform;
   transition: transform 160ms ease, opacity 160ms ease, box-shadow 160ms ease;
 }
 
 .bookDirectoryItemSortable {
   cursor: grab;
   touch-action: none;
+  box-shadow: inset 0 0 0 1px rgba(112, 72, 38, 0.16), 0 4px 12px rgba(80, 45, 24, 0.08);
 }
 
 .bookDirectoryItemSortable:active {
@@ -929,9 +931,14 @@
 }
 
 .bookDirectoryItemDragging {
-  opacity: 0.62;
-  transform: scale(0.98);
-  box-shadow: inset 0 0 0 1px rgba(112, 72, 38, 0.16), 0 10px 22px rgba(80, 45, 24, 0.12);
+  position: relative;
+  z-index: 3;
+  opacity: 0.96;
+  transform: translateY(-5px) scale(1.025) rotate(-0.4deg);
+  background: rgba(255, 248, 236, 0.96);
+  box-shadow:
+    inset 0 0 0 1px rgba(138, 84, 31, 0.24),
+    0 16px 34px rgba(80, 45, 24, 0.22);
 }
 
 .bookDirectoryLink {
