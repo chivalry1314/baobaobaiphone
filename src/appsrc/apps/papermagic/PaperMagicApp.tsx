@@ -235,8 +235,10 @@ export const PaperMagicApp: React.FC<AppProps> = ({ onClose }) => {
   ]);
   const bookStageRef = React.useRef<HTMLDivElement | null>(null);
   const directoryDragRef = React.useRef<{ promptId: string; moved: boolean } | null>(null);
-  const directoryPointerRef = React.useRef<{ promptId: string; pointerId: number; startY: number; moved: boolean } | null>(null);
+  const directoryPointerRef = React.useRef<{ promptId: string; pointerId: number; startY: number; moved: boolean; active: boolean } | null>(null);
+  const directoryLongPressTimerRef = React.useRef<number | null>(null);
   const [draggingDirectoryPromptId, setDraggingDirectoryPromptId] = React.useState<string | null>(null);
+  const [directorySortMode, setDirectorySortMode] = React.useState(false);
 
   const activeModule = PAPER_MAGIC_MODULES.find((item) => item.id === activeModuleId) || PAPER_MAGIC_MODULES[0];
   const moduleAppGroups = PAPER_MAGIC_APP_GROUPS.filter((item) => item.moduleId === activeModule.id);
@@ -271,6 +273,7 @@ export const PaperMagicApp: React.FC<AppProps> = ({ onClose }) => {
     setActiveAppGroupId(appGroup.id);
     setActivePageKey(getDirectoryPage(appGroup.id).key);
     setFamiliarOpen(false);
+    setDirectorySortMode(false);
     setView('book');
   };
 
@@ -299,20 +302,44 @@ export const PaperMagicApp: React.FC<AppProps> = ({ onClose }) => {
   };
 
   const startDirectoryPointerDrag = (event: React.PointerEvent<HTMLElement>, promptId: string) => {
+    if (!directorySortMode) return;
+    event.preventDefault();
+    event.stopPropagation();
     directoryPointerRef.current = {
       promptId,
       pointerId: event.pointerId,
       startY: event.clientY,
       moved: false,
+      active: false,
     };
     directoryDragRef.current = { promptId, moved: false };
-    setDraggingDirectoryPromptId(promptId);
     event.currentTarget.setPointerCapture(event.pointerId);
+    if (directoryLongPressTimerRef.current !== null) {
+      window.clearTimeout(directoryLongPressTimerRef.current);
+    }
+    directoryLongPressTimerRef.current = window.setTimeout(() => {
+      const drag = directoryPointerRef.current;
+      if (!drag || drag.pointerId !== event.pointerId || drag.promptId !== promptId) return;
+      drag.active = true;
+      setDraggingDirectoryPromptId(promptId);
+    }, 450);
   };
 
   const moveDirectoryPointerDrag = (event: React.PointerEvent<HTMLElement>) => {
     const drag = directoryPointerRef.current;
     if (!drag || drag.pointerId !== event.pointerId) return;
+    if (!drag.active) {
+      if (Math.abs(event.clientY - drag.startY) > 10) {
+        if (directoryLongPressTimerRef.current !== null) {
+          window.clearTimeout(directoryLongPressTimerRef.current);
+          directoryLongPressTimerRef.current = null;
+        }
+        directoryPointerRef.current = null;
+      }
+      return;
+    }
+    event.preventDefault();
+    event.stopPropagation();
     if (Math.abs(event.clientY - drag.startY) < 8 && !drag.moved) return;
     drag.moved = true;
     if (directoryDragRef.current) directoryDragRef.current.moved = true;
@@ -328,6 +355,10 @@ export const PaperMagicApp: React.FC<AppProps> = ({ onClose }) => {
   const endDirectoryPointerDrag = (event: React.PointerEvent<HTMLElement>, targetPageKey: string) => {
     const drag = directoryPointerRef.current;
     if (!drag || drag.pointerId !== event.pointerId) return;
+    if (directoryLongPressTimerRef.current !== null) {
+      window.clearTimeout(directoryLongPressTimerRef.current);
+      directoryLongPressTimerRef.current = null;
+    }
     if (event.currentTarget.hasPointerCapture(event.pointerId)) {
       event.currentTarget.releasePointerCapture(event.pointerId);
     }
@@ -336,13 +367,14 @@ export const PaperMagicApp: React.FC<AppProps> = ({ onClose }) => {
     window.setTimeout(() => {
       directoryDragRef.current = null;
     }, 0);
-    if (!drag.moved) {
+    if (!directorySortMode || !drag.active) {
       navigateToBookPage(targetPageKey, 1);
     }
   };
 
   const handleBookBack = () => {
     if (activeBookPage.part === 'directory') {
+      setDirectorySortMode(false);
       setView('tarot');
       return;
     }
@@ -794,6 +826,26 @@ export const PaperMagicApp: React.FC<AppProps> = ({ onClose }) => {
                   <section className={styles.bookDirectory}>
                     <h2>{activeAppGroup.title}</h2>
                     <p>{activeAppGroup.subtitle}</p>
+                    <div className={styles.directorySortRow}>
+                      <span>目录顺序调整</span>
+                      <button
+                        type="button"
+                        className={`${styles.directorySortSwitch} ${directorySortMode ? styles.directorySortSwitchOn : ''}`}
+                        aria-pressed={directorySortMode}
+                        onClick={() => {
+                          setDirectorySortMode((value) => !value);
+                          setDraggingDirectoryPromptId(null);
+                          directoryPointerRef.current = null;
+                          directoryDragRef.current = null;
+                          if (directoryLongPressTimerRef.current !== null) {
+                            window.clearTimeout(directoryLongPressTimerRef.current);
+                            directoryLongPressTimerRef.current = null;
+                          }
+                        }}
+                      >
+                        <span />
+                      </button>
+                    </div>
                     <div className={styles.bookDirectoryList}>
                       {modulePrompts.map((prompt, index) => {
                         const targetPage = getPromptBookPages(prompt)[0];
@@ -801,7 +853,7 @@ export const PaperMagicApp: React.FC<AppProps> = ({ onClose }) => {
                           <div
                             key={prompt.id}
                             data-paper-magic-prompt-id={prompt.id}
-                            className={`${styles.bookDirectoryItem} ${draggingDirectoryPromptId === prompt.id ? styles.bookDirectoryItemDragging : ''}`}
+                            className={`${styles.bookDirectoryItem} ${directorySortMode ? styles.bookDirectoryItemSortable : ''} ${draggingDirectoryPromptId === prompt.id ? styles.bookDirectoryItemDragging : ''}`}
                             onPointerDown={(event) => startDirectoryPointerDrag(event, prompt.id)}
                             onPointerMove={moveDirectoryPointerDrag}
                             onPointerUp={(event) => endDirectoryPointerDrag(event, targetPage.key)}

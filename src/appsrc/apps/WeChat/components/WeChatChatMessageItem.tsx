@@ -3,7 +3,7 @@ import React from 'react';
 import { Check, ArrowRightLeft, User, Pause, Volume2 } from 'lucide-react';
 import type { CSSProperties } from 'react';
 import type { WeChatBubblePreset, WeChatMessage, WeChatUiRenderConfig } from '../types';
-import { decodeWeChatOnlineStickerToken, wechatGifStickers } from '../emojiStickers';
+import { wechatDefaultGifStickers } from '../emojiStickers';
 import { PUSH_OPEN_APP_MESSAGE_TYPE } from '../../../../core/push/webPush';
 import { DELIVERY_STORAGE_KEY } from '../../delivery/data';
 import { DELIVERY_ORDERS_CHANGED_EVENT } from '../../delivery/paymentBridge';
@@ -218,17 +218,15 @@ const omitBubbleColorStyle = (style?: CSSProperties): CSSProperties | undefined 
 };
 
 const renderInlineEmojiContent = (content: string) => {
-  const stickerMap = new Map(wechatGifStickers.map((sticker) => [sticker.name, sticker]));
-  const parts = content.split(/(\[gif:[^\]]+\]|\[[^\[\]]{1,12}\])/g).filter((part) => part.length > 0);
+  const stickerMap = new Map(wechatDefaultGifStickers.map((sticker) => [sticker.name, sticker]));
+  const parts = content.split(/(\[[^\[\]]{1,12}\])/g).filter((part) => part.length > 0);
   return parts.map((part, index) => {
-    const onlineSticker = decodeWeChatOnlineStickerToken(part);
     const name = part.match(/^\[([^\[\]]{1,12})\]$/)?.[1];
-    const sticker = onlineSticker || (name ? stickerMap.get(name) : undefined);
+    const sticker = name ? stickerMap.get(name) : undefined;
     if (!sticker) return <React.Fragment key={`${part}-${index}`}>{part}</React.Fragment>;
     const previousPart = parts[index - 1] || '';
-    const previousOnlineSticker = decodeWeChatOnlineStickerToken(previousPart);
     const previousName = previousPart.match(/^\[([^\[\]]{1,12})\]$/)?.[1];
-    const hasPreviousSticker = Boolean(previousOnlineSticker || (previousName && stickerMap.has(previousName)));
+    const hasPreviousSticker = Boolean(previousName && stickerMap.has(previousName));
     return (
       <img
         key={`${sticker.id}-${index}`}

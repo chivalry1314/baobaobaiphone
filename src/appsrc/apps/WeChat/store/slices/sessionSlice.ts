@@ -167,6 +167,8 @@ export const createWeChatSessionSlice = ({
   | 'addWeChatMessage'
   | 'updateWeChatMessage'
   | 'setWeChatCurrentSession'
+  | 'hideWeChatSession'
+  | 'deleteWeChatSession'
   | 'deleteWeChatMessages'
   | 'updateWeChatSessionSettings'
   | 'importWeChatInspectorSnapshot'
@@ -193,7 +195,7 @@ export const createWeChatSessionSlice = ({
 
       if (existingSession) {
         resolvedSessionId = existingSession.id;
-        if (existingSession.messages.length === 0 && seededSession && seededSession.messages.length > 0) {
+        if (!existingSession.isHidden && existingSession.messages.length === 0 && seededSession && seededSession.messages.length > 0) {
           return applyRoleState(syncedState, roleId, {
             ...roleState,
             wechatSessions: roleState.wechatSessions.map((session) =>
@@ -304,6 +306,7 @@ export const createWeChatSessionSlice = ({
             ? {
                 ...session,
                 messages: [...session.messages, nextMessage],
+                isHidden: false,
                 lastUpdated: timestamp,
                 unreadCount:
                   message.role === 'character' && roleState.wechatCurrentSessionId !== normalizedSessionId
@@ -410,6 +413,55 @@ export const createWeChatSessionSlice = ({
                 ...settings,
               }
             : session
+        ),
+      });
+    });
+  },
+
+  hideWeChatSession: (sessionId) => {
+    const normalizedSessionId = sessionId.trim();
+    if (!normalizedSessionId) return;
+
+    set((state) => {
+      const { state: syncedState, roleId, roleState } = ensureRoleContextState(state);
+      return applyRoleState(syncedState, roleId, {
+        ...roleState,
+        wechatCurrentSessionId:
+          roleState.wechatCurrentSessionId === normalizedSessionId
+            ? null
+            : roleState.wechatCurrentSessionId,
+        wechatSessions: roleState.wechatSessions.map((session) =>
+          session.id === normalizedSessionId
+            ? { ...session, isHidden: true, unreadCount: 0 }
+            : session
+        ),
+      });
+    });
+  },
+
+  deleteWeChatSession: (sessionId) => {
+    const normalizedSessionId = sessionId.trim();
+    if (!normalizedSessionId) return;
+
+    set((state) => {
+      const { state: syncedState, roleId, roleState } = ensureRoleContextState(state);
+      return applyRoleState(syncedState, roleId, {
+        ...roleState,
+        wechatCurrentSessionId:
+          roleState.wechatCurrentSessionId === normalizedSessionId
+            ? null
+            : roleState.wechatCurrentSessionId,
+        wechatSessions: roleState.wechatSessions.map(
+          (session) =>
+            session.id === normalizedSessionId
+              ? {
+                  ...session,
+                  messages: [],
+                  unreadCount: 0,
+                  isHidden: true,
+                  lastUpdated: Date.now(),
+                }
+              : session
         ),
       });
     });

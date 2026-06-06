@@ -51,6 +51,8 @@ export interface WeChatState extends WeChatRoleScopedState {
   updateWeChatAiMomentsSettings: (settings: Partial<WeChatAiMomentsSettings>) => void;
   setWeChatContactPatSuffix: (contactId: string, patSuffix: string) => void;
   deleteWeChatContact: (contactId: string) => void;
+  hideWeChatSession: (sessionId: string) => void;
+  deleteWeChatSession: (sessionId: string) => void;
   deleteWeChatMessages: (sessionId: string, messageIds: string[]) => void;
   updateWeChatSessionSettings: (
     sessionId: string,

@@ -24,6 +24,8 @@ type WeChatActions = Pick<
   | 'updateWeChatAiMomentsSettings'
   | 'setWeChatContactPatSuffix'
   | 'deleteWeChatContact'
+  | 'hideWeChatSession'
+  | 'deleteWeChatSession'
   | 'deleteWeChatMessages'
   | 'updateWeChatSessionSettings'
   | 'importWeChatInspectorSnapshot'

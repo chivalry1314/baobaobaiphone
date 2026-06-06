@@ -25,7 +25,12 @@ import { WeChatChatHeader } from './WeChatChatHeader';
 import { WeChatChatMessageItem } from './WeChatChatMessageItem';
 import { WeChatChatInputBar } from './WeChatChatInputBar';
 import { Modals } from './WeChatChatModals';
-import { addWeChatCustomSticker } from '../emojiStickers';
+import {
+  addWeChatCustomSticker,
+  baobaobaiGifStickers,
+  decodeWeChatOnlineStickerToken,
+  readWeChatCustomStickers,
+} from '../emojiStickers';
 
 interface SpeechRecognitionAlternativeLike {
   transcript: string;
@@ -111,6 +116,10 @@ const WECHAT_ACTION_MESSAGE_TYPES = new Set<WeChatMessage['type']>([
   'shopping_invite',
   'transfer',
 ]);
+const SYSTEM_STICKER_BY_NAME = new Map(
+  baobaobaiGifStickers.map((sticker) => [sticker.name, sticker])
+);
+const STICKER_TOKEN_PATTERN = /(\[gif:[^\]\n]+\]|\[[^\[\]:\n]{1,32}\])/g;
 
 const enqueueWeChatAutoReply = (
   sessionId: string,
@@ -559,10 +568,16 @@ const WECHAT_DEFAULT_EMOJI_TEXT_MAP: Record<string, string> = {
   派对: '[庆祝]',
 };
 
-const normalizeAssistantEmojiText = (content: string): string =>
-  content
-    .replace(/\[([^\[\]\n]{1,16})\]/g, (match, rawName: string) => {
+const getCustomStickerNameSet = (): Set<string> =>
+  new Set(readWeChatCustomStickers().map((sticker) => sticker.name).filter(Boolean));
+
+const normalizeAssistantEmojiText = (content: string): string => {
+  const customStickerNames = getCustomStickerNameSet();
+  return content
+    .replace(/\[gif:[^\]\n]+\]/g, (match) => (decodeWeChatOnlineStickerToken(match) ? match : ''))
+    .replace(/\[([^\[\]\n]{1,32})\]/g, (match, rawName: string) => {
       const name = rawName.trim();
+      if (SYSTEM_STICKER_BY_NAME.has(name) || customStickerNames.has(name)) return match;
       return Object.prototype.hasOwnProperty.call(WECHAT_DEFAULT_EMOJI_TEXT_MAP, name)
         ? WECHAT_DEFAULT_EMOJI_TEXT_MAP[name]
         : '';
@@ -570,6 +585,7 @@ const normalizeAssistantEmojiText = (content: string): string =>
     .replace(/[ \t]+\n/g, '\n')
     .replace(/\n{3,}/g, '\n\n')
     .trim();
+};
 
 const splitAssistantBurstMessages = (content: string): string[] =>
   content
@@ -1845,6 +1861,44 @@ export const WeChatChatView: React.FC<WeChatChatViewProps> = ({
     }
   };
 
+  const buildCharacterReplyMessages = async (
+    replyContent: string
+  ): Promise<Array<Omit<WeChatMessage, 'id' | 'timestamp'>>> => {
+    const content = replyContent.trim();
+    if (!content) return [];
+
+    const customStickerByName = new Map(
+      readWeChatCustomStickers().map((sticker) => [sticker.name, sticker])
+    );
+    const parts = content.split(STICKER_TOKEN_PATTERN).filter(Boolean);
+    const messages: Array<Omit<WeChatMessage, 'id' | 'timestamp'>> = [];
+
+    for (const part of parts) {
+      const onlineSticker = decodeWeChatOnlineStickerToken(part);
+      const tokenMatch = part.match(/^\[([^\[\]:\n]{1,32})\]$/);
+      const sticker = onlineSticker || (tokenMatch
+        ? SYSTEM_STICKER_BY_NAME.get(tokenMatch[1]) || customStickerByName.get(tokenMatch[1])
+        : undefined);
+      if (sticker) {
+        messages.push({
+          role: 'character',
+          type: 'sticker',
+          content: `[${sticker.name}]`,
+          stickerUrl: sticker.url,
+          stickerName: sticker.name,
+        });
+        continue;
+      }
+
+      const text = part.trim();
+      if (text) {
+        messages.push(await buildCharacterReplyMessage(text));
+      }
+    }
+
+    return messages.length > 0 ? messages : [await buildCharacterReplyMessage(content)];
+  };
+
   const adjustTextareaHeight = (element: HTMLTextAreaElement | null) => {
     if (!element) return;
     element.style.height = 'auto';
@@ -2373,6 +2427,58 @@ export const WeChatChatView: React.FC<WeChatChatViewProps> = ({
     return [...priorityMessages, ...selectedLowPriorityContextMessages, ...selectedChatContextMessages];
   };
 
+  const buildOocCorrectionMessages = (
+    systemPrompt: string,
+    sessionId: string,
+    wrappedInstruction: string
+  ): ChatCompletionMessage[] => {
+    const chatHistory = useWeChatStore.getState()
+      .wechatSessions.find((item) => item.id === sessionId)?.messages || [];
+    const recentContext = chatHistory
+      .slice(-12)
+      .map((message) => {
+        const speaker = message.role === 'user'
+          ? '用户'
+          : character?.name || '角色';
+        return `${speaker}：${normalizeMessageContentForMemoryComparison(message)}`;
+      })
+      .filter((line) => line.trim())
+      .join('\n');
+
+    return [
+      { role: 'system', content: systemPrompt },
+      {
+        role: 'system',
+        content: [
+          '【当前聊天上下文，仅供底层 AI 判断剧情偏差，不得作为角色人格提示】',
+          recentContext || '暂无近期聊天上下文',
+        ].join('\n'),
+      },
+      {
+        role: 'system',
+        content: [
+          '【回执格式强制要求】',
+          '只允许以底层 AI/OOC 导演频道身份回复一段确认文本。',
+          '回复必须完整包裹在全角方括号【】内。',
+          `严禁使用${character?.name || '角色'}的口吻、称呼、对白、动作或内心独白。`,
+          '严禁输出括号外文本。',
+        ].join('\n'),
+      },
+      { role: 'user', content: wrappedInstruction },
+    ];
+  };
+
+  const normalizeOocCorrectionReceipt = (rawReply: unknown): string => {
+    const text = typeof rawReply === 'string' ? rawReply.trim() : '';
+    const bracketedReceipts = Array.from(text.matchAll(/【[^】]{1,180}】/g))
+      .map((match) => match[0].trim())
+      .filter(Boolean);
+    if (bracketedReceipts.length > 0) {
+      return bracketedReceipts.slice(0, 2).join('\n');
+    }
+    return '【已收到，剧情会按新的方向继续。】';
+  };
+
   const buildCharacterSystemPrompt = (
     mode: 'chat' | 'voice' = 'chat',
     extraInstruction = ''
@@ -2495,13 +2601,15 @@ export const WeChatChatView: React.FC<WeChatChatViewProps> = ({
         const replyMessages = splitAssistantBurstMessages(replyContent);
         if (replyMessages.length === 0) return;
         for (const messageContent of replyMessages) {
-          const replyMessage = await buildCharacterReplyMessage(messageContent);
-          addWeChatMessage(sessionId, replyMessage);
-          if (!isChatViewMountedRef.current) continue;
-          if (replyMessage.type === 'voice' && replyMessage.voiceAudioDataUrl) {
-            void playVoiceFromMessage(replyMessage.voiceAudioDataUrl);
-          } else {
-            void playVoiceReply(messageContent);
+          const replyPayloads = await buildCharacterReplyMessages(messageContent);
+          for (const replyMessage of replyPayloads) {
+            addWeChatMessage(sessionId, replyMessage);
+            if (!isChatViewMountedRef.current) continue;
+            if (replyMessage.type === 'voice' && replyMessage.voiceAudioDataUrl) {
+              void playVoiceFromMessage(replyMessage.voiceAudioDataUrl);
+            } else if (replyMessage.type !== 'sticker') {
+              void playVoiceReply(replyMessage.content);
+            }
           }
         }
       }
@@ -2549,20 +2657,14 @@ export const WeChatChatView: React.FC<WeChatChatViewProps> = ({
         },
         body: JSON.stringify({
           model: settings.model || 'gpt-3.5-turbo',
-          messages: [
-            { role: 'system', content: systemPrompt },
-            ...buildApiMessages(buildCharacterSystemPrompt('chat'), sessionId).slice(-12),
-            { role: 'user', content: wrappedInstruction },
-          ],
+          messages: buildOocCorrectionMessages(systemPrompt, sessionId, wrappedInstruction),
           temperature: Math.min(0.7, settings.temperature || 0.5),
           max_tokens: 160,
         }),
       });
       if (!response.ok) throw new Error('API 失败');
-      const payload = await response.json();
-      const rawReply = payload?.choices?.[0]?.message?.content;
-      const normalizedReply = typeof rawReply === 'string' ? rawReply.trim() : '';
-      setOocCorrectionNotice(normalizedReply || '【已收到，剧情会按新的方向继续。】');
+      const payload = await response.json().catch(() => null);
+      setOocCorrectionNotice(normalizeOocCorrectionReceipt(payload?.choices?.[0]?.message?.content));
     } catch (error) {
       console.error('[WeChat] OOC correction failed:', error);
       setOocCorrectionNotice('纠正失败，请稍后再试');
@@ -2821,13 +2923,15 @@ export const WeChatChatView: React.FC<WeChatChatViewProps> = ({
       const replyMessages = splitAssistantBurstMessages(replyContent);
       if (replyMessages.length > 0) {
         for (const messageContent of replyMessages) {
-          const replyMessage = await buildCharacterReplyMessage(messageContent);
-          addWeChatMessage(sessionId, replyMessage);
-          if (!isChatViewMountedRef.current) continue;
-          if (replyMessage.type === 'voice' && replyMessage.voiceAudioDataUrl) {
-            void playVoiceFromMessage(replyMessage.voiceAudioDataUrl);
-          } else {
-            void playVoiceReply(messageContent);
+          const replyPayloads = await buildCharacterReplyMessages(messageContent);
+          for (const replyMessage of replyPayloads) {
+            addWeChatMessage(sessionId, replyMessage);
+            if (!isChatViewMountedRef.current) continue;
+            if (replyMessage.type === 'voice' && replyMessage.voiceAudioDataUrl) {
+              void playVoiceFromMessage(replyMessage.voiceAudioDataUrl);
+            } else if (replyMessage.type !== 'sticker') {
+              void playVoiceReply(replyMessage.content);
+            }
           }
         }
       }

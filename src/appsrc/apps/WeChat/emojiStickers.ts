@@ -135,7 +135,7 @@ export const baobaobaiGifStickers: WeChatGifSticker[] = [
   { id: 'baobaobai-flower', name: '送花花', fileLabel: '送花花', url: withStickerVersion(baobaobaiFlowerGif), systemPack: '包包白', meaning: '示好、哄人、表达喜欢或道歉' },
 ];
 
-export const wechatGifStickers: WeChatGifSticker[] = [
+export const wechatDefaultGifStickers: WeChatGifSticker[] = [
   { id: 'sneer', name: '冷笑', url: withStickerVersion(sneerGif) },
   { id: 'cry', name: '流泪', url: withStickerVersion(cryGif) },
   { id: 'sob', name: '大哭', url: withStickerVersion(sobGif) },
@@ -152,5 +152,9 @@ export const wechatGifStickers: WeChatGifSticker[] = [
   { id: 'no', name: '不要', url: withStickerVersion(noGif) },
   { id: 'poop', name: '便便', url: withStickerVersion(poopGif) },
   { id: 'party', name: '庆祝', url: withStickerVersion(partyGif) },
+];
+
+export const wechatGifStickers: WeChatGifSticker[] = [
+  ...wechatDefaultGifStickers,
   ...baobaobaiGifStickers,
 ];

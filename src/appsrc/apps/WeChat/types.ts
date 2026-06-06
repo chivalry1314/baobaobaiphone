@@ -132,6 +132,7 @@ export interface WeChatSession {
   lastUpdated: number;
   unreadCount: number;
   inspectorGeneratedContact?: WeChatInspectorGeneratedContact;
+  isHidden?: boolean;
   isPinned?: boolean;
   chatBackgroundImage?: string;
   selfBubblePreset?: WeChatBubblePreset;

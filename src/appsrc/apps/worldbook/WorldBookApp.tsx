@@ -1,5 +1,5 @@
-import React, { useState } from 'react';
-import { motion, AnimatePresence, Reorder } from 'motion/react';
+import React, { useRef, useState } from 'react';
+import { motion, AnimatePresence, Reorder, useDragControls } from 'motion/react';
 import { ChevronLeft, Plus, Trash2, Edit2, Check, X, BookOpen, Globe, User, GripVertical } from 'lucide-react';
 import { WorldInfoEntry } from './types';
 import { useWorldBookStore } from './store';
@@ -9,10 +9,62 @@ interface WorldBookAppProps {
   onClose: () => void;
 }
 
+const WORLD_BOOK_LONG_PRESS_MS = 450;
+
+interface WorldBookReorderItemProps {
+  entry: WorldInfoEntry;
+  sortMode: boolean;
+  children: React.ReactNode;
+}
+
+const WorldBookReorderItem: React.FC<WorldBookReorderItemProps> = ({ entry, sortMode, children }) => {
+  const controls = useDragControls();
+  const timerRef = useRef<number | null>(null);
+
+  const clearTimer = () => {
+    if (timerRef.current !== null) {
+      window.clearTimeout(timerRef.current);
+      timerRef.current = null;
+    }
+  };
+
+  const handlePointerDown = (event: React.PointerEvent<HTMLLIElement>) => {
+    if (!sortMode) return;
+    event.preventDefault();
+    event.stopPropagation();
+    clearTimer();
+    timerRef.current = window.setTimeout(() => {
+      controls.start(event);
+      timerRef.current = null;
+    }, WORLD_BOOK_LONG_PRESS_MS);
+  };
+
+  return (
+    <Reorder.Item
+      value={entry}
+      layout
+      dragListener={false}
+      dragControls={controls}
+      onPointerDown={handlePointerDown}
+      onPointerUp={clearTimer}
+      onPointerCancel={clearTimer}
+      onContextMenu={(event) => {
+        if (sortMode) event.preventDefault();
+      }}
+      className={`bg-white rounded-xl border p-4 shadow-sm space-y-2 transition-opacity ${
+        sortMode ? 'touch-none cursor-grab select-none' : ''
+      } ${entry.triggerMode === 'disabled' ? 'opacity-50 border-gray-200' : 'border-gray-200'}`}
+    >
+      {children}
+    </Reorder.Item>
+  );
+};
+
 export const WorldBookApp: React.FC<WorldBookAppProps> = ({ onClose }) => {
   const { worldBook, setWorldBook, addWorldEntry, updateWorldEntry, deleteWorldEntry } = useWorldBookStore();
   const [editingEntry, setEditingEntry] = useState<WorldInfoEntry | null>(null);
   const [isAdding, setIsAdding] = useState(false);
+  const [sortMode, setSortMode] = useState(false);
   const sortedWorldBook = [...worldBook].sort(
     (left, right) =>
       (Number(left.insertionOrder) || 0) - (Number(right.insertionOrder) || 0)
@@ -94,6 +146,24 @@ export const WorldBookApp: React.FC<WorldBookAppProps> = ({ onClose }) => {
             </button>
           </div>
         ) : (
+          <>
+          <div className="mb-3 flex items-center justify-between rounded-2xl border border-gray-200 bg-white px-4 py-3">
+            <span className="text-[14px] font-semibold text-gray-700">目录顺序调整</span>
+            <button
+              type="button"
+              onClick={() => setSortMode((value) => !value)}
+              aria-pressed={sortMode}
+              className={`relative h-7 w-[52px] shrink-0 rounded-full transition-colors ${
+                sortMode ? 'bg-blue-500' : 'bg-gray-300'
+              }`}
+            >
+              <span
+                className={`absolute left-0.5 top-0.5 h-6 w-6 rounded-full bg-white shadow transition-transform ${
+                  sortMode ? 'translate-x-6' : 'translate-x-0'
+                }`}
+              />
+            </button>
+          </div>
           <Reorder.Group
             axis="y"
             values={sortedWorldBook}
@@ -101,13 +171,10 @@ export const WorldBookApp: React.FC<WorldBookAppProps> = ({ onClose }) => {
             className="space-y-3"
           >
             {sortedWorldBook.map((entry) => (
-              <Reorder.Item
+              <WorldBookReorderItem
                 key={entry.id}
-                value={entry}
-                layout
-                className={`bg-white rounded-xl border p-4 shadow-sm space-y-2 transition-opacity touch-none ${
-                  entry.triggerMode === 'disabled' ? 'opacity-50 border-gray-200' : 'border-gray-200'
-                }`}
+                entry={entry}
+                sortMode={sortMode}
               >
                 <div className="flex justify-between items-start">
                   <div className="flex min-w-0 flex-1 gap-2">
@@ -157,9 +224,10 @@ export const WorldBookApp: React.FC<WorldBookAppProps> = ({ onClose }) => {
                   </div>
                 </div>
                 <p className="text-[13px] text-gray-500 line-clamp-2">{entry.content}</p>
-              </Reorder.Item>
+              </WorldBookReorderItem>
             ))}
           </Reorder.Group>
+          </>
         )}
       </div>
 
