@@ -500,29 +500,6 @@ const normalizeMessageContentForMemoryComparison = (message: WeChatMessage): str
   return message.content.trim();
 };
 
-const WECHAT_EMOJI_MEANING_MAP: Record<string, string> = {
-  流泪: '难过、委屈、想哭',
-  大哭: '非常难过或撒娇式崩溃',
-  大笑: '开心、觉得好笑',
-  发怒: '生气、不满',
-  爱心: '喜欢、关心、表达爱意',
-  点赞: '认可、赞同',
-  害羞: '不好意思、羞涩',
-  震惊: '惊讶、疑惑',
-  亲亲: '亲昵、撒娇',
-  伤心哭: '委屈、难过、求哄',
-  做鬼脸: '调皮、逗人、缓和气氛',
-  害怕: '害怕、心虚、被吓到',
-  害羞包包白: '害羞、脸红、不好意思',
-  开心: '开心、得意、被逗笑',
-  爱心包包白: '喜欢、黏人、表达爱意',
-  生气包包白: '生气、炸毛、嘴硬不爽',
-  送花花: '示好、哄人、道歉或表达喜欢',
-  睡觉: '困了、想睡',
-  便便: '吐槽、嫌弃、玩笑',
-  庆祝: '开心庆祝',
-};
-
 const WECHAT_DEFAULT_EMOJI_TEXT_MAP: Record<string, string> = {
   动画表情: '',
   表情: '',
@@ -592,28 +569,6 @@ const splitAssistantBurstMessages = (content: string): string[] =>
     .split('||')
     .map((message) => normalizeAssistantEmojiText(message))
     .filter((message) => message && message !== '[NO_REPLY]');
-
-const explainWeChatEmojiText = (content: string): string => {
-  const onlineGifNames = Array.from(content.matchAll(/\[gif:([^:\]]+):[^\]]+\]/g))
-    .map((match) => {
-      try {
-        return decodeURIComponent(match[1]);
-      } catch {
-        return '';
-      }
-    })
-    .filter(Boolean);
-  const emojiNames = Array.from(content.matchAll(/\[([^\[\]:]{1,12})\]/g))
-    .map((match) => match[1])
-    .filter((name) => WECHAT_EMOJI_MEANING_MAP[name]);
-  if (emojiNames.length === 0 && onlineGifNames.length === 0) return content;
-  const uniqueNames = Array.from(new Set(emojiNames));
-  const explanations = [
-    ...uniqueNames.map((name) => `[${name}]≈${WECHAT_EMOJI_MEANING_MAP[name]}`),
-    ...Array.from(new Set(onlineGifNames)).map((name) => `[在线GIF:${name}]≈动态表情，表达${name}`),
-  ].join('；');
-  return `${content}\n（表情含义：${explanations}）`;
-};
 
 const isIOSViewportDevice = (): boolean => {
   if (typeof navigator === 'undefined') return false;
@@ -2322,7 +2277,7 @@ export const WeChatChatView: React.FC<WeChatChatViewProps> = ({
         return;
       }
 
-      let content = explainWeChatEmojiText(m.content);
+      let content = m.content;
       if (m.type === 'order_request') {
         const actionText =
           m.orderRequestStatus === 'accepted'
@@ -3013,7 +2968,7 @@ export const WeChatChatView: React.FC<WeChatChatViewProps> = ({
     scrollToBottom();
   };
 
-  const handleAddCustomStickerFile = async (file: File) => {
+  const handleAddCustomStickerFile = async (file: File, name: string) => {
     try {
       const reader = new FileReader();
       const dataUrl = await new Promise<string>((resolve, reject) => {
@@ -3022,7 +2977,7 @@ export const WeChatChatView: React.FC<WeChatChatViewProps> = ({
         reader.readAsDataURL(file);
       });
       addWeChatCustomSticker({
-        name: file.name.replace(/\.[^.]+$/, '') || '表情',
+        name: name.trim() || file.name.replace(/\.[^.]+$/, '') || '表情',
         url: dataUrl,
       });
       setToastMessage('已添加到表情');

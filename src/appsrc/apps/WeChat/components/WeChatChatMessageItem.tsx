@@ -750,7 +750,7 @@ export const WeChatChatMessageItem: React.FC<WeChatChatMessageItemProps> = ({
                       })
                     );
                   }}
-                  className="relative flex h-[84px] w-[282px] max-w-full overflow-hidden rounded-[12px] bg-[#FF5856] px-5 py-4 text-left text-white shadow-[0_10px_22px_rgba(255,88,86,0.22)] active:brightness-95"
+                  className="relative flex h-[84px] w-[244px] max-w-full overflow-hidden rounded-[12px] bg-[#FF5856] px-4 py-4 text-left text-white shadow-[0_10px_22px_rgba(255,88,86,0.22)] active:brightness-95"
                   aria-label="打开一起听歌记录"
                 >
                   <div className="relative z-10 min-w-0">
@@ -760,7 +760,7 @@ export const WeChatChatMessageItem: React.FC<WeChatChatMessageItemProps> = ({
                       <span className="text-[16px] font-light leading-none text-white/88">›</span>
                     </div>
                   </div>
-                  <svg className="pointer-events-none absolute right-[22px] top-[18px] h-[76px] w-[122px]" viewBox="0 0 122 76" aria-hidden="true">
+                  <svg className="pointer-events-none absolute right-[10px] top-[18px] h-[76px] w-[110px]" viewBox="0 0 122 76" aria-hidden="true">
                     <g>
                       <circle cx="48" cy="25" r="22" fill="rgba(255,245,245,0.96)" stroke="rgba(255,255,255,0.96)" strokeWidth="3" />
                       <circle cx="48" cy="19" r="7.2" fill="rgba(244,213,214,0.82)" />

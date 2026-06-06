@@ -59,7 +59,7 @@ interface WeChatChatInputBarProps {
   onInputChange: (value: string) => void;
   onDeleteInput: () => void;
   onSendOnlineSticker: (sticker: WeChatGifSticker) => void;
-  onAddCustomStickerFile: (file: File) => void;
+  onAddCustomStickerFile: (file: File, name: string) => void;
   currentBubblePreset: WeChatBubblePreset;
   currentBubbleColor: string;
   customBubbleCss: string;
@@ -145,6 +145,8 @@ export const WeChatChatInputBar: React.FC<WeChatChatInputBarProps> = ({
   const [gifSearchError, setGifSearchError] = React.useState('');
   const [customStickers, setCustomStickers] = React.useState<WeChatGifSticker[]>(() => readWeChatCustomStickers());
   const [isManagingCustomStickers, setIsManagingCustomStickers] = React.useState(false);
+  const [pendingCustomStickerFile, setPendingCustomStickerFile] = React.useState<File | null>(null);
+  const [customStickerNameInput, setCustomStickerNameInput] = React.useState('');
   const [isManagingCustomBubbles, setIsManagingCustomBubbles] = React.useState(false);
   const [isManagingCustomFonts, setIsManagingCustomFonts] = React.useState(false);
   const [isBubbleEditorOpen, setIsBubbleEditorOpen] = React.useState(false);
@@ -835,7 +837,10 @@ padding:${contentTop}px ${contentRight}px ${contentBottom}px ${contentLeft}px;
         onChange={(event) => {
           const file = event.target.files?.[0];
           event.target.value = '';
-          if (file) onAddCustomStickerFile(file);
+          if (file) {
+            setPendingCustomStickerFile(file);
+            setCustomStickerNameInput(file.name.replace(/\.[^.]+$/, '') || '表情');
+          }
         }}
       />
       <input
@@ -921,6 +926,47 @@ padding:${contentTop}px ${contentRight}px ${contentBottom}px ${contentLeft}px;
           45% { transform: translate3d(0, -2px, 0) scale(1.03); }
         }
       `}</style>
+      {pendingCustomStickerFile ? (
+        <div className="fixed inset-0 z-[320] flex items-center justify-center bg-black/35 px-6">
+          <div className="w-full max-w-[280px] rounded-2xl bg-white p-4 shadow-[0_18px_48px_rgba(15,23,42,0.22)]">
+            <div className="text-[15px] font-semibold text-[#111]">给表情包命名</div>
+            <div className="mt-1 text-[12px] leading-5 text-[#777]">
+              名字会进入聊天上下文，方便 AI 理解这个表情的情绪。
+            </div>
+            <input
+              value={customStickerNameInput}
+              onChange={(event) => setCustomStickerNameInput(event.target.value)}
+              autoFocus
+              className="mt-3 h-10 w-full rounded-xl border border-[#E5E7EB] px-3 text-[14px] text-[#111] outline-none focus:border-[#07C160]"
+              placeholder="例如：生气捶桌"
+            />
+            <div className="mt-4 flex justify-end gap-2">
+              <button
+                type="button"
+                onClick={() => {
+                  setPendingCustomStickerFile(null);
+                  setCustomStickerNameInput('');
+                }}
+                className="rounded-full px-3 py-1.5 text-[13px] text-[#666] active:bg-black/5"
+              >
+                取消
+              </button>
+              <button
+                type="button"
+                onClick={() => {
+                  const name = customStickerNameInput.trim() || pendingCustomStickerFile.name.replace(/\.[^.]+$/, '') || '表情';
+                  onAddCustomStickerFile(pendingCustomStickerFile, name);
+                  setPendingCustomStickerFile(null);
+                  setCustomStickerNameInput('');
+                }}
+                className="rounded-full bg-[#07C160] px-3.5 py-1.5 text-[13px] font-medium text-white active:opacity-85"
+              >
+                保存
+              </button>
+            </div>
+          </div>
+        </div>
+      ) : null}
       {isBubbleEditorOpen ? (
         <div className="fixed inset-0 z-[80] flex flex-col bg-[#F7F7F7] text-[#111]">
           <div className="flex shrink-0 items-center justify-between border-b border-gray-200 bg-[#F7F7F7] px-2 pb-2.5 pt-12">
