@@ -1072,6 +1072,11 @@ padding:${contentTop}px ${contentRight}px ${contentBottom}px ${contentLeft}px;
               contentEditable
               role="textbox"
               aria-multiline="true"
+              autoCapitalize="off"
+              autoCorrect="off"
+              spellCheck={false}
+              inputMode="text"
+              enterKeyHint="send"
               onInput={syncEditorValue}
               onKeyDown={handleEditorKeyDown}
               onKeyUp={saveEditorSelection}
