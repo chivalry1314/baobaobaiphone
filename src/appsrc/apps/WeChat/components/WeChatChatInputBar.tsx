@@ -3,7 +3,6 @@ import { motion, AnimatePresence } from 'motion/react';
 import {
   decodeWeChatOnlineStickerToken,
   encodeWeChatStickerToken,
-  baobaobaiGifStickers,
   readWeChatCustomStickers,
   removeWeChatCustomSticker,
   WECHAT_CUSTOM_STICKERS_CHANGED_EVENT,
@@ -1497,36 +1496,6 @@ padding:${contentTop}px ${contentRight}px ${contentBottom}px ${contentLeft}px;
                       ))}
                     </div>
 
-                    <div className="mb-3 mt-6 text-[14px] text-[#6F6F6F]">系统表情包</div>
-                    <div className="grid grid-cols-4 gap-x-5 gap-y-5">
-                      {baobaobaiGifStickers.map((sticker) => (
-                        <div key={sticker.id} className="group relative">
-                          <button
-                            type="button"
-                            onPointerDown={keepTextareaFocused}
-                            onMouseDown={keepTextareaFocused}
-                            onClick={() => onSendOnlineSticker(sticker)}
-                            className="flex w-full flex-col items-center gap-1 rounded-md active:opacity-80"
-                            aria-label={`发送${sticker.fileLabel || sticker.name}`}
-                          >
-                            <span className="grid aspect-square w-full place-items-center overflow-hidden rounded-md bg-white">
-                              <img src={sticker.url} alt={sticker.fileLabel || sticker.name} className="h-full w-full object-contain" loading="lazy" />
-                            </span>
-                            <span className="w-full truncate text-center text-[11px] leading-4 text-[#6F6F6F]">
-                              {sticker.fileLabel || sticker.name}
-                            </span>
-                          </button>
-                          <div className="pointer-events-none absolute -right-4 bottom-[calc(100%+8px)] z-30 hidden w-[118px] overflow-hidden rounded-lg bg-white shadow-[0_8px_24px_rgba(0,0,0,0.18)] ring-1 ring-black/5 group-hover:block">
-                            <div className="grid h-[92px] place-items-center border-b border-gray-100">
-                              <img src={sticker.url} alt={sticker.fileLabel || sticker.name} className="h-full w-full object-contain" loading="eager" />
-                            </div>
-                            <div className="truncate px-2 py-1.5 text-center text-[12px] text-[#333]">
-                              {sticker.fileLabel || sticker.name}
-                            </div>
-                          </div>
-                        </div>
-                      ))}
-                    </div>
                   </div>
                 </>
               ) : null}

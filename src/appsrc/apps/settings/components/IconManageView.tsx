@@ -33,6 +33,13 @@ const itemVariants = {
   show: { opacity: 1, y: 0, transition: { type: 'spring' as const, stiffness: 300, damping: 24 } }
 };
 
+const dockIconItems = [
+  { id: 'phone', name: 'Phone', icon: 'Phone', sourceLabel: '桌面 Dock' },
+  { id: 'safari', name: 'Safari', icon: 'Compass', sourceLabel: '桌面 Dock' },
+  { id: 'messages', name: 'Messages', icon: 'MessageCircle', sourceLabel: '桌面 Dock' },
+  { id: 'camera', name: 'Camera', icon: 'Camera', sourceLabel: '桌面 Dock' },
+];
+
 // ==================== 主组件 ====================
 
 /**
@@ -44,7 +51,19 @@ export const IconManageView: React.FC<IconManageViewProps> = () => {
   const installedAppIds = useInstalledAppIds();
 
   const manageableApps = useMemo(() => {
-    return localApps.filter((app) => app.isSystem || installedAppIds.includes(app.id));
+    const appItems = localApps
+      .filter((app) => app.isSystem || installedAppIds.includes(app.id))
+      .map((app) => ({
+        id: app.id,
+        name: app.name,
+        icon: app.icon,
+        sourceLabel: app.isSystem ? '系统应用' : '已安装应用',
+      }));
+    const existingIds = new Set(appItems.map((item) => item.id));
+    return [
+      ...dockIconItems.filter((item) => !existingIds.has(item.id)),
+      ...appItems,
+    ];
   }, [installedAppIds]);
 
   // 文件上传引用
@@ -250,7 +269,9 @@ export const IconManageView: React.FC<IconManageViewProps> = () => {
                       </div>
                       <div className="flex flex-col">
                         <span className="text-[15px] font-medium text-slate-700">{app.name}</span>
-                        <span className="text-xs text-slate-400 mt-0.5">{customIcon ? '自定义图标' : app.icon}</span>
+                        <span className="text-xs text-slate-400 mt-0.5">
+                          {app.sourceLabel} · {customIcon ? '自定义图标' : app.icon}
+                        </span>
                       </div>
                     </div>
 

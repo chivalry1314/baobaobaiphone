@@ -1,7 +1,6 @@
 import React from 'react';
 import { AnimatePresence, motion } from 'motion/react';
 import { useGlobalSettingsStore } from '@baobaobaiOS/sdk';
-import { Gift, Tags, TrendingUp } from 'lucide-react';
 import type {
   Address,
   CommerceStore,
@@ -2733,6 +2732,24 @@ export const ShoppingApp: React.FC<ShoppingAppProps> = ({ onClose, context }) =>
           >
             <div className={styles.shoppingEntryGlowA} />
             <div className={styles.shoppingEntryGlowB} />
+            <div className={styles.shoppingEntryStatusBar} aria-hidden="true">
+              <span>11:09</span>
+              <span className={styles.shoppingEntryStatusIcons}>
+                <i />
+                <i />
+                <i />
+              </span>
+            </div>
+            {shoppingEntryStage === 'mode' ? (
+              <button
+                type="button"
+                className={styles.shoppingEntryExitBtn}
+                onClick={exitShoppingAppFromIntro}
+                aria-label="退出去逛街"
+              >
+                退出
+              </button>
+            ) : null}
             <div className={styles.shoppingEntryHero}>
               <div className={styles.shoppingEntryBadge}>
                 <svg className={styles.shoppingEntryBadgeIcon} viewBox="0 0 48 48" aria-hidden="true">
@@ -2844,40 +2861,43 @@ export const ShoppingApp: React.FC<ShoppingAppProps> = ({ onClose, context }) =>
 
               <div className={styles.shoppingEntryFeatureGrid}>
                 <div className={styles.shoppingEntryFeatureCard}>
-                  <span className={styles.shoppingEntryFeatureIcon}><Tags size={24} /></span>
+                  <span className={`${styles.shoppingEntryFeatureIcon} ${styles.shoppingEntryFeatureIconCoupon}`}>
+                    <svg viewBox="0 0 64 64" aria-hidden="true">
+                      <path d="M19 12h28l8 20-23 20L9 32Z" />
+                      <circle cx="28" cy="24" r="4" />
+                      <path d="M25 34h18M20 42h22" />
+                    </svg>
+                  </span>
                   <strong>优惠多多</strong>
                   <p>每日上新优惠券</p>
                 </div>
                 <div className={styles.shoppingEntryFeatureCard}>
-                  <span className={styles.shoppingEntryFeatureIcon}><TrendingUp size={24} /></span>
+                  <span className={`${styles.shoppingEntryFeatureIcon} ${styles.shoppingEntryFeatureIconTrend}`}>
+                    <svg viewBox="0 0 64 64" aria-hidden="true">
+                      <path className={styles.shoppingEntryFeatureAccent} d="M10 45l16-16 13 12 18-26" />
+                      <path d="M10 45l16-16 13 12 18-26" />
+                      <path d="M43 14h14v14" />
+                    </svg>
+                  </span>
                   <strong>品质保证</strong>
                   <p>精选优质商品</p>
                 </div>
                 <div className={styles.shoppingEntryFeatureCard}>
-                  <span className={styles.shoppingEntryFeatureIcon}><Gift size={24} /></span>
+                  <span className={`${styles.shoppingEntryFeatureIcon} ${styles.shoppingEntryFeatureIconGift}`}>
+                    <svg viewBox="0 0 64 64" aria-hidden="true">
+                      <path d="M16 30h36v18H16Z" />
+                      <path d="M13 22h42v10H13Z" />
+                      <path d="M32 22v26" />
+                      <path d="M32 22c-11-12-21 0 0 0 11-12 21 0 0 0Z" />
+                      <path d="M8 14l3 3 3-3-3-3ZM52 16l3 3 3-3-3-3Z" />
+                    </svg>
+                  </span>
                   <strong>新人礼包</strong>
                   <p>注册即送好礼</p>
                 </div>
               </div>
             </div>
 
-            {shoppingEntryStage === 'mode' ? (
-              <div
-                className={styles.shoppingEntrySwipeZone}
-                onPointerDown={handleShoppingEntrySwipeStart}
-                onPointerUp={handleShoppingEntrySwipeEnd}
-                onPointerCancel={handleShoppingEntrySwipeEnd}
-              >
-                <button
-                  type="button"
-                  className={styles.shoppingEntrySwipeHint}
-                  aria-label="退出App"
-                  onClick={exitShoppingAppFromIntro}
-                >
-                  <span className={styles.shoppingEntrySwipeArrow} aria-hidden="true" />
-                </button>
-              </div>
-            ) : null}
           </motion.div>
         ) : null}
 

@@ -27,7 +27,6 @@ import { WeChatChatInputBar } from './WeChatChatInputBar';
 import { Modals } from './WeChatChatModals';
 import {
   addWeChatCustomSticker,
-  baobaobaiGifStickers,
   decodeWeChatOnlineStickerToken,
   readWeChatCustomStickers,
 } from '../emojiStickers';
@@ -116,9 +115,6 @@ const WECHAT_ACTION_MESSAGE_TYPES = new Set<WeChatMessage['type']>([
   'shopping_invite',
   'transfer',
 ]);
-const SYSTEM_STICKER_BY_NAME = new Map(
-  baobaobaiGifStickers.map((sticker) => [sticker.name, sticker])
-);
 const STICKER_TOKEN_PATTERN = /(\[gif:[^\]\n]+\]|\[[^\[\]:\n]{1,32}\])/g;
 
 const enqueueWeChatAutoReply = (
@@ -523,17 +519,8 @@ const WECHAT_DEFAULT_EMOJI_TEXT_MAP: Record<string, string> = {
   赞: '[点赞]',
   强: '[点赞]',
   害羞: '[害羞]',
-  害羞包包白: '[害羞包包白]',
   震惊: '[震惊]',
   惊讶: '[震惊]',
-  亲亲: '[亲亲]',
-  伤心哭: '[伤心哭]',
-  做鬼脸: '[做鬼脸]',
-  害怕: '[害怕]',
-  开心: '[开心]',
-  爱心包包白: '[爱心包包白]',
-  生气包包白: '[生气包包白]',
-  送花花: '[送花花]',
   睡觉: '[睡觉]',
   睡: '[睡觉]',
   眨眼: '[眨眼]',
@@ -554,7 +541,7 @@ const normalizeAssistantEmojiText = (content: string): string => {
     .replace(/\[gif:[^\]\n]+\]/g, (match) => (decodeWeChatOnlineStickerToken(match) ? match : ''))
     .replace(/\[([^\[\]\n]{1,32})\]/g, (match, rawName: string) => {
       const name = rawName.trim();
-      if (SYSTEM_STICKER_BY_NAME.has(name) || customStickerNames.has(name)) return match;
+      if (customStickerNames.has(name)) return match;
       return Object.prototype.hasOwnProperty.call(WECHAT_DEFAULT_EMOJI_TEXT_MAP, name)
         ? WECHAT_DEFAULT_EMOJI_TEXT_MAP[name]
         : '';
@@ -1832,7 +1819,7 @@ export const WeChatChatView: React.FC<WeChatChatViewProps> = ({
       const onlineSticker = decodeWeChatOnlineStickerToken(part);
       const tokenMatch = part.match(/^\[([^\[\]:\n]{1,32})\]$/);
       const sticker = onlineSticker || (tokenMatch
-        ? SYSTEM_STICKER_BY_NAME.get(tokenMatch[1]) || customStickerByName.get(tokenMatch[1])
+        ? customStickerByName.get(tokenMatch[1])
         : undefined);
       if (sticker) {
         messages.push({
@@ -2461,7 +2448,7 @@ export const WeChatChatView: React.FC<WeChatChatViewProps> = ({
       '- 当前最后一轮没有出现的人物、地点、事件，不要突然引入；需要细节时可以顺着当前话题轻轻补一句。',
       '- 像微信真人聊天：自然、有来有回，可以短，可以停顿，可以追问，不要像客服、旁白、总结器或设定说明。',
       '- 优先复现人物的句长、语气词、表情/标点、玩笑方式、解释习惯、拒绝边界和情绪反应。',
-      '- 如果要表达表情，只能使用系统表情短码：[冷笑]、[流泪]、[大哭]、[大笑]、[发怒]、[酷]、[爱心]、[点赞]、[害羞]、[震惊]、[睡觉]、[眨眼]、[生病]、[不要]、[便便]、[庆祝]、[亲亲]、[伤心哭]、[做鬼脸]、[害怕]、[害羞包包白]、[开心]、[爱心包包白]、[生气包包白]、[送花花]，界面会渲染成表情图片；不要输出“[动画表情]”“[奸笑]”这类不存在的表情文字。',
+      '- 如果要表达表情，只能使用普通 emoji 短码：[冷笑]、[流泪]、[大哭]、[大笑]、[发怒]、[酷]、[爱心]、[点赞]、[害羞]、[震惊]、[睡觉]、[眨眼]、[生病]、[不要]、[便便]、[庆祝]，界面会渲染成表情图片；不要输出“[动画表情]”“[奸笑]”这类不存在的表情文字。',
       '- 不要连续两轮使用同一句开场或同一个问题；最近已经表达过的意思，只接新的信息，或换一个更自然的角度回应。',
       '- 不要复述世界书，不要解释你在扮演谁，不要输出“作为xxx”。',
       '- 不要每次都很完整地解决问题；关系里可以犹豫、吐槽、敷衍一下、转移话题或只接半句，但要贴合人物。',

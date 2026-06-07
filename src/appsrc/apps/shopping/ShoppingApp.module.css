@@ -2543,16 +2543,24 @@
 }
 
 .shoppingEntryIntro {
+  --shopping-entry-ink: #6b5753;
+  --shopping-entry-soft-ink: rgba(107, 87, 83, 0.78);
+  --shopping-entry-shadow-ink: rgba(107, 87, 83, 0.14);
+  --shopping-entry-paper: #fdfaf1;
+  --shopping-entry-pink: #fdb8d1;
+  --shopping-entry-yellow: #ffe7a0;
   position: absolute;
   inset: 0;
   z-index: 80;
   overflow: hidden;
   display: flex;
   flex-direction: column;
-  justify-content: space-between;
+  justify-content: flex-start;
   background:
-    radial-gradient(circle at 50% 30%, rgba(255, 221, 216, 0.78) 0%, rgba(255, 221, 216, 0) 42%),
-    linear-gradient(180deg, #fff5f0 0%, #fff7f2 58%, #f9fbfa 100%);
+    radial-gradient(circle at 50% 36%, rgba(255, 236, 191, 0.34) 0%, rgba(255, 236, 191, 0) 48%),
+    var(--shopping-entry-paper);
+  color: var(--shopping-entry-ink);
+  font-family: "Comic Sans MS", "PingFang SC", "Microsoft YaHei", cursive, sans-serif;
 }
 
 .shoppingEntryGlowA,
@@ -2576,15 +2584,124 @@
   background: rgba(147, 197, 253, 0.36);
 }
 
+.shoppingEntryStatusBar {
+  position: relative;
+  z-index: 2;
+  flex: 0 0 auto;
+  height: calc(52px + env(safe-area-inset-top, 0px));
+  padding: calc(16px + env(safe-area-inset-top, 0px)) 36px 0;
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  color: var(--shopping-entry-ink);
+  font-size: 18px;
+  font-weight: 900;
+  line-height: 1;
+  letter-spacing: 0;
+}
+
+.shoppingEntryStatusIcons {
+  display: inline-flex;
+  align-items: center;
+  gap: 10px;
+}
+
+.shoppingEntryStatusIcons i {
+  position: relative;
+  display: block;
+  width: 22px;
+  height: 16px;
+}
+
+.shoppingEntryStatusIcons i:nth-child(1) {
+  background:
+    linear-gradient(var(--shopping-entry-ink), var(--shopping-entry-ink)) 1px 11px / 3px 5px no-repeat,
+    linear-gradient(var(--shopping-entry-ink), var(--shopping-entry-ink)) 7px 7px / 3px 9px no-repeat,
+    linear-gradient(var(--shopping-entry-ink), var(--shopping-entry-ink)) 13px 3px / 3px 13px no-repeat,
+    linear-gradient(var(--shopping-entry-ink), var(--shopping-entry-ink)) 19px 0 / 3px 16px no-repeat;
+  border-radius: 3px;
+}
+
+.shoppingEntryStatusIcons i:nth-child(2) {
+  border: 3px solid var(--shopping-entry-ink);
+  border-color: var(--shopping-entry-ink) transparent transparent transparent;
+  border-radius: 50%;
+  transform: translateY(5px);
+}
+
+.shoppingEntryStatusIcons i:nth-child(2)::before {
+  content: '';
+  position: absolute;
+  left: 4px;
+  top: -1px;
+  width: 8px;
+  height: 8px;
+  border: 3px solid var(--shopping-entry-ink);
+  border-color: var(--shopping-entry-ink) transparent transparent transparent;
+  border-radius: 50%;
+}
+
+.shoppingEntryStatusIcons i:nth-child(3) {
+  width: 26px;
+  height: 14px;
+  border: 1.6px solid var(--shopping-entry-soft-ink);
+  border-radius: 5px;
+}
+
+.shoppingEntryStatusIcons i:nth-child(3)::after {
+  content: '';
+  position: absolute;
+  right: -5px;
+  top: 4px;
+  width: 3px;
+  height: 6px;
+  border-radius: 0 3px 3px 0;
+  background: var(--shopping-entry-ink);
+}
+
+.shoppingEntryExitBtn {
+  position: absolute;
+  top: calc(48px + env(safe-area-inset-top, 0px));
+  right: 28px;
+  z-index: 5;
+  min-width: 58px;
+  height: 34px;
+  padding: 0 14px;
+  border: 1.7px solid var(--shopping-entry-soft-ink);
+  border-radius: 255px 18px 225px 18px / 18px 225px 18px 255px;
+  background: rgba(255, 255, 255, 0.55);
+  color: var(--shopping-entry-ink);
+  font-size: 14px;
+  font-weight: 900;
+  font-family: inherit;
+  box-shadow: 2px 3px 0 var(--shopping-entry-shadow-ink);
+  cursor: pointer;
+  transform: rotate(1.2deg);
+  transition: transform 0.16s ease;
+}
+
+.shoppingEntryExitBtn::after {
+  content: '';
+  position: absolute;
+  inset: 3px -4px -5px 4px;
+  border: 1.5px solid var(--shopping-entry-soft-ink);
+  border-radius: 18px 255px 18px 225px / 255px 18px 225px 18px;
+  z-index: -1;
+}
+
+.shoppingEntryExitBtn:active {
+  transform: rotate(1.2deg) translateY(2px);
+}
+
 .shoppingEntryHero {
   position: relative;
   z-index: 1;
   flex: 1;
   min-height: 0;
-  padding: calc(30px + env(safe-area-inset-top, 0px)) 36px calc(56px + env(safe-area-inset-bottom, 0px));
+  padding: clamp(20px, 4svh, 36px) 32px calc(34px + env(safe-area-inset-bottom, 0px));
   display: flex;
   flex-direction: column;
-  justify-content: space-evenly;
+  justify-content: flex-start;
 }
 
 .shoppingEntryBadge {
@@ -2595,15 +2712,41 @@
   align-items: center;
   justify-content: center;
   gap: 6px;
-  min-height: 34px;
-  padding: 0 18px;
-  border-radius: 999px;
-  border: 1px solid rgba(206, 143, 145, 0.24);
-  background: #fff;
-  color: #9b8a8a;
-  font-size: 13px;
-  font-weight: 700;
-  box-shadow: 0 8px 18px rgba(206, 143, 145, 0.12);
+  min-height: 36px;
+  margin-left: 4px;
+  padding: 0 17px;
+  border: 1.7px solid var(--shopping-entry-soft-ink);
+  border-radius: 255px 24px 225px 24px / 22px 225px 18px 255px;
+  background: var(--shopping-entry-paper);
+  color: var(--shopping-entry-ink);
+  font-size: clamp(14px, 3.8vw, 18px);
+  font-weight: 900;
+  box-shadow: 2px 2px 0 var(--shopping-entry-shadow-ink);
+}
+
+.shoppingEntryBadge::before {
+  content: '';
+  position: absolute;
+  left: -13px;
+  top: 12px;
+  width: 10px;
+  height: 20px;
+  border-left: 1.5px solid var(--shopping-entry-soft-ink);
+  border-radius: 999px 0 0 999px;
+}
+
+.shoppingEntryBadge::after {
+  content: '';
+  position: absolute;
+  right: 22px;
+  bottom: -11px;
+  width: 18px;
+  height: 18px;
+  border-right: 1.5px solid var(--shopping-entry-soft-ink);
+  border-bottom: 1.5px solid var(--shopping-entry-soft-ink);
+  background: var(--shopping-entry-paper);
+  transform: rotate(43deg) skew(10deg, 10deg);
+  z-index: -1;
 }
 
 .shoppingEntryBadgeIcon {
@@ -2653,8 +2796,8 @@
   position: relative;
   inset: auto;
   width: 100%;
-  min-height: 124px;
-  margin-top: clamp(12px, 3.6svh, 26px);
+  min-height: clamp(184px, 29svh, 280px);
+  margin-top: clamp(56px, 10svh, 112px);
   display: flex;
   align-items: center;
   justify-content: center;
@@ -2667,10 +2810,7 @@
 }
 
 .shoppingEntryTwinkles {
-  position: absolute;
-  inset: -14px 2px;
-  z-index: 0;
-  overflow: visible;
+  display: none;
 }
 
 .shoppingEntryTwinkles::before,
@@ -2799,29 +2939,28 @@
 .shoppingEntryArtworkCard {
   position: relative;
   z-index: 1;
-  width: min(156px, 40vw);
+  width: clamp(130px, 35vw, 172px);
   aspect-ratio: 1;
   display: grid;
   place-items: center;
-  border-radius: 30px;
-  background: linear-gradient(145deg, #ffe0e0 0%, #ffece4 52%, #fff7f3 100%);
-  border: none;
-  box-shadow:
-    0 24px 44px rgba(206, 143, 145, 0.18),
-    inset 0 1px 0 rgba(255, 255, 255, 0.68);
+  border: 1.8px solid var(--shopping-entry-soft-ink);
+  border-radius: 26px 31px 27px 24px / 24px 27px 31px 26px;
+  background: rgba(255, 255, 255, 0.92);
+  box-shadow: 4px 5px 0 var(--shopping-entry-shadow-ink);
+}
+
+.shoppingEntryArtworkCard::before {
+  content: '';
+  position: absolute;
+  inset: 5px -5px -5px 4px;
+  border: 1.5px solid var(--shopping-entry-soft-ink);
+  border-radius: 31px 24px 26px 29px / 27px 31px 23px 26px;
+  transform: rotate(-1.8deg);
+  z-index: -1;
 }
 
 .shoppingEntryArtworkBadge {
-  position: absolute;
-  top: -14px;
-  right: -14px;
-  width: 46px;
-  height: 46px;
-  border-radius: 999px;
-  display: grid;
-  place-items: center;
-  background: linear-gradient(135deg, #f4b6bd 0%, #e9869a 100%);
-  box-shadow: 0 12px 24px rgba(206, 143, 145, 0.28);
+  display: none;
 }
 
 .shoppingEntryArtworkBadge::before,
@@ -2842,63 +2981,106 @@
 }
 
 .shoppingEntryBagSvg {
-  width: 86px;
-  height: 86px;
+  width: 74px;
+  height: 74px;
   fill: none;
-  stroke: #d47b8d;
-  stroke-width: 6;
+  stroke: var(--shopping-entry-ink);
+  stroke-width: 4.1;
   stroke-linecap: round;
   stroke-linejoin: round;
+}
+
+.shoppingEntryBagSvg path:first-child {
+  fill: var(--shopping-entry-pink);
 }
 
 .shoppingEntryFeatureGrid {
   position: relative;
   z-index: 2;
   width: 100%;
-  margin-top: 30px;
+  margin-top: clamp(36px, 6svh, 52px);
   display: grid;
   grid-template-columns: repeat(3, minmax(0, 1fr));
-  gap: 12px;
+  gap: 10px;
 }
 
 .shoppingEntryFeatureCard {
-  min-height: 78px;
-  padding: 9px 6px 8px;
-  border-radius: 16px;
-  border: 1px solid rgba(226, 214, 214, 0.92);
-  background: #fff;
-  box-shadow:
-    0 8px 20px rgba(206, 143, 145, 0.08),
-    inset 0 1px 0 rgba(255, 255, 255, 0.9);
+  position: relative;
+  min-height: 94px;
+  padding: 10px 5px 8px;
+  border: 1.6px solid var(--shopping-entry-soft-ink);
+  border-radius: 3px 7px 4px 5px;
+  background: rgba(255, 255, 255, 0.72);
+  box-shadow: 3px 4px 0 var(--shopping-entry-shadow-ink);
   display: grid;
   justify-items: center;
   align-content: center;
-  gap: 6px;
+  gap: 4px;
   text-align: center;
 }
 
+.shoppingEntryFeatureCard::after {
+  content: '';
+  position: absolute;
+  inset: 3px -4px -4px 4px;
+  border: 1.4px solid var(--shopping-entry-soft-ink);
+  transform: rotate(-1deg);
+  z-index: -1;
+}
+
 .shoppingEntryFeatureIcon {
-  width: 32px;
-  height: 32px;
-  border-radius: 999px;
-  display: grid;
-  place-items: center;
-  color: #bd747d;
-  background: #f7f5f4;
+  position: relative;
+  width: 42px;
+  height: 42px;
+  display: block;
+  color: var(--shopping-entry-ink);
+}
+
+.shoppingEntryFeatureIcon svg {
+  width: 100%;
+  height: 100%;
+  fill: none;
+  stroke: currentColor;
+  stroke-width: 4.1;
+  stroke-linecap: round;
+  stroke-linejoin: round;
+  overflow: visible;
+}
+
+.shoppingEntryFeatureIconCoupon svg {
+  transform: rotate(14deg);
+}
+
+.shoppingEntryFeatureIconCoupon svg path:first-child,
+.shoppingEntryFeatureIconGift svg path:nth-child(1),
+.shoppingEntryFeatureIconGift svg path:nth-child(2),
+.shoppingEntryFeatureIconGift svg path:nth-child(4) {
+  fill: var(--shopping-entry-pink);
+}
+
+.shoppingEntryFeatureIconTrend .shoppingEntryFeatureAccent {
+  stroke: var(--shopping-entry-pink);
+  stroke-width: 10;
+}
+
+.shoppingEntryFeatureIconGift svg path:last-child {
+  fill: var(--shopping-entry-yellow);
+  stroke-width: 2;
 }
 
 .shoppingEntryFeatureCard strong {
-  color: #0f172a;
-  font-size: 11px;
+  color: var(--shopping-entry-ink);
+  font-size: 15px;
   line-height: 1.2;
-  font-weight: 500;
+  font-weight: 900;
 }
 
 .shoppingEntryFeatureCard p {
   margin: 0;
-  color: #64748b;
-  font-size: 9px;
+  color: rgba(93, 74, 74, 0.84);
+  font-size: 11px;
   line-height: 1.35;
+  font-weight: 700;
 }
 
 .shoppingEntryArmFront,
@@ -3017,14 +3199,14 @@
   z-index: 2;
   width: 100%;
   height: auto;
-  min-height: 136px;
+  min-height: 126px;
 }
 
 .shoppingEntryActions {
-  margin-top: clamp(22px, 5svh, 34px);
+  margin-top: clamp(16px, 3.5svh, 28px);
   display: grid;
   grid-template-columns: 1fr;
-  gap: 10px;
+  gap: 18px;
   padding-top: 0;
 }
 
@@ -3099,26 +3281,42 @@
 
 .shoppingEntryPrimaryBtn,
 .shoppingEntrySecondaryBtn {
-  border: none;
-  height: 52px;
-  border-radius: 15px;
-  font-size: 15px;
-  font-weight: 500;
+  position: relative;
+  border: 1.7px solid var(--shopping-entry-soft-ink);
+  min-height: 54px;
+  height: auto;
+  border-radius: 255px 16px 225px 16px / 16px 225px 16px 255px;
+  color: var(--shopping-entry-ink);
+  font-size: clamp(20px, 6vw, 25px);
+  font-weight: 900;
+  letter-spacing: 0;
   cursor: pointer;
+  transform: skewX(-2deg);
+  box-shadow: 4px 5px 0 var(--shopping-entry-shadow-ink);
+  transition: transform 0.16s ease;
+}
+
+.shoppingEntryPrimaryBtn::after,
+.shoppingEntrySecondaryBtn::after {
+  content: '';
+  position: absolute;
+  inset: 5px -4px -6px 5px;
+  border: 1.5px solid var(--shopping-entry-soft-ink);
+  border-radius: 16px 255px 16px 225px / 255px 16px 225px 16px;
+  z-index: -1;
+}
+
+.shoppingEntryPrimaryBtn:active,
+.shoppingEntrySecondaryBtn:active {
+  transform: skewX(-2deg) translateY(2px);
 }
 
 .shoppingEntryPrimaryBtn {
-  color: #fff;
-  background: linear-gradient(135deg, #ffe2df 0%, #f4c1c6 100%);
-  box-shadow: 0 14px 28px rgba(206, 143, 145, 0.2);
+  background: var(--shopping-entry-pink);
 }
 
 .shoppingEntrySecondaryBtn {
-  color: #1f2937;
-  background: #fff;
-  box-shadow:
-    inset 0 0 0 1px rgba(226, 214, 214, 0.96),
-    0 8px 18px rgba(206, 143, 145, 0.1);
+  background: var(--shopping-entry-yellow);
 }
 
 .shoppingEntrySwipeZone {
@@ -3139,12 +3337,11 @@
   position: relative;
   margin-bottom: calc(8px + env(safe-area-inset-bottom, 0px));
   width: 120px;
-  height: 34px;
+  height: 54px;
   border: none;
   background: transparent;
   box-shadow: none;
-  display: grid;
-  place-items: center;
+  display: block;
   cursor: pointer;
   animation: shoppingEntrySwipeHintPulse 1.8s ease-in-out infinite;
 }
@@ -3152,11 +3349,12 @@
 .shoppingEntrySwipeHint::after {
   content: '上滑退出';
   position: absolute;
-  top: 18px;
+  top: 30px;
   left: 50%;
   transform: translateX(-50%);
-  color: #8a8fa3;
-  font-size: 12px;
+  color: var(--shopping-entry-ink);
+  font-size: 17px;
+  font-weight: 900;
   white-space: nowrap;
   background: transparent;
 }
@@ -3165,12 +3363,31 @@
   position: absolute;
   top: 0;
   left: 50%;
-  width: 60px;
-  height: 4px;
+  width: 34px;
+  height: 24px;
   border: none;
-  border-radius: 999px;
-  background: #cbd5e1;
+  background: transparent;
   transform: translateX(-50%);
+}
+
+.shoppingEntrySwipeArrow::before,
+.shoppingEntrySwipeArrow::after {
+  content: '';
+  position: absolute;
+  left: 50%;
+  width: 28px;
+  height: 28px;
+  border-top: 4px solid var(--shopping-entry-ink);
+  border-left: 4px solid var(--shopping-entry-ink);
+  transform: translateX(-50%) rotate(45deg);
+}
+
+.shoppingEntrySwipeArrow::before {
+  top: 9px;
+}
+
+.shoppingEntrySwipeArrow::after {
+  top: -1px;
 }
 
 .shoppingCompanionFloating {
@@ -3470,7 +3687,16 @@
   }
 
   .shoppingEntryHero {
-    padding: calc(40px + env(safe-area-inset-top, 0px)) 32px calc(72px + env(safe-area-inset-bottom, 0px));
+    padding: clamp(18px, 3.4svh, 32px) 26px calc(34px + env(safe-area-inset-bottom, 0px));
+  }
+
+  .shoppingEntryExitBtn {
+    top: calc(46px + env(safe-area-inset-top, 0px));
+    right: 22px;
+    min-width: 54px;
+    height: 32px;
+    padding: 0 12px;
+    font-size: 13px;
   }
 
   .shoppingEntryCopy h2 {
@@ -3479,13 +3705,12 @@
 
   .shoppingEntryScene {
     inset: auto;
-    min-height: 118px;
-    margin-top: clamp(10px, 3.2svh, 22px);
+    min-height: clamp(174px, 28svh, 260px);
+    margin-top: clamp(44px, 8svh, 96px);
   }
 
   .shoppingEntryArtworkCard {
-    width: min(148px, 39vw);
-    border-radius: 28px;
+    width: clamp(124px, 36vw, 162px);
   }
 
   .shoppingEntryArtworkBadge {
@@ -3494,31 +3719,32 @@
   }
 
   .shoppingEntryBagSvg {
-    width: 78px;
-    height: 78px;
+    width: 68px;
+    height: 68px;
   }
 
   .shoppingEntryChoiceArea {
-    min-height: 128px;
+    min-height: 122px;
   }
 
   .shoppingEntryActions {
-    margin-top: clamp(18px, 4.2svh, 28px);
+    margin-top: clamp(12px, 2.8svh, 24px);
+    gap: 16px;
   }
 
   .shoppingEntryFeatureGrid {
-    gap: 10px;
-    margin-top: 28px;
+    gap: 8px;
+    margin-top: clamp(28px, 5svh, 42px);
   }
 
   .shoppingEntryFeatureCard {
-    min-height: 76px;
-    border-radius: 14px;
+    min-height: 88px;
   }
 
   .shoppingEntryPrimaryBtn,
   .shoppingEntrySecondaryBtn {
-    height: 50px;
+    min-height: 50px;
+    font-size: clamp(18px, 5.4vw, 23px);
   }
 
   .movieGrid {
@@ -3583,15 +3809,15 @@
 
 @supports (-webkit-touch-callout: none) {
   .shoppingEntryHero {
-    padding: env(safe-area-inset-top, 0px) 36px calc(28px + env(safe-area-inset-bottom, 0px));
-    justify-content: space-evenly;
+    padding: clamp(18px, 3.4svh, 32px) 32px calc(34px + env(safe-area-inset-bottom, 0px));
+    justify-content: flex-start;
   }
 }
 
 @supports (-webkit-touch-callout: none) {
   @media (max-width: 420px) {
     .shoppingEntryHero {
-      padding: env(safe-area-inset-top, 0px) 32px calc(24px + env(safe-area-inset-bottom, 0px));
+      padding: clamp(16px, 3svh, 28px) 26px calc(32px + env(safe-area-inset-bottom, 0px));
     }
   }
 }
@@ -3599,29 +3825,29 @@
 @supports (-webkit-touch-callout: none) {
   @media (display-mode: standalone) {
     .shoppingEntryHero {
-      padding: env(safe-area-inset-top, 0px) 36px calc(22px + env(safe-area-inset-bottom, 0px));
-      justify-content: space-evenly;
+      padding: clamp(16px, 3svh, 28px) 30px calc(32px + env(safe-area-inset-bottom, 0px));
+      justify-content: flex-start;
     }
 
     .shoppingEntryScene {
-      min-height: 118px;
-      margin-top: 14px;
+      min-height: clamp(168px, 27svh, 246px);
+      margin-top: clamp(38px, 7svh, 82px);
     }
 
     .shoppingEntryArtworkCard {
-      width: min(150px, 39vw);
+      width: clamp(122px, 35vw, 156px);
     }
 
     .shoppingEntryChoiceArea {
-      min-height: 126px;
+      min-height: 120px;
     }
 
     .shoppingEntryActions {
-      margin-top: 24px;
+      margin-top: clamp(12px, 2.6svh, 22px);
     }
 
     .shoppingEntryFeatureGrid {
-      margin-top: 24px;
+      margin-top: clamp(26px, 4.8svh, 38px);
     }
   }
 }
@@ -3629,28 +3855,28 @@
 @supports (-webkit-touch-callout: none) {
   @media (display-mode: standalone) and (max-width: 420px) {
     .shoppingEntryHero {
-      padding: env(safe-area-inset-top, 0px) 30px calc(20px + env(safe-area-inset-bottom, 0px));
+      padding: clamp(14px, 2.8svh, 24px) 24px calc(30px + env(safe-area-inset-bottom, 0px));
     }
 
     .shoppingEntryScene {
-      min-height: 112px;
-      margin-top: 12px;
+      min-height: clamp(158px, 26svh, 230px);
+      margin-top: clamp(32px, 6svh, 72px);
     }
 
     .shoppingEntryArtworkCard {
-      width: min(142px, 38vw);
+      width: clamp(116px, 34vw, 148px);
     }
 
     .shoppingEntryChoiceArea {
-      min-height: 122px;
+      min-height: 116px;
     }
 
     .shoppingEntryActions {
-      margin-top: 22px;
+      margin-top: clamp(10px, 2.4svh, 20px);
     }
 
     .shoppingEntryFeatureGrid {
-      margin-top: 24px;
+      margin-top: clamp(24px, 4.4svh, 34px);
     }
   }
 }
@@ -3663,30 +3889,56 @@
 
 /* Market Home Redesign */
 .marketHome {
+  --market-ink: #6b5753;
+  --market-soft-ink: rgba(107, 87, 83, 0.72);
+  --market-paper: #ffffff;
+  --market-panel: rgba(255, 255, 255, 0.7);
+  --market-pink: #fdb8d1;
+  --market-yellow: #ffe7a0;
+  --market-green: #89c85a;
   display: flex;
   flex-direction: column;
-  gap: 8px;
-  padding-bottom: 4px;
+  gap: 12px;
+  min-height: 100%;
+  margin: -10px -12px calc(-1 * (var(--tab-h) + 8px + env(safe-area-inset-bottom, 0px)));
+  padding: 14px 14px calc(var(--tab-h) + 22px + env(safe-area-inset-bottom, 0px));
+  background: var(--market-paper);
   font-size: 14px;
+  color: var(--market-ink);
+  font-family: "Comic Sans MS", "PingFang SC", "Microsoft YaHei", cursive, sans-serif;
+  isolation: isolate;
 }
 
 .marketSearchBar {
+  position: relative;
   display: grid;
   grid-template-columns: 1fr auto auto;
   align-items: center;
-  gap: 6px;
-  border-radius: 16px;
-  background: #f4f6ef;
-  border: 1px solid #ecede8;
-  padding: 4px 8px;
-  min-height: 36px;
+  gap: 7px;
+  min-height: 42px;
+  padding: 5px 10px;
+  border: 1.6px solid var(--market-soft-ink);
+  border-radius: 255px 22px 225px 22px / 22px 225px 18px 255px;
+  background: rgba(255, 255, 255, 0.54);
+  box-shadow: 2px 3px 0 rgba(107, 87, 83, 0.12);
+  isolation: isolate;
+}
+
+.marketSearchBar::after {
+  content: '';
+  position: absolute;
+  inset: 3px -4px -4px 4px;
+  border: 1.2px solid rgba(107, 87, 83, 0.38);
+  border-radius: 22px 255px 18px 225px / 255px 18px 225px 18px;
+  pointer-events: none;
+  z-index: -1;
 }
 
 .marketSearchInput {
   display: inline-flex;
   align-items: center;
   gap: 8px;
-  color: #b0b4ad;
+  color: rgba(107, 87, 83, 0.5);
   font-size: 14px;
   min-width: 0;
 }
@@ -3696,22 +3948,22 @@
   min-width: 0;
   border: none;
   background: transparent;
-  color: #2a2f36;
-  font-size: 16px;
+  color: var(--market-ink);
+  font-size: 15px;
+  font-weight: 700;
   outline: none;
 }
 
 .marketSearchInput input::placeholder {
-  color: #a5aa9f;
+  color: rgba(107, 87, 83, 0.45);
 }
 
 .marketSearchAction {
   border: none;
-  background: #f4f6ef;
-  color: #8f958b;
+  background: transparent;
+  color: rgba(107, 87, 83, 0.68);
   width: 24px;
   height: 24px;
-  border-radius: 10px;
   display: inline-flex;
   align-items: center;
   justify-content: center;
@@ -3721,9 +3973,9 @@
 .marketSearchSubmit {
   border: none;
   background: transparent;
-  color: #24282f;
+  color: var(--market-ink);
   font-size: 14px;
-  font-weight: 600;
+  font-weight: 900;
   padding: 0 6px;
   cursor: pointer;
 }
@@ -3732,31 +3984,46 @@
   display: grid;
   grid-template-columns: repeat(7, minmax(0, 1fr));
   gap: 2px;
-  padding: 0 0 4px;
+  padding: 0 0 2px;
+  border-bottom: 1.4px solid rgba(107, 87, 83, 0.16);
 }
 
 .marketTopTab {
+  position: relative;
   border: none;
   background: transparent;
-  color: #262a31;
+  color: var(--market-ink);
   font-size: 14px;
-  font-weight: 600;
-  padding: 6px 0;
+  font-weight: 900;
+  padding: 7px 0 8px;
   cursor: pointer;
 }
 
 .marketTopTabActive {
-  color: #73ae22;
+  color: #6aaa24;
+}
+
+.marketTopTabActive::after {
+  content: '';
+  position: absolute;
+  left: 50%;
+  bottom: 2px;
+  width: 18px;
+  height: 4px;
+  border-radius: 999px;
+  background: var(--market-green);
+  transform: translateX(-50%) rotate(-2deg);
 }
 
 .marketQuickActions {
   display: grid;
   grid-template-columns: repeat(5, minmax(0, 1fr));
-  gap: 2px;
-  border-top: 1px solid #eceef0;
-  border-bottom: 1px solid #eceef0;
-  background: #fff;
-  padding: 6px 0 4px;
+  gap: 8px;
+  border: 1.4px solid rgba(107, 87, 83, 0.22);
+  border-left: none;
+  border-right: none;
+  background: rgba(255, 255, 255, 0.3);
+  padding: 10px 0 8px;
 }
 
 .marketQuickAction {
@@ -3765,98 +4032,119 @@
   display: inline-flex;
   flex-direction: column;
   align-items: center;
-  gap: 6px;
-  color: #2f343c;
+  gap: 7px;
+  color: var(--market-ink);
   cursor: pointer;
 }
 
 .marketQuickAction span {
-  font-size: 14px;
+  font-size: 13px;
+  font-weight: 800;
+  line-height: 1.15;
 }
 
 .marketQuickIcon {
   position: relative;
-  width: 38px;
-  height: 38px;
-  border-radius: 999px;
+  width: 42px;
+  height: 42px;
+  border-radius: 18px 20px 17px 19px / 19px 17px 20px 18px;
+  border: 1.5px solid rgba(107, 87, 83, 0.56);
   display: inline-flex;
   align-items: center;
   justify-content: center;
-  color: #ffffff;
-  background: linear-gradient(135deg, #ff78a1, #ff5e7f);
+  color: var(--market-ink);
+  background: var(--market-pink);
+  box-shadow: 2px 3px 0 rgba(107, 87, 83, 0.13);
+  transform: rotate(-1.5deg);
 }
 
 .marketQuickAction:nth-child(2) .marketQuickIcon {
-  background: linear-gradient(135deg, #ffd46b, #ffb319);
+  background: #ffc64f;
+  transform: rotate(1.2deg);
 }
 
 .marketQuickAction:nth-child(3) .marketQuickIcon {
-  background: linear-gradient(135deg, #ffbe6d, #ff9340);
+  background: #ffcf8c;
+  transform: rotate(-0.8deg);
 }
 
 .marketQuickAction:nth-child(4) .marketQuickIcon {
-  background: linear-gradient(135deg, #5fdabf, #43bea3);
+  background: #9bdcca;
+  transform: rotate(1deg);
 }
 
 .marketQuickAction:nth-child(5) .marketQuickIcon {
-  background: linear-gradient(135deg, #f58adf, #eb67ca);
+  background: #f1a6df;
+  transform: rotate(-1deg);
 }
 
 .marketQuickIcon em {
   position: absolute;
-  top: -8px;
-  right: -16px;
+  top: -9px;
+  right: -13px;
   font-style: normal;
-  background: #ff3f68;
-  color: #fff;
+  background: #ff5e86;
+  color: #fffdf7;
+  border: 1.2px solid rgba(107, 87, 83, 0.42);
   border-radius: 999px;
   font-size: 10px;
   line-height: 1;
   padding: 4px 6px;
-  font-weight: 700;
+  font-weight: 900;
+  box-shadow: 1px 2px 0 rgba(107, 87, 83, 0.12);
 }
 
 .storeCardsGrid {
   display: grid;
   grid-template-columns: repeat(2, minmax(0, 1fr));
-  gap: 8px;
+  gap: 12px;
   align-items: start;
 }
 
 .storeSearchEmpty {
-  margin: 8px 2px 0;
-  color: #8d938a;
-  font-size: 14px;
+  position: relative;
+  margin: 10px 2px 0;
+  padding: 18px 14px;
+  min-height: 150px;
+  color: rgba(107, 87, 83, 0.58);
+  font-size: 16px;
+  font-weight: 800;
+  border: 1.5px dashed rgba(107, 87, 83, 0.28);
+  border-radius: 18px 21px 16px 22px / 20px 16px 22px 18px;
+  background: rgba(255, 255, 255, 0.24);
 }
 
 .storeEmptyNotice {
-  margin: 0 2px 10px;
-  padding: 10px 12px;
-  border-radius: 14px;
-  background: rgba(255, 248, 225, 0.98);
-  border: 1px solid rgba(238, 212, 137, 0.9);
+  position: relative;
+  margin: 0 2px 2px;
+  padding: 12px 14px;
+  border-radius: 255px 20px 225px 20px / 20px 225px 20px 255px;
+  background: rgba(255, 247, 209, 0.76);
+  border: 1.5px solid rgba(190, 143, 45, 0.48);
   display: flex;
   align-items: center;
   justify-content: space-between;
   gap: 10px;
+  box-shadow: 2px 3px 0 rgba(190, 143, 45, 0.12);
 }
 
 .storeEmptyNoticeText {
-  color: #9a7a1f;
+  color: #9a701c;
   font-size: 14px;
   line-height: 1.35;
+  font-weight: 800;
 }
 
 .storeEmptyNoticeButton {
   flex-shrink: 0;
-  border: none;
-  border-radius: 999px;
-  background: #fff;
+  border: 1.3px solid rgba(190, 143, 45, 0.32);
+  border-radius: 255px 16px 225px 16px / 16px 225px 16px 255px;
+  background: rgba(255, 255, 255, 0.76);
   color: #9b7017;
   font-size: 12px;
-  font-weight: 600;
+  font-weight: 900;
   padding: 6px 10px;
-  box-shadow: 0 4px 10px rgba(120, 89, 22, 0.08);
+  box-shadow: 1px 2px 0 rgba(120, 89, 22, 0.1);
 }
 
 .storeEmptyNoticeButton:active {
@@ -3864,20 +4152,34 @@
 }
 
 .storeTile {
-  border: none;
-  border-radius: 14px;
-  overflow: hidden;
-  background: #fff;
-  padding: 0;
+  position: relative;
+  border: 1.5px solid var(--market-soft-ink);
+  border-radius: 18px 21px 16px 22px / 20px 16px 22px 18px;
+  overflow: visible;
+  background: rgba(255, 255, 255, 0.64);
+  padding: 3px;
   text-align: left;
-  box-shadow: 0 6px 16px rgba(27, 39, 52, 0.08);
+  box-shadow: 3px 4px 0 rgba(107, 87, 83, 0.13);
   cursor: pointer;
+  isolation: isolate;
+}
+
+.storeTile::after {
+  content: '';
+  position: absolute;
+  inset: 4px -4px -5px 5px;
+  border: 1.2px solid rgba(107, 87, 83, 0.36);
+  border-radius: 22px 18px 21px 16px / 16px 22px 18px 21px;
+  pointer-events: none;
+  z-index: -1;
 }
 
 .storeTileCover {
   height: 92px;
   background-size: cover;
   background-position: center;
+  border-radius: 14px 17px 12px 16px / 16px 12px 17px 14px;
+  border: 1px solid rgba(107, 87, 83, 0.18);
 }
 
 .storeTileCoverWarm {
@@ -3890,7 +4192,7 @@
 
 .storeTileBody {
   position: relative;
-  padding: 14px 8px 8px;
+  padding: 15px 8px 9px;
   display: flex;
   flex-direction: column;
   gap: 2px;
@@ -3902,8 +4204,8 @@
   top: -30px;
   width: 44px;
   height: 44px;
-  border-radius: 999px;
-  border: 2px solid #fff;
+  border-radius: 17px 19px 16px 18px / 18px 16px 19px 17px;
+  border: 1.5px solid rgba(107, 87, 83, 0.42);
   background: #f1f5f6e8;
   background-size: cover;
   background-position: center;
@@ -3913,20 +4215,23 @@
 .storeTileBody strong {
   font-size: 14px;
   line-height: 1.15;
-  color: #2a2e35;
+  color: var(--market-ink);
   margin-top: 4px;
+  font-weight: 900;
 }
 
 .storeTileBody span {
-  font-size: 14px;
-  color: #3e444f;
+  font-size: 13px;
+  color: rgba(107, 87, 83, 0.84);
   line-height: 1.2;
+  font-weight: 700;
 }
 
 .storeTileBody p {
   margin: 4px 0 0;
-  font-size: 14px;
+  font-size: 12px;
   color: #9a8157;
+  font-weight: 800;
   display: inline-flex;
   align-items: center;
   gap: 4px;
@@ -3943,7 +4248,7 @@
   }
 
   .storeCardsGrid {
-    gap: 8px;
+    gap: 10px;
   }
 
   .storeTileCover {
