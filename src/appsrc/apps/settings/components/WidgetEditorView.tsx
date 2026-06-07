@@ -128,6 +128,7 @@ export const WidgetEditorView: React.FC<WidgetEditorViewProps> = ({ widgetId, in
     initialConfig?.widgetCode || (templateId ? widgetTemplateCode[templateId] : '') || ''
   );
   const [isDeleteConfirmOpen, setIsDeleteConfirmOpen] = useState(false);
+  const [isClearCodeConfirmOpen, setIsClearCodeConfirmOpen] = useState(false);
   const isEditing = Boolean(initialConfig && !templateFromId);
 
   useEffect(() => {
@@ -146,7 +147,7 @@ export const WidgetEditorView: React.FC<WidgetEditorViewProps> = ({ widgetId, in
   }, [initialConfig, templateId]);
 
   const previewTemplateId = templateId || initialConfig?.templateId || 'custom-code';
-  const canSave = widgetName.trim().length > 0 && widgetCode.trim().length > 0;
+  const canSave = widgetName.trim().length > 0 && (isEditing || widgetCode.trim().length > 0);
   const commitGridWInput = () => {
     const parsed = Number.parseInt(gridWInput, 10);
     const next = Number.isFinite(parsed) ? Math.min(Math.max(parsed, 1), 4) : gridW;
@@ -239,7 +240,21 @@ export const WidgetEditorView: React.FC<WidgetEditorViewProps> = ({ widgetId, in
           </div>
 
           <div>
-            <label className="block text-xs text-slate-400 mb-2">组件代码 (支持原生HTML + CSS + JavaScript)</label>
+            <div className="mb-2 flex items-center justify-between gap-3">
+              <label className="block text-xs text-slate-400">组件代码 (支持原生HTML + CSS + JavaScript)</label>
+              <button
+                type="button"
+                onClick={() => setIsClearCodeConfirmOpen(true)}
+                disabled={widgetCode.trim().length === 0}
+                className={`shrink-0 rounded-full px-3 py-1 text-xs font-semibold transition-colors ${
+                  widgetCode.trim().length > 0
+                    ? 'bg-slate-100 text-slate-600 hover:bg-slate-200'
+                    : 'bg-slate-50 text-slate-300'
+                }`}
+              >
+                清空代码
+              </button>
+            </div>
             <textarea
               value={widgetCode}
               onChange={(event) => setWidgetCode(event.target.value)}
@@ -307,6 +322,33 @@ export const WidgetEditorView: React.FC<WidgetEditorViewProps> = ({ widgetId, in
                 }}
               >
                 删除
+              </button>
+            </div>
+          </div>
+        </div>
+      ) : null}
+      {isClearCodeConfirmOpen ? (
+        <div className="absolute inset-0 z-30 flex items-center justify-center bg-slate-950/28 px-6 backdrop-blur-sm">
+          <div className="w-full max-w-[300px] rounded-3xl border border-white/70 bg-white/90 p-5 text-center shadow-[0_24px_60px_-30px_rgba(15,23,42,0.7)]">
+            <div className="text-[16px] font-semibold text-slate-900">清空代码？</div>
+            <div className="mt-2 text-[13px] leading-5 text-slate-500">当前组件代码会被清空，保存前仍可重新粘贴或撤销编辑。</div>
+            <div className="mt-5 grid grid-cols-2 gap-3">
+              <button
+                type="button"
+                className="h-10 rounded-2xl border border-slate-200 bg-white text-sm font-semibold text-slate-600"
+                onClick={() => setIsClearCodeConfirmOpen(false)}
+              >
+                取消
+              </button>
+              <button
+                type="button"
+                className="h-10 rounded-2xl bg-slate-900 text-sm font-semibold text-white"
+                onClick={() => {
+                  setIsClearCodeConfirmOpen(false);
+                  setWidgetCode('');
+                }}
+              >
+                清空
               </button>
             </div>
           </div>

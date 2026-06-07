@@ -9,12 +9,14 @@ interface HomeDockProps {
   onOpenPhone?: () => void;
   bottomOffset?: number;
   isEditing?: boolean;
+  passthrough?: boolean;
 }
 
 export const HomeDock: React.FC<HomeDockProps> = ({
   onOpenPhone,
   bottomOffset = 18,
   isEditing = false,
+  passthrough = false,
 }) => {
   const settings = useSettingsCoreStore((state) => state.settings);
   const activeThemeId = useThemeStore((state) => state.activeThemeId);
@@ -74,7 +76,7 @@ export const HomeDock: React.FC<HomeDockProps> = ({
 
   return (
     <div
-      className="absolute inset-x-0 z-50 flex justify-center px-4"
+      className={`absolute inset-x-0 z-50 flex justify-center px-4 ${passthrough ? 'pointer-events-none' : ''}`}
       style={{ bottom: `${bottomOffset}px` }}
     >
       <div

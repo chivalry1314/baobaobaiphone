@@ -2732,14 +2732,6 @@ export const ShoppingApp: React.FC<ShoppingAppProps> = ({ onClose, context }) =>
           >
             <div className={styles.shoppingEntryGlowA} />
             <div className={styles.shoppingEntryGlowB} />
-            <div className={styles.shoppingEntryStatusBar} aria-hidden="true">
-              <span>11:09</span>
-              <span className={styles.shoppingEntryStatusIcons}>
-                <i />
-                <i />
-                <i />
-              </span>
-            </div>
             {shoppingEntryStage === 'mode' ? (
               <button
                 type="button"

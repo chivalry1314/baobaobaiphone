@@ -444,6 +444,12 @@ export const SettingsApp: React.FC<SettingsAppProps> = ({ onClose, context }) =>
                     shadow: config.shadow,
                   },
                 };
+                const isSameExistingLibraryWidget = (name: unknown, widgetCode: unknown) => (
+                  typeof name === 'string' &&
+                  typeof widgetCode === 'string' &&
+                  name.trim() === editingLibraryWidget?.name?.trim() &&
+                  widgetCode.trim() === editingLibraryWidget?.widgetCode?.trim()
+                );
 
                 const upsertLibraryEntry = () => {
                   upsertCustomWidgetLibraryItem(libraryEntry);
@@ -465,13 +471,30 @@ export const SettingsApp: React.FC<SettingsAppProps> = ({ onClose, context }) =>
 
                 if (editingLibraryWidget) {
                   upsertCustomWidgetLibraryItem(libraryEntry);
-                  const existsInDesktopLibrary = (desktopLayout.customWidgets || []).some((widget) => widget.id === editingLibraryWidget.id);
                   updateDesktopLayout({
-                    customWidgets: existsInDesktopLibrary
-                      ? (desktopLayout.customWidgets || []).map((widget) =>
-                          widget.id === editingLibraryWidget.id ? libraryEntry : widget
-                        )
-                      : [...(desktopLayout.customWidgets || []), libraryEntry],
+                    customWidgets: (desktopLayout.customWidgets || []).map((widget) =>
+                      widget.id === editingLibraryWidget.id || isSameExistingLibraryWidget(widget.name, widget.widgetCode)
+                        ? { ...libraryEntry, id: widget.id }
+                        : widget
+                    ),
+                    items: (desktopLayout.items || []).map((item) => {
+                      if (item.type !== 'widget' || item.componentId !== 'custom-widget') return item;
+                      if (!isSameExistingLibraryWidget(item.data?.name, item.data?.widgetCode)) return item;
+                      return {
+                        ...item,
+                        w,
+                        h,
+                        data: {
+                          ...(item.data || {}),
+                          name: config.name,
+                          templateId: config.templateId || 'custom-code',
+                          widgetCode: config.widgetCode,
+                          cornerRadius: config.cornerRadius,
+                          frosted: config.frosted,
+                          shadow: config.shadow,
+                        },
+                      };
+                    }),
                   });
                 } else if (config.templateId === 'custom-code') {
                   upsertLibraryEntry();

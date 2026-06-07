@@ -79,7 +79,10 @@ const normalizeStyle = (
 };
 
 const normalizeSoftBubbleColor = (color: string): { backgroundColor: string; borderColor: string } => {
-  const value = color.trim() || '#95ec69';
+  const value = color.trim();
+  if (!value) {
+    return { backgroundColor: 'transparent', borderColor: 'transparent' };
+  }
   const hex = value.match(/^#([0-9a-f]{6})$/i)?.[1];
   if (hex) {
     const r = parseInt(hex.slice(0, 2), 16);
@@ -162,6 +165,21 @@ const parseCssDeclarationStyle = (css: string): CSSProperties | undefined => {
   }, {});
 };
 
+const normalizeImageBubbleFill = (style: CSSProperties | undefined, isUser: boolean): CSSProperties | undefined => {
+  if (!style?.borderImageSource) return style;
+  const next: CSSProperties = {
+    ...style,
+    background: isUser ? 'rgba(255,255,255,0.08)' : '#ffffff',
+    backgroundClip: style.backgroundClip || 'padding-box',
+    backdropFilter: style.backdropFilter || (isUser ? 'blur(8px) saturate(130%)' : undefined),
+    WebkitBackdropFilter: style.WebkitBackdropFilter || (isUser ? 'blur(8px) saturate(130%)' : undefined),
+  };
+  if (typeof next.borderImageSlice === 'string') {
+    next.borderImageSlice = next.borderImageSlice.replace(/\s+fill\b/i, '').trim();
+  }
+  return next;
+};
+
 const parseBubblePseudoStyle = (
   css: string,
   selector: '.bubble::before' | '.bubble::after'
@@ -189,32 +207,6 @@ const mirrorBubbleSideStyle = (style?: CSSProperties): CSSProperties | undefined
   next.borderBottomLeftRadius = next.borderBottomRightRadius;
   next.borderBottomRightRadius = borderBottomLeftRadius;
   return next;
-};
-
-const omitBubbleColorStyle = (style?: CSSProperties): CSSProperties | undefined => {
-  if (!style) return undefined;
-  const colorKeys = new Set([
-    'background',
-    'backgroundColor',
-    'backgroundImage',
-    'border',
-    'borderColor',
-    'borderTop',
-    'borderRight',
-    'borderBottom',
-    'borderLeft',
-    'borderTopColor',
-    'borderRightColor',
-    'borderBottomColor',
-    'borderLeftColor',
-    'color',
-  ]);
-  const entries = Object.entries(style).filter(([key]) => !colorKeys.has(key));
-  if (entries.length === 0) return undefined;
-  return entries.reduce<CSSProperties>((acc, [key, value]) => {
-    (acc as Record<string, string | number>)[key] = value as string | number;
-    return acc;
-  }, {});
 };
 
 const renderInlineEmojiContent = (content: string) => {
@@ -336,15 +328,15 @@ export const WeChatChatMessageItem: React.FC<WeChatChatMessageItemProps> = ({
   const quoteText = message.quoteText;
   const bubblePreset = isUser ? selfBubblePreset : peerBubblePreset;
   const bubblePresetClass = getBubblePresetClass(bubblePreset, isUser);
-  const effectiveSelfBubbleColor = selfBubbleColor?.trim() || '#95ec69';
+  const effectiveSelfBubbleColor = selfBubbleColor?.trim() || '';
   const customBubbleStyle = normalizeStyle(
     isUser ? customRenderConfig?.selfBubbleStyle : customRenderConfig?.peerBubbleStyle
   );
-  const customCssBubbleStyleRaw = parseCssDeclarationStyle(customBubbleCss || '');
+  const customCssBubbleStyleRaw = normalizeImageBubbleFill(parseCssDeclarationStyle(customBubbleCss || ''), isUser);
   const customCssBubbleBeforeStyleRaw = parseBubblePseudoStyle(customBubbleCss || '', '.bubble::before');
   const customCssBubbleAfterStyleRaw = parseBubblePseudoStyle(customBubbleCss || '', '.bubble::after');
   const shouldMirrorImageBubble = !isUser && Boolean(customCssBubbleStyleRaw?.borderImageSource);
-  const customCssBubbleStyle = isUser ? customCssBubbleStyleRaw : omitBubbleColorStyle(customCssBubbleStyleRaw);
+  const customCssBubbleStyle = customCssBubbleStyleRaw;
   const customCssBubbleBeforeStyle = isUser ? customCssBubbleBeforeStyleRaw : mirrorBubbleSideStyle(customCssBubbleBeforeStyleRaw);
   const customCssBubbleAfterStyle = isUser ? customCssBubbleAfterStyleRaw : mirrorBubbleSideStyle(customCssBubbleAfterStyleRaw);
   const selfBubbleColorStyle: CSSProperties | undefined = isUser
@@ -366,6 +358,9 @@ export const WeChatChatMessageItem: React.FC<WeChatChatMessageItemProps> = ({
     isUser ? customRenderConfig?.selfTextStyle : customRenderConfig?.peerTextStyle
   );
   const isUsingCustomBubble = Boolean(customBubbleStyle || customCssBubbleStyle);
+  const effectiveBubbleClass = isUsingCustomBubble
+    ? `text-gray-900 ${isUser ? 'rounded-lg rounded-tr-none' : 'rounded-lg rounded-tl-none'}`
+    : bubblePresetClass;
   const showTail =
     !isUsingCustomBubble &&
     bubblePreset === 'wechat' &&
@@ -570,7 +565,7 @@ export const WeChatChatMessageItem: React.FC<WeChatChatMessageItemProps> = ({
                     ? 'bg-transparent p-0'
                   : isSticker
                     ? 'bg-transparent p-0'
-                    : `${bubblePresetClass} ${isImage ? 'p-1.5' : 'px-3.5 py-2.5'}`
+                    : `${effectiveBubbleClass} ${isImage ? 'p-1.5' : 'px-3.5 py-2.5'}`
                 }`}
               style={
                 !isTransfer && !isOrderRequest && !isShoppingInvite && !isDreamMusicInvite && !isDreamMusicListenSummary && !isMovieTicket && !isGiftDelivery && !isRecipeCard && !isSticker

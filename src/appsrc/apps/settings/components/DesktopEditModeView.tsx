@@ -110,11 +110,6 @@ const containerVariants = {
   }
 };
 
-const itemVariants = {
-  hidden: { opacity: 0, scale: 0.9, y: 10 },
-  show: { opacity: 1, scale: 1, y: 0, transition: { type: 'spring' as const, stiffness: 300, damping: 24 } }
-};
-
 // ==================== 主组件====================
 
 /**
@@ -498,7 +493,6 @@ export const DesktopEditModeView: React.FC<DesktopEditModeViewProps> = ({ rows, 
       data: widgetConfig.data,
     });
 
-    setShowWidgetPicker(false);
   };
 
   // 添加应用图标到桌面
@@ -597,7 +591,10 @@ export const DesktopEditModeView: React.FC<DesktopEditModeViewProps> = ({ rows, 
               <div className="relative z-10 flex-1 overflow-y-auto overflow-x-hidden scrollbar-hide pt-10 pb-8 px-4">
               <div
                 className="grid gap-x-2 gap-y-3"
-                style={{ gridTemplateColumns: `repeat(${cols}, minmax(0, 1fr))` }}
+                style={{
+                  gridTemplateColumns: `repeat(${cols}, minmax(0, 1fr))`,
+                  gridTemplateRows: `repeat(${rows}, minmax(0, 1fr))`,
+                }}
               >
                 {/* 生成网格 */}
                 {Array.from({ length: rows * cols }).map((_, index) => {
@@ -619,24 +616,37 @@ export const DesktopEditModeView: React.FC<DesktopEditModeViewProps> = ({ rows, 
                   const widgetItem = currentPageWidgets.find(w =>
                     w.x <= col && col < w.x + w.w && w.y <= row && row < w.y + w.h
                   );
-                  const widgetConfig = widgetItem ? widgetsById.get(widgetItem.componentId) : null;
+                  const widgetTemplateId = typeof widgetItem?.data?.templateId === 'string'
+                    ? widgetItem.data.templateId
+                    : widgetItem?.componentId;
+                  const widgetConfig = widgetTemplateId ? widgetsById.get(widgetTemplateId) : null;
                   const isWidgetStart = !!(widgetItem && widgetItem.x === col && widgetItem.y === row);
+                  const isWidgetCoveredCell = !!(widgetItem && !isWidgetStart);
 
                   const isSelected = selectedItem?.instanceId === appItem?.instanceId || selectedItem?.instanceId === widgetItem?.instanceId;
                   const isOccupied = !!appItem || !!widgetItem;
 
+                  if (isWidgetCoveredCell) {
+                    return null;
+                  }
+
                   return (
-                    <motion.button
+                    <button
                       type="button"
                       key={`${row}-${col}`}
-                      variants={itemVariants}
-                      className={`group aspect-square rounded-2xl border flex items-center justify-center cursor-pointer transition-all active:scale-[0.99] focus:outline-none focus-visible:ring-2 focus-visible:ring-sky-500/70 ${
+                      className={`group rounded-2xl border flex items-center justify-center cursor-pointer transition-all active:scale-[0.99] focus:outline-none focus-visible:ring-2 focus-visible:ring-sky-500/70 ${
                         isSelected
                           ? 'border-transparent bg-sky-50/80 ring-2 ring-sky-500/60 shadow-[0_10px_24px_-18px_rgba(2,132,199,0.6)]'
                           : isOccupied
                             ? 'border-white/60 bg-white/55 shadow-[0_10px_24px_-22px_rgba(15,23,42,0.45)] hover:bg-white/70 hover:border-white/80'
                             : 'border-white/40 bg-white/35 hover:bg-white/55 hover:border-white/60'
                       }`}
+                      style={{
+                        gridColumn: `${col + 1} / span ${widgetItem?.w || 1}`,
+                        gridRow: `${row + 1} / span ${widgetItem?.h || 1}`,
+                        aspectRatio: widgetItem ? undefined : '1 / 1',
+                        minHeight: widgetItem ? 0 : undefined,
+                      }}
                       onClick={() => {
                         if (appItem) {
                           setSelectedItem(appItem);
@@ -664,35 +674,25 @@ export const DesktopEditModeView: React.FC<DesktopEditModeViewProps> = ({ rows, 
                           <span className="text-[9px] text-slate-600 mt-1 truncate max-w-full drop-shadow-[0_1px_0_rgba(255,255,255,0.9)]">{appDisplay.name}</span>
                         </div>
                       ) : widgetItem ? (
-                        <div className="flex flex-col items-center w-full px-1">
-                          <div className={`w-10 h-10 rounded-2xl flex items-center justify-center ring-1 shadow-sm ${
-                            isWidgetStart ? 'bg-gradient-to-br from-amber-100 to-orange-100 ring-amber-200/70' : 'bg-slate-100/70 ring-slate-200/70'
-                          }`}>
-                            {isWidgetStart ? (
-                              <span className="text-xs font-semibold text-amber-700">
-                                {(widgetItem.data?.name || widgetConfig?.name || '组件').charAt(0)}
-                              </span>
-                            ) : (
-                              <span className="text-[10px] text-slate-300"> </span>
-                            )}
+                        <div className="flex h-full w-full items-center gap-2 px-2 py-2">
+                          <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-2xl bg-gradient-to-br from-amber-100 to-orange-100 shadow-sm ring-1 ring-amber-200/70">
+                            <span className="text-xs font-semibold text-amber-700">
+                              {(widgetItem.data?.name || widgetConfig?.name || '组件').charAt(0)}
+                            </span>
                           </div>
-                          {isWidgetStart ? (
-                            <div className="mt-1 w-full flex items-center justify-center gap-1">
-                              <span className="text-[9px] text-slate-600 truncate max-w-full drop-shadow-[0_1px_0_rgba(255,255,255,0.9)]">
-                                {widgetItem.data?.name || widgetConfig?.name}
-                              </span>
-                              <span className="shrink-0 text-[9px] text-slate-500 bg-white/70 border border-white/80 rounded-full px-1.5 py-0.5">
-                                {widgetItem.w}x{widgetItem.h}
-                              </span>
+                          <div className="min-w-0 flex-1 text-left">
+                            <div className="truncate text-[10px] font-semibold text-slate-700 drop-shadow-[0_1px_0_rgba(255,255,255,0.9)]">
+                              {widgetItem.data?.name || widgetConfig?.name}
                             </div>
-                          ) : (
-                            <div className="mt-2 w-8 h-1.5 rounded-full bg-slate-200/70" aria-hidden />
-                          )}
+                            <div className="mt-0.5 inline-flex rounded-full border border-white/80 bg-white/70 px-1.5 py-0.5 text-[9px] text-slate-500">
+                              {widgetItem.w}x{widgetItem.h}
+                            </div>
+                          </div>
                         </div>
                       ) : (
                         <span className="text-[11px] text-slate-400 font-medium">{row + 1},{col + 1}</span>
                       )}
-                    </motion.button>
+                    </button>
                   );
                 })}
               </div>
@@ -700,6 +700,38 @@ export const DesktopEditModeView: React.FC<DesktopEditModeViewProps> = ({ rows, 
           </motion.div>
           </div>
         </div>
+
+        {editMode === 'widget' && showWidgetPicker ? (
+          <div className="fixed left-1/2 top-[132px] z-[260] w-[calc(100%-32px)] max-w-[420px] -translate-x-1/2 rounded-[28px] border border-white/70 bg-white/92 p-3 shadow-[0_24px_60px_-32px_rgba(15,23,42,0.75)] backdrop-blur-xl">
+            <div className="mb-2 flex items-center justify-between gap-3">
+              <div className="text-xs font-semibold text-slate-500">选择要添加的小组件</div>
+              <button
+                type="button"
+                onClick={() => setShowWidgetPicker(false)}
+                className="rounded-full bg-slate-100 px-3 py-1 text-[11px] font-semibold text-slate-500 active:bg-slate-200"
+              >
+                关闭
+              </button>
+            </div>
+            <div className="grid max-h-[46vh] grid-cols-2 gap-2 overflow-y-auto pr-1">
+              {availableWidgets.map((widget, index) => (
+                <button
+                  key={widget.id || `widget-${index}`}
+                  onClick={() => handleAddWidget(widget.id)}
+                  className="flex items-center gap-2 rounded-xl border border-slate-200/70 bg-white/80 px-3 py-2 text-xs shadow-[0_10px_24px_-24px_rgba(15,23,42,0.5)] transition-colors hover:bg-white"
+                >
+                  <div className="flex h-7 w-7 items-center justify-center rounded-lg border border-slate-200/80 bg-gradient-to-br from-slate-100 to-slate-200">
+                    <span className="text-[10px] font-semibold text-slate-700">{widget.name.charAt(0)}</span>
+                  </div>
+                  <span className="flex-1 truncate text-left font-semibold text-slate-800">{widget.name}</span>
+                  <span className="shrink-0 rounded-full border border-slate-200/80 bg-slate-50 px-1.5 py-0.5 text-[10px] text-slate-500">
+                    {widget.defaultWidth}x{widget.defaultHeight}
+                  </span>
+                </button>
+              ))}
+            </div>
+          </div>
+        ) : null}
 
         {/* 底部控制面板 */}
         <footer
@@ -881,33 +913,6 @@ export const DesktopEditModeView: React.FC<DesktopEditModeViewProps> = ({ rows, 
                 className="h-9 px-3 bg-red-50 border border-red-200/70 text-red-600 rounded-xl text-xs font-semibold hover:bg-red-100 transition-colors focus:outline-none focus-visible:ring-2 focus-visible:ring-red-500/40"
               >
                 <Trash2 size={14} />
-              </button>
-            </div>
-          ) : editMode === 'widget' && showWidgetPicker ? (
-            <div className="mb-3">
-              <div className="text-xs text-slate-400 mb-2">选择要添加的小组件：</div>
-              <div className="grid grid-cols-2 gap-2 max-h-28 overflow-y-auto pr-1">
-                {availableWidgets.map((widget, index) => (
-                  <button
-                    key={widget.id || `widget-${index}`}
-                    onClick={() => handleAddWidget(widget.id)}
-                    className="flex items-center gap-2 px-3 py-2 bg-white/70 border border-slate-200/70 rounded-xl text-xs hover:bg-white transition-colors shadow-[0_10px_24px_-24px_rgba(15,23,42,0.5)]"
-                  >
-                    <div className="w-7 h-7 rounded-lg bg-gradient-to-br from-slate-100 to-slate-200 border border-slate-200/80 flex items-center justify-center">
-                      <span className="text-[10px] font-semibold text-slate-700">{widget.name.charAt(0)}</span>
-                    </div>
-                    <span className="flex-1 text-left font-semibold text-slate-800 truncate">{widget.name}</span>
-                    <span className="shrink-0 text-[10px] text-slate-500 bg-slate-50 border border-slate-200/80 rounded-full px-1.5 py-0.5">
-                      {widget.defaultWidth}x{widget.defaultHeight}
-                    </span>
-                  </button>
-                ))}
-              </div>
-              <button
-                onClick={() => setShowWidgetPicker(false)}
-                className="mt-2 w-full py-2 bg-white/70 border border-slate-200/70 text-slate-600 rounded-xl text-xs font-semibold hover:bg-white transition-colors"
-              >
-                取消
               </button>
             </div>
           ) : null}

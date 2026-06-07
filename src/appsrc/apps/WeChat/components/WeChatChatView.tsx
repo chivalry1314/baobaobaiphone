@@ -727,7 +727,7 @@ export const WeChatChatView: React.FC<WeChatChatViewProps> = ({
     ...wechatUiSettings,
     selfBubblePreset: session?.selfBubblePreset || wechatUiSettings.selfBubblePreset,
     peerBubblePreset: session?.peerBubblePreset || wechatUiSettings.peerBubblePreset,
-    selfBubbleColor: session?.selfBubbleColor || wechatUiSettings.selfBubbleColor,
+    selfBubbleColor: session?.selfBubbleColor ?? wechatUiSettings.selfBubbleColor,
     customBubbleCss: session?.customBubbleCss || '',
     customBubbleStyleId: session?.customBubbleStyleId || '',
     chatFontFamily: session?.chatFontFamily || '',

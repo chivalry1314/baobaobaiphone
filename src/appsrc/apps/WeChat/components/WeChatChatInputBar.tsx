@@ -199,7 +199,7 @@ export const WeChatChatInputBar: React.FC<WeChatChatInputBarProps> = ({
         };
       }
     }
-    return { backgroundColor: color || '#bbf7d0', borderColor: color || '#bbf7d0' };
+    return { backgroundColor: 'transparent', borderColor: 'transparent' };
   };
   const extractBubbleCssDeclarations = (css: string): string => {
     const blockMatch = css.match(/\.bubble\s*\{([\s\S]*?)\}/i);
@@ -249,6 +249,16 @@ export const WeChatChatInputBar: React.FC<WeChatChatInputBarProps> = ({
         return acc;
       }, {});
   };
+  const bubbleEditorContentMaskStyle = React.useMemo<React.CSSProperties>(() => {
+    if (!bubbleEditorImage || !bubbleEditorSize.width || !bubbleEditorSize.height) return {};
+    const clean = (value: number, max: number) => Math.max(0, Math.min(max, Math.round(value)));
+    return {
+      top: `${(clean(bubbleContentInsets.top, bubbleEditorSize.height) / bubbleEditorSize.height) * 100}%`,
+      right: `${(clean(bubbleContentInsets.right, bubbleEditorSize.width) / bubbleEditorSize.width) * 100}%`,
+      bottom: `${(clean(bubbleContentInsets.bottom, bubbleEditorSize.height) / bubbleEditorSize.height) * 100}%`,
+      left: `${(clean(bubbleContentInsets.left, bubbleEditorSize.width) / bubbleEditorSize.width) * 100}%`,
+    };
+  }, [bubbleContentInsets, bubbleEditorImage, bubbleEditorSize]);
   const lastEditorValueRef = React.useRef('');
   const keepTextareaFocused = (
     event: React.MouseEvent<HTMLButtonElement> | React.PointerEvent<HTMLButtonElement>
@@ -294,10 +304,11 @@ border-style:solid;
 border-color:transparent;
 border-width:${renderTop}px ${renderRight}px ${renderBottom}px ${renderLeft}px;
 border-image-source:url("${bubbleEditorImage}");
-border-image-slice:${top} ${right} ${bottom} ${left} fill;
+border-image-slice:${top} ${right} ${bottom} ${left};
 border-image-width:${renderTop}px ${renderRight}px ${renderBottom}px ${renderLeft}px;
 border-image-repeat:stretch;
 background:transparent;
+background-clip:padding-box;
 padding:${contentTop}px ${contentRight}px ${contentBottom}px ${contentLeft}px;
 }`;
   }, [bubbleContentInsets, bubbleEditorImage, bubbleEditorSize, bubbleStretchInsets]);
@@ -885,14 +896,48 @@ padding:${contentTop}px ${contentRight}px ${contentBottom}px ${contentLeft}px;
               context.drawImage(image, drawX, drawY, drawWidth, drawHeight);
               const imageData = context.getImageData(0, 0, canvas.width, canvas.height);
               const data = imageData.data;
-              for (let index = 0; index < data.length; index += 4) {
-                const r = data[index];
-                const g = data[index + 1];
-                const b = data[index + 2];
+              const isTransparentCandidate = (pixelIndex: number) => {
+                const dataIndex = pixelIndex * 4;
+                const r = data[dataIndex];
+                const g = data[dataIndex + 1];
+                const b = data[dataIndex + 2];
                 const max = Math.max(r, g, b);
                 const min = Math.min(r, g, b);
-                if (max > 238 && max - min < 22) {
-                  data[index + 3] = 0;
+                return max > 242 && max - min < 18;
+              };
+              const totalPixels = canvas.width * canvas.height;
+              const visited = new Uint8Array(totalPixels);
+              const queue: number[] = [];
+              const enqueue = (pixelIndex: number) => {
+                if (pixelIndex < 0 || pixelIndex >= totalPixels) return;
+                if (visited[pixelIndex]) return;
+                visited[pixelIndex] = 1;
+                if (isTransparentCandidate(pixelIndex)) queue.push(pixelIndex);
+              };
+              for (let x = 0; x < canvas.width; x += 1) {
+                enqueue(x);
+                enqueue((canvas.height - 1) * canvas.width + x);
+              }
+              for (let y = 0; y < canvas.height; y += 1) {
+                enqueue(y * canvas.width);
+                enqueue(y * canvas.width + canvas.width - 1);
+              }
+              for (let cursor = 0; cursor < queue.length; cursor += 1) {
+                const pixelIndex = queue[cursor];
+                const dataIndex = pixelIndex * 4;
+                data[dataIndex + 3] = 0;
+                const x = pixelIndex % canvas.width;
+                const y = Math.floor(pixelIndex / canvas.width);
+                if (x > 0) enqueue(pixelIndex - 1);
+                if (x < canvas.width - 1) enqueue(pixelIndex + 1);
+                if (y > 0) enqueue(pixelIndex - canvas.width);
+                if (y < canvas.height - 1) enqueue(pixelIndex + canvas.width);
+              }
+              for (let index = 0; index < totalPixels; index += 1) {
+                if (visited[index]) continue;
+                const dataIndex = index * 4;
+                if (data[dataIndex + 3] < 12) {
+                  data[dataIndex + 3] = 0;
                 }
               }
               context.putImageData(imageData, 0, 0);
@@ -1001,6 +1046,18 @@ padding:${contentTop}px ${contentRight}px ${contentBottom}px ${contentLeft}px;
                   style={{ aspectRatio: `${bubbleEditorSize.width || 1}/${bubbleEditorSize.height || 1}` }}
                 >
                   <img src={bubbleEditorImage} alt="气泡素材" className="h-full w-full object-contain" />
+                  <div
+                    className="pointer-events-none absolute z-10 rounded-sm"
+                    style={{
+                      ...bubbleEditorContentMaskStyle,
+                      backgroundColor: 'rgba(255,255,255,0.52)',
+                      backgroundImage:
+                        'linear-gradient(45deg, rgba(255,255,255,0.72) 25%, transparent 25%), linear-gradient(-45deg, rgba(255,255,255,0.72) 25%, transparent 25%), linear-gradient(45deg, transparent 75%, rgba(255,255,255,0.72) 75%), linear-gradient(-45deg, transparent 75%, rgba(255,255,255,0.72) 75%)',
+                      backgroundSize: '12px 12px',
+                      backgroundPosition: '0 0, 0 6px, 6px -6px, -6px 0px',
+                    }}
+                    aria-hidden
+                  />
                   {(['top', 'right', 'bottom', 'left'] as const).map((edge) => (
                     <button
                       key={`stretch-${edge}`}
@@ -1578,7 +1635,7 @@ padding:${contentTop}px ${contentRight}px ${contentBottom}px ${contentLeft}px;
                           <div className="mb-2 flex justify-end">
                             <div
                               className={`max-w-[92%] border px-3 py-1.5 text-[12px] text-gray-900 ${option.selfClass}`}
-                              style={getSoftPreviewColor(currentBubbleColor || '#bbf7d0')}
+                              style={getSoftPreviewColor(currentBubbleColor)}
                             >
                               我的气泡
                             </div>
@@ -1634,7 +1691,7 @@ padding:${contentTop}px ${contentRight}px ${contentBottom}px ${contentLeft}px;
                                   <div
                                     className="max-w-full px-3 py-1.5 text-[12px] text-gray-900"
                                     style={{
-                                      ...getSoftPreviewColor(currentBubbleColor || '#bbf7d0'),
+                                      ...getSoftPreviewColor(currentBubbleColor),
                                       ...parseCssPreviewStyle(item.css),
                                     }}
                                   >

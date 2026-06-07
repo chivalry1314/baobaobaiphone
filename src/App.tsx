@@ -884,10 +884,19 @@ export default function App() {
 
   // 追踪上一次行列数的 ref
   const prevGrid = React.useRef({ rows, cols });
+  const hasInitializedGridRef = React.useRef(false);
 
   // 监听桌面布局变化，只处理行列数更新时的重排
   useEffect(() => {
+    if (!storesHydrated) return;
+
     const currentGrid = { rows, cols };
+    if (!hasInitializedGridRef.current) {
+      prevGrid.current = currentGrid;
+      hasInitializedGridRef.current = true;
+      return;
+    }
+
     const gridChanged = prevGrid.current.rows !== currentGrid.rows || prevGrid.current.cols !== currentGrid.cols;
 
     if (!gridChanged) {
@@ -913,7 +922,7 @@ export default function App() {
 
     // 更新 ref
     prevGrid.current = currentGrid;
-  }, [rows, cols, items, updateDesktopItem]);
+  }, [storesHydrated, rows, cols, items, updateDesktopItem]);
 
   const installedRuntimeApps = useMemo(
     () => getInstalledRuntimeMarketApps(installedAppIds, uploadedApps),
@@ -1339,7 +1348,7 @@ export default function App() {
 
   const addDesktopWidgetSize = useCallback((size: typeof desktopWidgetSizes[number]) => {
     const widgetsOnly = items.filter((item) => item.type === 'widget');
-    const slot = findNextWidgetSlot(widgetsOnly, rows, cols, size.w, size.h);
+    const slot = findNextWidgetSlot(items, rows, cols, size.w, size.h);
     const widgetBlockers = [
       ...widgetsOnly,
       {
@@ -2266,10 +2275,11 @@ export default function App() {
                   animate={{ opacity: 1, scale: 1, y: 0 }}
                   exit={{ opacity: 0, scale: 0.96, y: -6 }}
                   transition={{ duration: 0.18, ease: [0.22, 1, 0.36, 1] }}
-                  className={`absolute left-0 top-10 overflow-hidden rounded-[26px] px-4 py-3 ${
+                  className={`absolute left-0 top-10 overflow-y-auto overflow-x-hidden rounded-[26px] px-4 py-3 ${
                     isDesktopWidgetPickerOpen ? 'w-[min(82vw,300px)]' : 'w-[min(58vw,220px)]'
                   }`}
                   style={{
+                    maxHeight: `calc(100vh - ${desktopDockBottomOffset + 150}px - env(safe-area-inset-bottom, 0px))`,
                     border: '1px solid var(--sys-border)',
                     color: 'var(--sys-surface-text)',
                     background:
@@ -2304,7 +2314,7 @@ export default function App() {
                           添加小组件
                         </button>
                       </div>
-                      <div className="grid grid-cols-2 gap-3">
+                      <div className="grid grid-cols-2 gap-3 pb-2">
                         {desktopWidgetSizes.map((size) => (
                           <button
                             key={size.label}
@@ -2394,7 +2404,7 @@ export default function App() {
 
       {/* Main Content Area */}
       <main
-        className={`flex-1 z-10 overflow-y-auto ${isDenseGrid ? 'px-3' : 'px-6'}`}
+        className={`flex-1 z-10 min-h-0 overflow-y-auto ${isDenseGrid ? 'px-3' : 'px-6'}`}
         style={{ 
           // ✨ 核心魔法：利用已有的 isIOSDevice() 动态判断系统，分配不同的 paddingTop
           paddingTop: isFullscreen 
@@ -2443,8 +2453,12 @@ export default function App() {
         {/* 统一桌面网格 - Widget 和 App 在同一个 grid 中渲染 */}
         <div
           ref={desktopGridRef}
-          className={`grid ${isDenseGrid ? 'gap-3' : 'gap-4'}`}
-          style={{ gridTemplateColumns: `repeat(${cols}, 1fr)`, gridAutoRows: isDenseGrid ? 'minmax(52px, auto)' : 'minmax(60px, auto)' }}
+          className={`grid h-full min-h-0 ${isDenseGrid ? 'gap-3' : 'gap-4'}`}
+          style={{
+            gridTemplateColumns: `repeat(${cols}, 1fr)`,
+            gridTemplateRows: `repeat(${rows}, minmax(0, 1fr))`,
+            gridAutoRows: 'minmax(0, 1fr)',
+          }}
         >
           {/* 遍历所有可能的网格位置 */}
           {(() => {
@@ -2598,9 +2612,9 @@ export default function App() {
                       widgetItem.data?.templateId === 'glass-frame' &&
                       activeWidgetFrameMenuId === widgetItem.instanceId ? (
                         <div
-                          className="absolute left-1 top-8 z-30 w-[min(180px,calc(100vw-48px))] overflow-y-auto rounded-[18px] p-2 backdrop-blur-xl"
+                          className="absolute left-1 top-8 z-[90] w-[min(180px,calc(100vw-48px))] overflow-y-auto rounded-[18px] p-2 backdrop-blur-xl"
                           style={{
-                            maxHeight: 'min(320px, calc(100vh - 180px))',
+                            maxHeight: `min(320px, calc(100vh - ${desktopDockBottomOffset + 150}px - env(safe-area-inset-bottom, 0px)))`,
                             border: '1px solid var(--sys-border)',
                             backgroundColor: 'color-mix(in srgb, var(--sys-surface) 84%, transparent)',
                             color: 'var(--sys-surface-text)',
@@ -2840,6 +2854,7 @@ export default function App() {
           onOpenPhone={() => openApp('contacts', { initialTab: 'phone' })}
           bottomOffset={desktopDockBottomOffset}
           isEditing={isDesktopEditing}
+          passthrough={isDesktopEditing && activeWidgetFrameMenuId !== null}
         />
       )}
 

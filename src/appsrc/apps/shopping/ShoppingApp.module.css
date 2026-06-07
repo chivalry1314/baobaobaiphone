@@ -2584,94 +2584,19 @@
   background: rgba(147, 197, 253, 0.36);
 }
 
-.shoppingEntryStatusBar {
-  position: relative;
-  z-index: 2;
-  flex: 0 0 auto;
-  height: calc(52px + env(safe-area-inset-top, 0px));
-  padding: calc(16px + env(safe-area-inset-top, 0px)) 36px 0;
-  display: flex;
-  align-items: flex-start;
-  justify-content: space-between;
-  color: var(--shopping-entry-ink);
-  font-size: 18px;
-  font-weight: 900;
-  line-height: 1;
-  letter-spacing: 0;
-}
-
-.shoppingEntryStatusIcons {
-  display: inline-flex;
-  align-items: center;
-  gap: 10px;
-}
-
-.shoppingEntryStatusIcons i {
-  position: relative;
-  display: block;
-  width: 22px;
-  height: 16px;
-}
-
-.shoppingEntryStatusIcons i:nth-child(1) {
-  background:
-    linear-gradient(var(--shopping-entry-ink), var(--shopping-entry-ink)) 1px 11px / 3px 5px no-repeat,
-    linear-gradient(var(--shopping-entry-ink), var(--shopping-entry-ink)) 7px 7px / 3px 9px no-repeat,
-    linear-gradient(var(--shopping-entry-ink), var(--shopping-entry-ink)) 13px 3px / 3px 13px no-repeat,
-    linear-gradient(var(--shopping-entry-ink), var(--shopping-entry-ink)) 19px 0 / 3px 16px no-repeat;
-  border-radius: 3px;
-}
-
-.shoppingEntryStatusIcons i:nth-child(2) {
-  border: 3px solid var(--shopping-entry-ink);
-  border-color: var(--shopping-entry-ink) transparent transparent transparent;
-  border-radius: 50%;
-  transform: translateY(5px);
-}
-
-.shoppingEntryStatusIcons i:nth-child(2)::before {
-  content: '';
-  position: absolute;
-  left: 4px;
-  top: -1px;
-  width: 8px;
-  height: 8px;
-  border: 3px solid var(--shopping-entry-ink);
-  border-color: var(--shopping-entry-ink) transparent transparent transparent;
-  border-radius: 50%;
-}
-
-.shoppingEntryStatusIcons i:nth-child(3) {
-  width: 26px;
-  height: 14px;
-  border: 1.6px solid var(--shopping-entry-soft-ink);
-  border-radius: 5px;
-}
-
-.shoppingEntryStatusIcons i:nth-child(3)::after {
-  content: '';
-  position: absolute;
-  right: -5px;
-  top: 4px;
-  width: 3px;
-  height: 6px;
-  border-radius: 0 3px 3px 0;
-  background: var(--shopping-entry-ink);
-}
-
 .shoppingEntryExitBtn {
   position: absolute;
-  top: calc(48px + env(safe-area-inset-top, 0px));
-  right: 28px;
+  top: calc(46px + env(safe-area-inset-top, 0px));
+  right: 20px;
   z-index: 5;
-  min-width: 58px;
-  height: 34px;
-  padding: 0 14px;
+  min-width: 52px;
+  height: 30px;
+  padding: 0 11px;
   border: 1.7px solid var(--shopping-entry-soft-ink);
   border-radius: 255px 18px 225px 18px / 18px 225px 18px 255px;
   background: rgba(255, 255, 255, 0.55);
   color: var(--shopping-entry-ink);
-  font-size: 14px;
+  font-size: 13px;
   font-weight: 900;
   font-family: inherit;
   box-shadow: 2px 3px 0 var(--shopping-entry-shadow-ink);
@@ -2698,7 +2623,7 @@
   z-index: 1;
   flex: 1;
   min-height: 0;
-  padding: clamp(20px, 4svh, 36px) 32px calc(34px + env(safe-area-inset-bottom, 0px));
+  padding: clamp(52px, 7.4svh, 76px) 32px calc(24px + env(safe-area-inset-bottom, 0px));
   display: flex;
   flex-direction: column;
   justify-content: flex-start;
@@ -2722,6 +2647,7 @@
   font-size: clamp(14px, 3.8vw, 18px);
   font-weight: 900;
   box-shadow: 2px 2px 0 var(--shopping-entry-shadow-ink);
+  transform: translateY(8px);
 }
 
 .shoppingEntryBadge::before {
@@ -2797,7 +2723,7 @@
   inset: auto;
   width: 100%;
   min-height: clamp(184px, 29svh, 280px);
-  margin-top: clamp(56px, 10svh, 112px);
+  margin-top: clamp(54px, 9.2svh, 108px);
   display: flex;
   align-items: center;
   justify-content: center;
@@ -3687,16 +3613,20 @@
   }
 
   .shoppingEntryHero {
-    padding: clamp(18px, 3.4svh, 32px) 26px calc(34px + env(safe-area-inset-bottom, 0px));
+    padding: clamp(44px, 7svh, 64px) 26px calc(22px + env(safe-area-inset-bottom, 0px));
   }
 
   .shoppingEntryExitBtn {
-    top: calc(46px + env(safe-area-inset-top, 0px));
-    right: 22px;
-    min-width: 54px;
-    height: 32px;
-    padding: 0 12px;
-    font-size: 13px;
+    top: calc(44px + env(safe-area-inset-top, 0px));
+    right: 16px;
+    min-width: 50px;
+    height: 30px;
+    padding: 0 10px;
+    font-size: 12px;
+  }
+
+  .shoppingEntryBadge {
+    transform: translateY(7px);
   }
 
   .shoppingEntryCopy h2 {
@@ -3706,7 +3636,7 @@
   .shoppingEntryScene {
     inset: auto;
     min-height: clamp(174px, 28svh, 260px);
-    margin-top: clamp(44px, 8svh, 96px);
+    margin-top: clamp(44px, 8svh, 92px);
   }
 
   .shoppingEntryArtworkCard {
@@ -3809,7 +3739,7 @@
 
 @supports (-webkit-touch-callout: none) {
   .shoppingEntryHero {
-    padding: clamp(18px, 3.4svh, 32px) 32px calc(34px + env(safe-area-inset-bottom, 0px));
+    padding: clamp(46px, 7.2svh, 66px) 32px calc(22px + env(safe-area-inset-bottom, 0px));
     justify-content: flex-start;
   }
 }
@@ -3817,7 +3747,7 @@
 @supports (-webkit-touch-callout: none) {
   @media (max-width: 420px) {
     .shoppingEntryHero {
-      padding: clamp(16px, 3svh, 28px) 26px calc(32px + env(safe-area-inset-bottom, 0px));
+      padding: clamp(40px, 6.8svh, 58px) 26px calc(20px + env(safe-area-inset-bottom, 0px));
     }
   }
 }
@@ -3825,13 +3755,13 @@
 @supports (-webkit-touch-callout: none) {
   @media (display-mode: standalone) {
     .shoppingEntryHero {
-      padding: clamp(16px, 3svh, 28px) 30px calc(32px + env(safe-area-inset-bottom, 0px));
+      padding: clamp(40px, 6.8svh, 58px) 30px calc(20px + env(safe-area-inset-bottom, 0px));
       justify-content: flex-start;
     }
 
     .shoppingEntryScene {
       min-height: clamp(168px, 27svh, 246px);
-      margin-top: clamp(38px, 7svh, 82px);
+      margin-top: clamp(40px, 7.4svh, 82px);
     }
 
     .shoppingEntryArtworkCard {
@@ -3855,12 +3785,12 @@
 @supports (-webkit-touch-callout: none) {
   @media (display-mode: standalone) and (max-width: 420px) {
     .shoppingEntryHero {
-      padding: clamp(14px, 2.8svh, 24px) 24px calc(30px + env(safe-area-inset-bottom, 0px));
+      padding: clamp(36px, 6.4svh, 52px) 24px calc(18px + env(safe-area-inset-bottom, 0px));
     }
 
     .shoppingEntryScene {
       min-height: clamp(158px, 26svh, 230px);
-      margin-top: clamp(32px, 6svh, 72px);
+      margin-top: clamp(34px, 6.8svh, 72px);
     }
 
     .shoppingEntryArtworkCard {
