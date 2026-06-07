@@ -656,6 +656,7 @@ export default function App() {
   const isIOSStandalonePwa = isIOSDevice() && isStandalonePwa;
   const isWeChatBrowser = isWeChatEmbeddedBrowser();
   const desktopDockBottomOffset = isIOSStandalonePwa || isWeChatBrowser ? 54 : 18;
+  const desktopDockReservedHeight = desktopDockBottomOffset + 126;
   const shouldRenderCustomStatusBar = !isIOSStandalonePwa;
   const shouldRenderCustomHomeIndicator = !isIOSStandalonePwa;
   const effectiveIconSize = isDenseGrid ? Math.min(settings.iconSize, 52) : settings.iconSize;
@@ -2247,7 +2248,7 @@ export default function App() {
 
       {!activeAppId && isDesktopEditing && (
         <div
-          className="pointer-events-none absolute inset-x-0 z-[70] flex items-start justify-between px-8"
+          className="pointer-events-none absolute inset-x-0 z-[120] flex items-start justify-between px-8"
           style={{
             top: shouldRenderCustomStatusBar
               ? 'calc(max(env(safe-area-inset-top, 0px), 24px) + 8px)'
@@ -2275,19 +2276,23 @@ export default function App() {
                   animate={{ opacity: 1, scale: 1, y: 0 }}
                   exit={{ opacity: 0, scale: 0.96, y: -6 }}
                   transition={{ duration: 0.18, ease: [0.22, 1, 0.36, 1] }}
-                  className={`absolute left-0 top-10 overflow-y-auto overflow-x-hidden rounded-[26px] px-4 py-3 ${
+                  className={`absolute left-0 top-10 z-[130] overflow-y-auto overflow-x-hidden rounded-[26px] px-4 py-3 ${
                     isDesktopWidgetPickerOpen ? 'w-[min(82vw,300px)]' : 'w-[min(58vw,220px)]'
                   }`}
                   style={{
-                    maxHeight: `calc(100vh - ${desktopDockBottomOffset + 150}px - env(safe-area-inset-bottom, 0px))`,
+                    maxHeight: isDesktopWidgetPickerOpen
+                      ? 'calc(100vh - max(env(safe-area-inset-top, 0px), 24px) - 86px)'
+                      : `calc(100vh - ${desktopDockReservedHeight + 118}px - env(safe-area-inset-bottom, 0px))`,
                     border: '1px solid var(--sys-border)',
                     color: 'var(--sys-surface-text)',
                     background:
-                      'linear-gradient(135deg, color-mix(in srgb, var(--sys-surface-strong) 76%, transparent), color-mix(in srgb, var(--sys-surface) 42%, transparent) 46%, color-mix(in srgb, var(--sys-surface-strong) 54%, transparent))',
-                    backdropFilter: 'blur(10px) saturate(180%)',
-                    WebkitBackdropFilter: 'blur(10px) saturate(180%)',
+                      isDesktopWidgetPickerOpen
+                        ? 'linear-gradient(135deg, color-mix(in srgb, var(--sys-surface-strong) 92%, white 8%), color-mix(in srgb, var(--sys-surface) 86%, white 14%) 52%, color-mix(in srgb, var(--sys-surface-strong) 90%, white 10%))'
+                        : 'linear-gradient(135deg, color-mix(in srgb, var(--sys-surface-strong) 76%, transparent), color-mix(in srgb, var(--sys-surface) 42%, transparent) 46%, color-mix(in srgb, var(--sys-surface-strong) 54%, transparent))',
+                    backdropFilter: 'blur(18px) saturate(180%)',
+                    WebkitBackdropFilter: 'blur(18px) saturate(180%)',
                     boxShadow:
-                      'inset 0 1px 1px rgba(255,255,255,0.42), inset 0 -1px 1px rgba(255,255,255,0.16), inset 1px 0 0 rgba(255,255,255,0.22), 0 16px 42px var(--sys-shadow-color)',
+                      'inset 0 1px 1px rgba(255,255,255,0.48), inset 0 -1px 1px rgba(255,255,255,0.18), inset 1px 0 0 rgba(255,255,255,0.24), 0 18px 52px var(--sys-shadow-color)',
                   }}
                 >
                   <div
@@ -2404,7 +2409,7 @@ export default function App() {
 
       {/* Main Content Area */}
       <main
-        className={`flex-1 z-10 min-h-0 overflow-y-auto ${isDenseGrid ? 'px-3' : 'px-6'}`}
+        className={`flex-1 z-10 min-h-0 overflow-hidden ${isDenseGrid ? 'px-3' : 'px-6'}`}
         style={{ 
           // ✨ 核心魔法：利用已有的 isIOSDevice() 动态判断系统，分配不同的 paddingTop
           paddingTop: isFullscreen 
@@ -2412,8 +2417,7 @@ export default function App() {
             : (isIOSDevice() 
                 ? 'calc(max(env(safe-area-inset-top, 24px), 24px) + 2.5rem)' // iOS：额外加 2.5rem，避开刘海/灵动岛，增加呼吸感
                 : 'calc(max(env(safe-area-inset-top, 24px), 24px) + 0.5rem)'), // 安卓：只加 0.5rem，整体网格上提，紧凑自然
-          // 底部保持一致，统一避开 Dock 栏
-          paddingBottom: 'calc(env(safe-area-inset-bottom, 20px) + 100px)'
+          paddingBottom: `calc(env(safe-area-inset-bottom, 20px) + ${isDesktopEditing ? 72 : 92}px)`
         }}
         onTouchStart={(e) => {
           if (
@@ -2612,13 +2616,13 @@ export default function App() {
                       widgetItem.data?.templateId === 'glass-frame' &&
                       activeWidgetFrameMenuId === widgetItem.instanceId ? (
                         <div
-                          className="absolute left-1 top-8 z-[90] w-[min(180px,calc(100vw-48px))] overflow-y-auto rounded-[18px] p-2 backdrop-blur-xl"
+                          className="absolute left-1 top-8 z-[140] w-[min(180px,calc(100vw-48px))] overflow-y-auto overflow-x-hidden rounded-[18px] p-2 backdrop-blur-xl"
                           style={{
-                            maxHeight: `min(320px, calc(100vh - ${desktopDockBottomOffset + 150}px - env(safe-area-inset-bottom, 0px)))`,
+                            maxHeight: '178px',
                             border: '1px solid var(--sys-border)',
-                            backgroundColor: 'color-mix(in srgb, var(--sys-surface) 84%, transparent)',
+                            backgroundColor: 'color-mix(in srgb, var(--sys-surface) 92%, white 8%)',
                             color: 'var(--sys-surface-text)',
-                            boxShadow: 'inset 0 1px 0 rgba(255,255,255,0.34), 0 14px 32px var(--sys-shadow-color)',
+                            boxShadow: 'inset 0 1px 0 rgba(255,255,255,0.42), 0 18px 46px var(--sys-shadow-color)',
                           }}
                           onPointerDown={(event) => event.stopPropagation()}
                           onClick={(event) => event.stopPropagation()}
@@ -2854,7 +2858,7 @@ export default function App() {
           onOpenPhone={() => openApp('contacts', { initialTab: 'phone' })}
           bottomOffset={desktopDockBottomOffset}
           isEditing={isDesktopEditing}
-          passthrough={isDesktopEditing && activeWidgetFrameMenuId !== null}
+          passthrough={isDesktopEditing && (activeWidgetFrameMenuId !== null || isDesktopEditMenuOpen)}
         />
       )}
 

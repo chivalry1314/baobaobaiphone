@@ -2623,7 +2623,7 @@
   z-index: 1;
   flex: 1;
   min-height: 0;
-  padding: clamp(52px, 7.4svh, 76px) 32px calc(24px + env(safe-area-inset-bottom, 0px));
+  padding: clamp(100px, 13svh, 128px) 32px calc(18px + env(safe-area-inset-bottom, 0px));
   display: flex;
   flex-direction: column;
   justify-content: flex-start;
@@ -2647,7 +2647,7 @@
   font-size: clamp(14px, 3.8vw, 18px);
   font-weight: 900;
   box-shadow: 2px 2px 0 var(--shopping-entry-shadow-ink);
-  transform: translateY(8px);
+  transform: translateY(2px);
 }
 
 .shoppingEntryBadge::before {
@@ -2723,7 +2723,7 @@
   inset: auto;
   width: 100%;
   min-height: clamp(184px, 29svh, 280px);
-  margin-top: clamp(54px, 9.2svh, 108px);
+  margin-top: clamp(72px, 11svh, 128px);
   display: flex;
   align-items: center;
   justify-content: center;
@@ -2924,7 +2924,7 @@
   position: relative;
   z-index: 2;
   width: 100%;
-  margin-top: clamp(36px, 6svh, 52px);
+  margin-top: clamp(28px, 4.8svh, 42px);
   display: grid;
   grid-template-columns: repeat(3, minmax(0, 1fr));
   gap: 10px;
@@ -3129,7 +3129,7 @@
 }
 
 .shoppingEntryActions {
-  margin-top: clamp(16px, 3.5svh, 28px);
+  margin-top: clamp(18px, 3.2svh, 28px);
   display: grid;
   grid-template-columns: 1fr;
   gap: 18px;
@@ -3613,7 +3613,7 @@
   }
 
   .shoppingEntryHero {
-    padding: clamp(44px, 7svh, 64px) 26px calc(22px + env(safe-area-inset-bottom, 0px));
+    padding: clamp(92px, 12.4svh, 116px) 26px calc(18px + env(safe-area-inset-bottom, 0px));
   }
 
   .shoppingEntryExitBtn {
@@ -3626,7 +3626,7 @@
   }
 
   .shoppingEntryBadge {
-    transform: translateY(7px);
+    transform: translateY(2px);
   }
 
   .shoppingEntryCopy h2 {
@@ -3636,7 +3636,7 @@
   .shoppingEntryScene {
     inset: auto;
     min-height: clamp(174px, 28svh, 260px);
-    margin-top: clamp(44px, 8svh, 92px);
+    margin-top: clamp(64px, 10svh, 112px);
   }
 
   .shoppingEntryArtworkCard {
@@ -3664,7 +3664,7 @@
 
   .shoppingEntryFeatureGrid {
     gap: 8px;
-    margin-top: clamp(28px, 5svh, 42px);
+    margin-top: clamp(24px, 4.4svh, 36px);
   }
 
   .shoppingEntryFeatureCard {
@@ -3739,7 +3739,7 @@
 
 @supports (-webkit-touch-callout: none) {
   .shoppingEntryHero {
-    padding: clamp(46px, 7.2svh, 66px) 32px calc(22px + env(safe-area-inset-bottom, 0px));
+    padding: clamp(94px, 12.6svh, 120px) 32px calc(18px + env(safe-area-inset-bottom, 0px));
     justify-content: flex-start;
   }
 }
@@ -3747,7 +3747,7 @@
 @supports (-webkit-touch-callout: none) {
   @media (max-width: 420px) {
     .shoppingEntryHero {
-      padding: clamp(40px, 6.8svh, 58px) 26px calc(20px + env(safe-area-inset-bottom, 0px));
+      padding: clamp(88px, 12svh, 110px) 26px calc(16px + env(safe-area-inset-bottom, 0px));
     }
   }
 }
@@ -3755,13 +3755,13 @@
 @supports (-webkit-touch-callout: none) {
   @media (display-mode: standalone) {
     .shoppingEntryHero {
-      padding: clamp(40px, 6.8svh, 58px) 30px calc(20px + env(safe-area-inset-bottom, 0px));
+      padding: clamp(90px, 12.2svh, 112px) 30px calc(16px + env(safe-area-inset-bottom, 0px));
       justify-content: flex-start;
     }
 
     .shoppingEntryScene {
       min-height: clamp(168px, 27svh, 246px);
-      margin-top: clamp(40px, 7.4svh, 82px);
+      margin-top: clamp(58px, 9.4svh, 96px);
     }
 
     .shoppingEntryArtworkCard {
@@ -3777,7 +3777,7 @@
     }
 
     .shoppingEntryFeatureGrid {
-      margin-top: clamp(26px, 4.8svh, 38px);
+      margin-top: clamp(22px, 4.2svh, 34px);
     }
   }
 }
@@ -3785,12 +3785,12 @@
 @supports (-webkit-touch-callout: none) {
   @media (display-mode: standalone) and (max-width: 420px) {
     .shoppingEntryHero {
-      padding: clamp(36px, 6.4svh, 52px) 24px calc(18px + env(safe-area-inset-bottom, 0px));
+      padding: clamp(82px, 11.6svh, 104px) 24px calc(14px + env(safe-area-inset-bottom, 0px));
     }
 
     .shoppingEntryScene {
       min-height: clamp(158px, 26svh, 230px);
-      margin-top: clamp(34px, 6.8svh, 72px);
+      margin-top: clamp(52px, 8.8svh, 88px);
     }
 
     .shoppingEntryArtworkCard {
@@ -3806,7 +3806,7 @@
     }
 
     .shoppingEntryFeatureGrid {
-      margin-top: clamp(24px, 4.4svh, 34px);
+      margin-top: clamp(20px, 4svh, 30px);
     }
   }
 }

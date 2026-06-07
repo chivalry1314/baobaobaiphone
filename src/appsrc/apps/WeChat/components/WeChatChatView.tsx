@@ -709,6 +709,11 @@ export const WeChatChatView: React.FC<WeChatChatViewProps> = ({
   const [oocCorrectionInput, setOocCorrectionInput] = useState('');
   const [oocCorrectionPending, setOocCorrectionPending] = useState(false);
   const [oocCorrectionNotice, setOocCorrectionNotice] = useState<string | null>(null);
+  const [oocCorrectionDetailOpen, setOocCorrectionDetailOpen] = useState(false);
+  const [oocCorrectionDetail, setOocCorrectionDetail] = useState<{
+    instruction: string;
+    reply: string;
+  } | null>(null);
   const floatingBubbleDragRef = useRef<{
     pointerId: number;
     startClientX: number;
@@ -2586,6 +2591,10 @@ export const WeChatChatView: React.FC<WeChatChatViewProps> = ({
     setOocCorrectionInput('');
     setOocCorrectionPending(true);
     setOocCorrectionNotice('正在纠正剧情...');
+    setOocCorrectionDetail({
+      instruction: rawInstruction,
+      reply: '正在纠正剧情...',
+    });
 
     try {
       const systemPrompt = renderPaperMagicText('wechat.chat.oocCorrection', {
@@ -2606,10 +2615,20 @@ export const WeChatChatView: React.FC<WeChatChatViewProps> = ({
       });
       if (!response.ok) throw new Error('API 失败');
       const payload = await response.json().catch(() => null);
-      setOocCorrectionNotice(normalizeOocCorrectionReceipt(payload?.choices?.[0]?.message?.content));
+      const reply = normalizeOocCorrectionReceipt(payload?.choices?.[0]?.message?.content);
+      setOocCorrectionNotice(reply);
+      setOocCorrectionDetail({
+        instruction: rawInstruction,
+        reply,
+      });
     } catch (error) {
       console.error('[WeChat] OOC correction failed:', error);
-      setOocCorrectionNotice('纠正失败，请稍后再试');
+      const reply = '纠正失败，请稍后再试';
+      setOocCorrectionNotice(reply);
+      setOocCorrectionDetail({
+        instruction: rawInstruction,
+        reply,
+      });
     } finally {
       setOocCorrectionPending(false);
     }
@@ -3659,7 +3678,18 @@ export const WeChatChatView: React.FC<WeChatChatViewProps> = ({
                 onPointerDown={(event) => event.stopPropagation()}
                 onClick={(event) => event.stopPropagation()}
               >
-                <div className="mb-2 text-[12px] font-semibold text-slate-700">纠正剧情</div>
+                <div className="mb-2 flex items-center justify-between gap-2">
+                  <div className="text-[12px] font-semibold text-slate-700">纠正剧情</div>
+                  {oocCorrectionDetail ? (
+                    <button
+                      type="button"
+                      className="shrink-0 rounded-full px-2 py-0.5 text-[11px] text-sky-600 active:bg-sky-50"
+                      onClick={() => setOocCorrectionDetailOpen(true)}
+                    >
+                      查看完整
+                    </button>
+                  ) : null}
+                </div>
                 <textarea
                   value={oocCorrectionInput}
                   onChange={(event) => setOocCorrectionInput(event.target.value)}
@@ -3668,9 +3698,13 @@ export const WeChatChatView: React.FC<WeChatChatViewProps> = ({
                   className="h-[78px] w-full resize-none rounded-xl border border-slate-200 bg-white/80 px-2.5 py-2 text-[12px] leading-5 text-slate-700 outline-none focus:border-[#7dd3fc]"
                 />
                 {oocCorrectionNotice ? (
-                  <div className="mt-1.5 line-clamp-2 text-[11px] leading-4 text-slate-500">
+                  <button
+                    type="button"
+                    className="mt-1.5 block w-full text-left line-clamp-2 text-[11px] leading-4 text-slate-500 active:text-slate-700"
+                    onClick={() => setOocCorrectionDetailOpen(true)}
+                  >
                     {oocCorrectionNotice}
-                  </div>
+                  </button>
                 ) : null}
                 <div className="mt-2 flex items-center justify-end gap-2">
                   <button
@@ -3721,6 +3755,42 @@ export const WeChatChatView: React.FC<WeChatChatViewProps> = ({
           </>
         ) : null}
       </motion.div>
+      {oocCorrectionDetailOpen && oocCorrectionDetail ? (
+        <div
+          className="fixed inset-0 z-[320] flex items-center justify-center bg-black/35 px-5"
+          onClick={() => setOocCorrectionDetailOpen(false)}
+        >
+          <div
+            className="max-h-[74vh] w-full max-w-[320px] overflow-hidden rounded-2xl border border-white/65 bg-white/95 shadow-[0_18px_52px_rgba(15,23,42,0.22)] backdrop-blur-xl"
+            onClick={(event) => event.stopPropagation()}
+          >
+            <div className="flex items-center justify-between border-b border-slate-100 px-4 py-3">
+              <div className="text-[14px] font-semibold text-slate-800">纠正剧情详情</div>
+              <button
+                type="button"
+                className="rounded-full px-2.5 py-1 text-[12px] text-slate-500 active:bg-slate-100"
+                onClick={() => setOocCorrectionDetailOpen(false)}
+              >
+                关闭
+              </button>
+            </div>
+            <div className="max-h-[calc(74vh-48px)] overflow-y-auto px-4 py-3">
+              <div>
+                <div className="mb-1.5 text-[12px] font-semibold text-slate-500">发送内容</div>
+                <div className="whitespace-pre-wrap break-words rounded-xl bg-slate-50 px-3 py-2.5 text-[13px] leading-5 text-slate-700">
+                  {oocCorrectionDetail.instruction}
+                </div>
+              </div>
+              <div className="mt-3">
+                <div className="mb-1.5 text-[12px] font-semibold text-slate-500">AI回复</div>
+                <div className="whitespace-pre-wrap break-words rounded-xl bg-sky-50/80 px-3 py-2.5 text-[13px] leading-5 text-slate-700">
+                  {oocCorrectionDetail.reply}
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+      ) : null}
       {!readOnly && (
         <>
       <input
