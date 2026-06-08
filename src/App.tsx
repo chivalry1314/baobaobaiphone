@@ -686,9 +686,9 @@ export default function App() {
     24
   ));
   const desktopContentTopPadding = isIOS
-    ? 'calc(env(safe-area-inset-top, 0px) + 15px)'
+    ? 'calc(env(safe-area-inset-top, 0px) + 20px)'
     : '20px';
-  const desktopContentTopPaddingEstimate = isIOS ? 39 : 20;
+  const desktopContentTopPaddingEstimate = isIOS ? 44 : 20;
   const desktopDockHeight = 92;
   const desktopDockGap = 15;
   const desktopDockReservedHeight = desktopDockBottomOffset + desktopDockHeight;
@@ -727,13 +727,17 @@ export default function App() {
       ))
     : 0;
   const desktopLabelGap = settings.showAppName
-    ? Math.round(clampNumber(desktopCellHeight * 0.03, 1, isExpandedDesktopViewport ? 4 : 2))
+    ? Math.round(clampNumber(
+        desktopCellHeight * (isExpandedDesktopViewport ? 0.065 : 0.07),
+        isExpandedDesktopViewport ? 5 : 4,
+        isExpandedDesktopViewport ? 8 : 7
+      ))
     : 0;
   const maxIconSizeByCell = Math.floor(Math.min(
     desktopCellWidth - 4,
     desktopCellHeight - desktopLabelLineHeight - desktopLabelGap + (isExpandedDesktopViewport ? -1 : 5)
   ));
-  const desktopIconMaxSize = isExpandedDesktopViewport ? 56 : 54;
+  const desktopIconMaxSize = isExpandedDesktopViewport ? 60 : 54;
   const desktopIconBaseSize = Math.min(
     settings.iconSize >= 60
       ? settings.iconSize + (isExpandedDesktopViewport ? 4 : 10)
