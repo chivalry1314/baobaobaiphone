@@ -685,19 +685,14 @@ export default function App() {
     8,
     24
   ));
-  const desktopContentTopPadding = isFullscreen
-    ? (isIOS ? '9rem' : '4rem')
-    : (isIOS
-        ? 'calc(max(env(safe-area-inset-top, 24px), 24px) + 2.5rem)'
-        : 'calc(max(env(safe-area-inset-top, 24px), 24px) + 0.5rem)');
-  const desktopContentTopPaddingEstimate = isFullscreen ? (isIOS ? 144 : 64) : (isIOS ? 64 : 32);
-  const desktopDockReservedHeight = desktopDockBottomOffset + 114;
-  const desktopBottomEmptyRowHeight = Math.round(clampNumber(
-    viewportSize.height * 0.012,
-    8,
-    14
-  ));
-  const desktopContentBottomPadding = desktopDockReservedHeight + desktopBottomEmptyRowHeight;
+  const desktopContentTopPadding = isIOS
+    ? 'calc(env(safe-area-inset-top, 0px) + 15px)'
+    : '20px';
+  const desktopContentTopPaddingEstimate = isIOS ? 39 : 20;
+  const desktopDockHeight = 92;
+  const desktopDockGap = 15;
+  const desktopDockReservedHeight = desktopDockBottomOffset + desktopDockHeight;
+  const desktopContentBottomPadding = desktopDockReservedHeight + desktopDockGap;
   const estimatedDesktopGridWidth = Math.max(0, viewportSize.width - desktopPagePaddingX * 2);
   const estimatedDesktopGridHeight = Math.max(
     0,
@@ -738,13 +733,14 @@ export default function App() {
     desktopCellWidth - 4,
     desktopCellHeight - desktopLabelLineHeight - desktopLabelGap + (isExpandedDesktopViewport ? -1 : 5)
   ));
-  const desktopIconBaseSize = settings.iconSize >= 60
-    ? Math.min(
-        settings.iconSize + (isExpandedDesktopViewport ? 4 : 10),
-        isExpandedDesktopViewport ? 64 : 70
-      )
-    : settings.iconSize;
-  const desktopIconGrowthLimit = isExpandedDesktopViewport ? 8 : 10;
+  const desktopIconMaxSize = isExpandedDesktopViewport ? 56 : 54;
+  const desktopIconBaseSize = Math.min(
+    settings.iconSize >= 60
+      ? settings.iconSize + (isExpandedDesktopViewport ? 4 : 10)
+      : settings.iconSize,
+    desktopIconMaxSize
+  );
+  const desktopIconGrowthLimit = Math.max(0, desktopIconMaxSize - desktopIconBaseSize);
   const desktopIconGrowth = Math.min(
     Math.max(0, maxIconSizeByCell - desktopIconBaseSize) * 0.55,
     desktopIconGrowthLimit
@@ -753,7 +749,7 @@ export default function App() {
   const effectiveIconSize = Math.round(clampNumber(
     Math.min(desktopIconTargetSize, maxIconSizeByCell),
     22,
-    desktopIconBaseSize + desktopIconGrowthLimit
+    desktopIconMaxSize
   ));
   const effectiveIconRadius = Math.min(settings.iconRadius, Math.floor(effectiveIconSize / 2));
   const effectiveIconShadow = Math.min(settings.iconShadow, Math.max(3, Math.round(effectiveIconSize * 0.14)));
@@ -2743,12 +2739,13 @@ export default function App() {
                   const draggingOffset = draggingDesktopWidget?.instanceId === widgetItem.instanceId
                     ? draggingDesktopWidget
                     : null;
+                  const isWidgetFrameMenuOpen = activeWidgetFrameMenuId === widgetItem.instanceId;
                   
                   cells.push(
                     <div
                       key={widgetItem.instanceId}
                       data-desktop-widget-id={widgetItem.instanceId}
-                      className={`relative h-full w-full overflow-hidden touch-none ${isDesktopEditing ? 'cursor-grab active:cursor-grabbing' : ''}`}
+                      className={`relative h-full w-full touch-none ${isWidgetFrameMenuOpen ? 'overflow-visible' : 'overflow-hidden'} ${isDesktopEditing ? 'cursor-grab active:cursor-grabbing' : ''}`}
                       style={{
                         gridColumn: `${gridColumnStart} / ${gridColumnEnd}`,
                         gridRow: `${gridRowStart} / ${gridRowEnd}`,
@@ -2761,7 +2758,7 @@ export default function App() {
                         transition: draggingOffset
                           ? 'none'
                           : 'transform 260ms cubic-bezier(0.22, 1, 0.36, 1)',
-                        zIndex: draggingOffset ? 60 : undefined,
+                        zIndex: draggingOffset ? 60 : (isWidgetFrameMenuOpen ? 70 : undefined),
                       }}
                       onPointerDownCapture={(event) => {
                         if ((event.target as HTMLElement).closest('[data-custom-widget-press-layer]')) return;
@@ -2880,7 +2877,7 @@ export default function App() {
                       </div>
                       {isDesktopEditing &&
                       widgetItem.data?.templateId === 'glass-frame' &&
-                      activeWidgetFrameMenuId === widgetItem.instanceId ? (
+                      isWidgetFrameMenuOpen ? (
                         <div
                           className="absolute left-1 top-8 z-[140] w-[min(180px,calc(100vw-48px))] overflow-y-auto overflow-x-hidden rounded-[18px] p-2 backdrop-blur-xl"
                           style={{
@@ -2893,7 +2890,7 @@ export default function App() {
                           onPointerDown={(event) => event.stopPropagation()}
                           onClick={(event) => event.stopPropagation()}
                         >
-                          <div className="grid grid-cols-1 gap-1.5">
+                          <div className="grid grid-cols-1 gap-1.5 pb-[136px]">
                             {desktopFrameWidgetTemplates.map((template) => {
                               const TemplateIcon = template.icon;
                               return (
@@ -2946,7 +2943,7 @@ export default function App() {
                     const customIcon = activeTheme?.settingsPatch.customIcons?.[app.id] || settings.customIcons?.[app.id];
                     const runtimeIcon = app.runtimeIcon;
                     const customIconNode = customIcon
-                      ? <img src={customIcon} alt={app.name} className="w-full h-full object-cover" />
+                      ? <img src={customIcon} alt={app.name} draggable={false} className="w-full h-full object-cover select-none" />
                       : runtimeIcon
                         ? (
                           <span
@@ -3033,7 +3030,7 @@ export default function App() {
         const customIcon = activeTheme?.settingsPatch.customIcons?.[app.id] || settings.customIcons?.[app.id];
         const runtimeIcon = app.runtimeIcon;
         const customIconNode = customIcon
-          ? <img src={customIcon} alt={app.name} className="w-full h-full object-cover" />
+          ? <img src={customIcon} alt={app.name} draggable={false} className="w-full h-full object-cover select-none" />
           : runtimeIcon
             ? (
               <span

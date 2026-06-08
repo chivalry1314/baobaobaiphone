@@ -47,10 +47,10 @@ export const HomeDock: React.FC<HomeDockProps> = ({
   const dockIcons = dockOrder
     .map((name) => dockIconMap.get(name))
     .filter((item): item is NonNullable<typeof item> => Boolean(item));
-  const dockIconSize = 54;
+  const dockIconSize = 56;
   const dockIconRadius = Math.min(settings.iconRadius, Math.floor(dockIconSize / 2));
   const dockIconShadow = Math.min(settings.iconShadow, 6);
-  const dockSlotWidth = 74;
+  const dockSlotWidth = 64;
   const isCompactPaperDock =
     typeof document !== 'undefined' &&
     getComputedStyle(document.documentElement).getPropertyValue('--sys-dock-item-mode').trim() === 'compact-paper';
@@ -86,10 +86,11 @@ export const HomeDock: React.FC<HomeDockProps> = ({
       style={{ bottom: `${bottomOffset}px` }}
     >
       <div
-        className="glass flex items-end justify-around py-3"
+        className="glass flex items-end justify-center py-3"
         style={{
           width: 'min(92%, 400px)',
           maxWidth: 'calc(100vw - 24px)',
+          boxSizing: 'border-box',
           paddingLeft: '14px',
           paddingRight: '14px',
           backgroundColor: 'var(--sys-dock-bg)',
@@ -101,15 +102,16 @@ export const HomeDock: React.FC<HomeDockProps> = ({
         }}
       >
         <div
-          className="flex h-[66px] w-full items-center"
+          className="flex h-[68px] w-full items-center"
           style={
             isCompactPaperDock
               ? {
                   justifyContent: 'center',
-                  gap: '0.9rem',
+                  gap: 'clamp(4px, 2.4vw, 12px)',
                 }
               : {
-                  justifyContent: 'space-around',
+                  justifyContent: 'center',
+                  gap: 'clamp(6px, 2.8vw, 16px)',
                 }
           }
         >
@@ -133,6 +135,10 @@ export const HomeDock: React.FC<HomeDockProps> = ({
                     : undefined,
                   transition: draggingOffset ? 'none' : 'transform 260ms cubic-bezier(0.22, 1, 0.36, 1)',
                   zIndex: draggingOffset ? 60 : undefined,
+                  width: `${dockSlotWidth}px`,
+                  flex: `0 0 ${dockSlotWidth}px`,
+                  display: 'flex',
+                  justifyContent: 'center',
                 }}
               >
                 {isCompactPaperDock ? (
@@ -164,7 +170,9 @@ export const HomeDock: React.FC<HomeDockProps> = ({
                     className="flex items-center justify-center transition-transform active:scale-95"
                   style={{
                       width: `${dockSlotWidth}px`,
-                      height: '62px',
+                      height: '64px',
+                      boxSizing: 'border-box',
+                      padding: 0,
                       borderRadius: '999px',
                       border: '2px solid transparent',
                       backgroundColor: 'transparent',

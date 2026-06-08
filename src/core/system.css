@@ -161,9 +161,9 @@ body {
   }
 
   @keyframes desktopIconJiggle {
-    0% { transform: rotate(-0.7deg) translateY(0) scale(1); }
-    50% { transform: rotate(0.7deg) translateY(-1px) scale(1.012); }
-    100% { transform: rotate(-0.7deg) translateY(0) scale(1); }
+    0% { transform: rotate(-0.7deg) translateY(0); }
+    50% { transform: rotate(0.7deg) translateY(-1px); }
+    100% { transform: rotate(-0.7deg) translateY(0); }
   }
 
   .desktop-icon-jiggle {
