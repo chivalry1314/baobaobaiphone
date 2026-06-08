@@ -2549,6 +2549,7 @@
   --shopping-entry-paper: #fdfaf1;
   --shopping-entry-pink: #fdb8d1;
   --shopping-entry-yellow: #ffe7a0;
+  --shopping-entry-top-row: clamp(88px, 11.6svh, 112px);
   position: absolute;
   inset: 0;
   z-index: 80;
@@ -2586,7 +2587,7 @@
 
 .shoppingEntryExitBtn {
   position: absolute;
-  top: calc(46px + env(safe-area-inset-top, 0px));
+  top: calc(var(--shopping-entry-top-row) + env(safe-area-inset-top, 0px) + 3px);
   right: 20px;
   z-index: 5;
   min-width: 52px;
@@ -2623,7 +2624,7 @@
   z-index: 1;
   flex: 1;
   min-height: 0;
-  padding: clamp(100px, 13svh, 128px) 32px calc(18px + env(safe-area-inset-bottom, 0px));
+  padding: var(--shopping-entry-top-row) 32px calc(18px + env(safe-area-inset-bottom, 0px));
   display: flex;
   flex-direction: column;
   justify-content: flex-start;
@@ -3598,6 +3599,10 @@
 }
 
 @media (max-width: 420px) {
+  .shoppingEntryIntro {
+    --shopping-entry-top-row: clamp(80px, 10.8svh, 100px);
+  }
+
   .shoppingCompanionFloating {
     width: 224px;
   }
@@ -3613,11 +3618,10 @@
   }
 
   .shoppingEntryHero {
-    padding: clamp(92px, 12.4svh, 116px) 26px calc(18px + env(safe-area-inset-bottom, 0px));
+    padding: var(--shopping-entry-top-row) 26px calc(18px + env(safe-area-inset-bottom, 0px));
   }
 
   .shoppingEntryExitBtn {
-    top: calc(44px + env(safe-area-inset-top, 0px));
     right: 16px;
     min-width: 50px;
     height: 30px;
@@ -3626,7 +3630,7 @@
   }
 
   .shoppingEntryBadge {
-    transform: translateY(2px);
+    transform: translateY(0);
   }
 
   .shoppingEntryCopy h2 {
@@ -3738,24 +3742,36 @@
 }
 
 @supports (-webkit-touch-callout: none) {
+  .shoppingEntryIntro {
+    --shopping-entry-top-row: clamp(84px, 11.2svh, 106px);
+  }
+
   .shoppingEntryHero {
-    padding: clamp(94px, 12.6svh, 120px) 32px calc(18px + env(safe-area-inset-bottom, 0px));
+    padding: var(--shopping-entry-top-row) 32px calc(18px + env(safe-area-inset-bottom, 0px));
     justify-content: flex-start;
   }
 }
 
 @supports (-webkit-touch-callout: none) {
   @media (max-width: 420px) {
+    .shoppingEntryIntro {
+      --shopping-entry-top-row: clamp(78px, 10.4svh, 96px);
+    }
+
     .shoppingEntryHero {
-      padding: clamp(88px, 12svh, 110px) 26px calc(16px + env(safe-area-inset-bottom, 0px));
+      padding: var(--shopping-entry-top-row) 26px calc(16px + env(safe-area-inset-bottom, 0px));
     }
   }
 }
 
 @supports (-webkit-touch-callout: none) {
   @media (display-mode: standalone) {
+    .shoppingEntryIntro {
+      --shopping-entry-top-row: clamp(80px, 10.8svh, 98px);
+    }
+
     .shoppingEntryHero {
-      padding: clamp(90px, 12.2svh, 112px) 30px calc(16px + env(safe-area-inset-bottom, 0px));
+      padding: var(--shopping-entry-top-row) 30px calc(16px + env(safe-area-inset-bottom, 0px));
       justify-content: flex-start;
     }
 
@@ -3784,8 +3800,12 @@
 
 @supports (-webkit-touch-callout: none) {
   @media (display-mode: standalone) and (max-width: 420px) {
+    .shoppingEntryIntro {
+      --shopping-entry-top-row: clamp(74px, 9.8svh, 90px);
+    }
+
     .shoppingEntryHero {
-      padding: clamp(82px, 11.6svh, 104px) 24px calc(14px + env(safe-area-inset-bottom, 0px));
+      padding: var(--shopping-entry-top-row) 24px calc(14px + env(safe-area-inset-bottom, 0px));
     }
 
     .shoppingEntryScene {
@@ -4198,5 +4218,3 @@
 .cartBar * {
   font-size: 12px;
 }
-
-

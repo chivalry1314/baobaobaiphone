@@ -9,6 +9,7 @@ interface HomeDockProps {
   onOpenPhone?: () => void;
   bottomOffset?: number;
   isEditing?: boolean;
+  isEditSettling?: boolean;
   passthrough?: boolean;
 }
 
@@ -16,6 +17,7 @@ export const HomeDock: React.FC<HomeDockProps> = ({
   onOpenPhone,
   bottomOffset = 18,
   isEditing = false,
+  isEditSettling = false,
   passthrough = false,
 }) => {
   const settings = useSettingsCoreStore((state) => state.settings);
@@ -183,6 +185,7 @@ export const HomeDock: React.FC<HomeDockProps> = ({
                     customIcon={customIconNode}
                     onClick={item.onClick}
                     isEditing={isEditing}
+                    isEditSettling={isEditSettling}
                     jiggleDelayMs={-index * 180}
                     jiggleDurationMs={720 + index * 55}
                     onPointerDown={(event) => {

@@ -440,6 +440,9 @@ const DEFAULT_BOOT_SCREEN_TOKENS: Pick<
   statusMuted: 'rgba(255,255,255,0.72)',
 };
 
+const BOOT_HYDRATED_DISMISS_DELAY_MS = 1200;
+const BOOT_HYDRATION_FALLBACK_TIMEOUT_MS = 5000;
+
 const THEME_TOKEN_VAR_MAP: Record<keyof ThemeVisualTokens, string> = {
   desktopOverlay: '--sys-desktop-overlay',
   systemBg: '--sys-system-bg',
@@ -590,6 +593,7 @@ export default function App() {
   }, [installedAppIds, installableLocalAppIdSet]);
   const [activePage, setActivePage] = useState(0);
   const [isDesktopEditing, setIsDesktopEditing] = useState(false);
+  const [isDesktopEditSettling, setIsDesktopEditSettling] = useState(false);
   const [isDesktopEditMenuOpen, setIsDesktopEditMenuOpen] = useState(false);
   const [isDesktopWidgetPickerOpen, setIsDesktopWidgetPickerOpen] = useState(false);
   const [activeWidgetFrameMenuId, setActiveWidgetFrameMenuId] = useState<string | null>(null);
@@ -652,16 +656,20 @@ export default function App() {
   const desktopAutoPageTimerRef = useRef<number | null>(null);
   const desktopAutoPageTargetRef = useRef<number | null>(null);
   const fullscreenHintTimerRef = useRef<number | null>(null);
+  const desktopEditSettleTimerRef = useRef<number | null>(null);
   const isDenseGrid = cols >= 5;
   const isIOSStandalonePwa = isIOSDevice() && isStandalonePwa;
   const isWeChatBrowser = isWeChatEmbeddedBrowser();
   const desktopDockBottomOffset = isIOSStandalonePwa || isWeChatBrowser ? 54 : 18;
-  const desktopDockReservedHeight = desktopDockBottomOffset + 126;
-  const shouldRenderCustomStatusBar = !isIOSStandalonePwa;
-  const shouldRenderCustomHomeIndicator = !isIOSStandalonePwa;
   const effectiveIconSize = isDenseGrid ? Math.min(settings.iconSize, 52) : settings.iconSize;
   const effectiveIconRadius = Math.min(settings.iconRadius, Math.floor(effectiveIconSize / 2));
   const effectiveIconShadow = isDenseGrid ? Math.min(settings.iconShadow, 6) : settings.iconShadow;
+  const desktopIconFootprint = effectiveIconSize + (settings.showAppName ? 28 : 0);
+  const desktopDockReservedHeight = desktopDockBottomOffset + 126;
+  const desktopBottomEmptyRowHeight = Math.max(76, desktopIconFootprint);
+  const desktopContentBottomPadding = desktopDockReservedHeight + desktopBottomEmptyRowHeight;
+  const shouldRenderCustomStatusBar = !isIOSStandalonePwa;
+  const shouldRenderCustomHomeIndicator = !isIOSStandalonePwa;
   const fallbackFontStack = '"Inter", ui-sans-serif, system-ui, sans-serif';
 
   useEffect(() => {
@@ -688,10 +696,24 @@ export default function App() {
 
     const timer = window.setTimeout(() => {
       setIsBooting(false);
-    }, 1200);
+    }, BOOT_HYDRATED_DISMISS_DELAY_MS);
 
     return () => {
       window.clearTimeout(timer);
+    };
+  }, [storesHydrated]);
+
+  useEffect(() => {
+    if (storesHydrated) {
+      return;
+    }
+
+    const fallbackTimer = window.setTimeout(() => {
+      setIsBooting(false);
+    }, BOOT_HYDRATION_FALLBACK_TIMEOUT_MS);
+
+    return () => {
+      window.clearTimeout(fallbackTimer);
     };
   }, [storesHydrated]);
 
@@ -1056,6 +1078,20 @@ export default function App() {
     setActiveAppParams(undefined);
   }, []);
 
+  const finishDesktopEditing = useCallback(() => {
+    setIsDesktopEditMenuOpen(false);
+    setIsDesktopWidgetPickerOpen(false);
+    setIsDesktopEditSettling(true);
+    setIsDesktopEditing(false);
+    if (desktopEditSettleTimerRef.current !== null) {
+      window.clearTimeout(desktopEditSettleTimerRef.current);
+    }
+    desktopEditSettleTimerRef.current = window.setTimeout(() => {
+      setIsDesktopEditSettling(false);
+      desktopEditSettleTimerRef.current = null;
+    }, 160);
+  }, []);
+
   useEffect(() => {
     const launch = parsePendingPushLaunch();
     if (!launch) {
@@ -1253,6 +1289,9 @@ export default function App() {
     return () => {
       if (fullscreenHintTimerRef.current !== null) {
         window.clearTimeout(fullscreenHintTimerRef.current);
+      }
+      if (desktopEditSettleTimerRef.current !== null) {
+        window.clearTimeout(desktopEditSettleTimerRef.current);
       }
       if (iconLongPressTimerRef.current !== null) {
         window.clearTimeout(iconLongPressTimerRef.current);
@@ -2398,8 +2437,7 @@ export default function App() {
               boxShadow: 'inset 0 1px 0 rgba(255,255,255,0.38), 0 6px 18px var(--sys-shadow-color)',
             }}
             onClick={() => {
-              setIsDesktopEditMenuOpen(false);
-              setIsDesktopEditing(false);
+              finishDesktopEditing();
             }}
           >
             完成
@@ -2417,7 +2455,7 @@ export default function App() {
             : (isIOSDevice() 
                 ? 'calc(max(env(safe-area-inset-top, 24px), 24px) + 2.5rem)' // iOS：额外加 2.5rem，避开刘海/灵动岛，增加呼吸感
                 : 'calc(max(env(safe-area-inset-top, 24px), 24px) + 0.5rem)'), // 安卓：只加 0.5rem，整体网格上提，紧凑自然
-          paddingBottom: `calc(env(safe-area-inset-bottom, 20px) + ${isDesktopEditing ? 72 : 92}px)`
+          paddingBottom: `calc(env(safe-area-inset-bottom, 20px) + ${desktopContentBottomPadding}px)`
         }}
         onTouchStart={(e) => {
           if (
@@ -2460,7 +2498,7 @@ export default function App() {
           className={`grid h-full min-h-0 ${isDenseGrid ? 'gap-3' : 'gap-4'}`}
           style={{
             gridTemplateColumns: `repeat(${cols}, 1fr)`,
-            gridTemplateRows: `repeat(${rows}, minmax(0, 1fr))`,
+            gridTemplateRows: `repeat(${rows}, minmax(${desktopIconFootprint}px, 1fr))`,
             gridAutoRows: 'minmax(0, 1fr)',
           }}
         >
@@ -2698,6 +2736,7 @@ export default function App() {
                       <div
                         key={appItem.instanceId}
                         data-desktop-icon-id={appItem.instanceId}
+                        className="self-start justify-self-center"
                         style={{
                           gridColumn: `${gridColumnStart}`,
                           gridRow: `${gridRowStart}`,
@@ -2719,6 +2758,7 @@ export default function App() {
                           onClick={() => openApp(app.id)}
                           badgeCount={app.id === 'wechat' ? wechatUnreadCount : 0}
                           isEditing={isDesktopEditing}
+                          isEditSettling={isDesktopEditSettling}
                           canRemove={!isSystemAppId(appItem.componentId)}
                           onRemove={() => uninstallDesktopApp(appItem)}
                           onPointerDown={(event) => startDesktopIconPointer(event, appItem)}
@@ -2858,6 +2898,7 @@ export default function App() {
           onOpenPhone={() => openApp('contacts', { initialTab: 'phone' })}
           bottomOffset={desktopDockBottomOffset}
           isEditing={isDesktopEditing}
+          isEditSettling={isDesktopEditSettling}
           passthrough={isDesktopEditing && (activeWidgetFrameMenuId !== null || isDesktopEditMenuOpen)}
         />
       )}

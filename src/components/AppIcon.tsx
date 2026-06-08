@@ -20,6 +20,7 @@ interface AppIconProps {
   onPointerCancel?: React.PointerEventHandler<HTMLDivElement>;
   jiggleDelayMs?: number;
   jiggleDurationMs?: number;
+  isEditSettling?: boolean;
   badgeCount?: number;
   // 全局样式
   size?: number;
@@ -48,29 +49,44 @@ export const AppIcon: React.FC<AppIconProps> = ({
   onPointerCancel,
   jiggleDelayMs = 0,
   jiggleDurationMs = 920,
+  isEditSettling = false,
   badgeCount = 0,
 }) => {
   const IconComponent = icon ? (LucideIcons[icon] as React.ElementType) : null;
   const clockId = useId();
   const normalizedBadgeCount = Math.max(0, Math.floor(Number(badgeCount) || 0));
   const badgeLabel = normalizedBadgeCount > 99 ? '99+' : String(normalizedBadgeCount);
+  const labelWidth = Math.max(size + 24, 76);
+  const labelLineHeight = 14;
+  const labelReservedHeight = label ? labelLineHeight : 0;
+  const showEditControls = isEditing && !isEditSettling;
+  const suppressPressMotion = isEditing || isEditSettling;
+  const rootStyle: React.CSSProperties = {
+    width: `${labelWidth}px`,
+    minHeight: `${size + labelReservedHeight}px`,
+    margin: '0 auto',
+  };
+
+  if (isEditing && !isEditSettling) {
+    rootStyle.animationDelay = `${jiggleDelayMs}ms`;
+    rootStyle.animationDuration = `${jiggleDurationMs}ms`;
+  }
 
   return (
     <motion.div
-      whileHover={isEditing ? undefined : { scale: 1.05 }}
-      whileTap={isEditing ? undefined : { scale: 0.9 }}
-      className={`relative flex flex-col items-center gap-1 cursor-pointer touch-none ${isEditing ? 'desktop-icon-jiggle' : ''}`}
-      style={isEditing ? {
-        animationDelay: `${jiggleDelayMs}ms`,
-        animationDuration: `${jiggleDurationMs}ms`,
-      } : undefined}
-      onClick={isEditing ? undefined : onClick}
+      whileHover={suppressPressMotion ? undefined : { scale: 1.05 }}
+      whileTap={suppressPressMotion ? undefined : { scale: 0.9 }}
+      className={`relative flex flex-col items-center gap-1 cursor-pointer touch-none ${
+        isEditing ? (isEditSettling ? 'desktop-icon-jiggle-settle' : 'desktop-icon-jiggle') : ''
+      }`}
+      style={rootStyle}
+      onClick={suppressPressMotion ? undefined : onClick}
       onPointerDown={onPointerDown}
       onPointerMove={onPointerMove}
       onPointerUp={onPointerUp}
       onPointerCancel={onPointerCancel}
     >
-      {isEditing ? (
+      {showEditControls ? (
         <button
           type="button"
           className="absolute -right-2 -top-2 z-20 flex h-7 w-7 items-center justify-center rounded-full p-0 backdrop-blur-xl"
@@ -202,8 +218,15 @@ export const AppIcon: React.FC<AppIconProps> = ({
       </div>
       {label ? (
         <span
-          className="text-[11px] font-medium tracking-wide"
-          style={{ color: 'var(--sys-icon-label)' }}
+          className="block whitespace-normal text-center text-[11px] font-medium"
+          style={{
+            width: `${labelWidth}px`,
+            minHeight: `${labelReservedHeight}px`,
+            lineHeight: `${labelLineHeight}px`,
+            color: 'var(--sys-icon-label)',
+            overflowWrap: 'anywhere',
+            wordBreak: 'break-word',
+          }}
         >
           {label}
         </span>

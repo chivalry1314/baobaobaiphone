@@ -170,6 +170,12 @@ body {
     animation: desktopIconJiggle 0.78s ease-in-out infinite;
   }
 
+  .desktop-icon-jiggle-settle {
+    animation: none;
+    transform: translate3d(0, 0, 0);
+    transition: none;
+  }
+
   /* 安全区适配 - 系统级 */
   .safe-area-top {
     padding-top: env(safe-area-inset-top, 0);
