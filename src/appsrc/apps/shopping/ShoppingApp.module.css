@@ -3767,7 +3767,7 @@
 @supports (-webkit-touch-callout: none) {
   @media (display-mode: standalone) {
     .shoppingEntryIntro {
-      --shopping-entry-top-row: clamp(80px, 10.8svh, 98px);
+      --shopping-entry-top-row: clamp(94px, 12.4svh, 112px);
     }
 
     .shoppingEntryHero {
@@ -3801,7 +3801,7 @@
 @supports (-webkit-touch-callout: none) {
   @media (display-mode: standalone) and (max-width: 420px) {
     .shoppingEntryIntro {
-      --shopping-entry-top-row: clamp(74px, 9.8svh, 90px);
+      --shopping-entry-top-row: clamp(88px, 11.6svh, 104px);
     }
 
     .shoppingEntryHero {

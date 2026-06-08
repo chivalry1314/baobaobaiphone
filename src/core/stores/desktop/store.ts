@@ -16,6 +16,7 @@ export const defaultDesktopLayout: DesktopLayoutConfig = {
   cols: 4,
   pageCount: 1,
   items: [],
+  layoutMode: 'auto',
   customWidgets: [],
 };
 

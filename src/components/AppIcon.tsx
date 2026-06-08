@@ -27,6 +27,10 @@ interface AppIconProps {
   radius?: number;
   frosted?: number;
   shadow?: number;
+  labelWidth?: number;
+  labelFontSize?: number;
+  labelLineHeight?: number;
+  labelGap?: number;
 }
 
 export const AppIcon: React.FC<AppIconProps> = ({
@@ -40,6 +44,10 @@ export const AppIcon: React.FC<AppIconProps> = ({
   radius = 18,
   frosted = 10,
   shadow = 8,
+  labelWidth: labelWidthProp,
+  labelFontSize = 11,
+  labelLineHeight: labelLineHeightProp,
+  labelGap = 4,
   isEditing = false,
   canRemove = false,
   onRemove,
@@ -56,8 +64,8 @@ export const AppIcon: React.FC<AppIconProps> = ({
   const clockId = useId();
   const normalizedBadgeCount = Math.max(0, Math.floor(Number(badgeCount) || 0));
   const badgeLabel = normalizedBadgeCount > 99 ? '99+' : String(normalizedBadgeCount);
-  const labelWidth = Math.max(size + 24, 76);
-  const labelLineHeight = 14;
+  const labelWidth = Math.round(labelWidthProp ?? Math.max(size + 24, 76));
+  const labelLineHeight = Math.round(labelLineHeightProp ?? Math.max(labelFontSize + 3, 14));
   const labelReservedHeight = label ? labelLineHeight : 0;
   const showEditControls = isEditing && !isEditSettling;
   const suppressPressMotion = isEditing || isEditSettling;
@@ -79,7 +87,10 @@ export const AppIcon: React.FC<AppIconProps> = ({
       className={`relative flex flex-col items-center gap-1 cursor-pointer touch-none ${
         isEditing ? (isEditSettling ? 'desktop-icon-jiggle-settle' : 'desktop-icon-jiggle') : ''
       }`}
-      style={rootStyle}
+      style={{
+        ...rootStyle,
+        gap: `${label ? labelGap : 0}px`,
+      }}
       onClick={suppressPressMotion ? undefined : onClick}
       onPointerDown={onPointerDown}
       onPointerMove={onPointerMove}
@@ -218,10 +229,11 @@ export const AppIcon: React.FC<AppIconProps> = ({
       </div>
       {label ? (
         <span
-          className="block whitespace-normal text-center text-[11px] font-medium"
+          className="block whitespace-normal text-center font-medium"
           style={{
             width: `${labelWidth}px`,
             minHeight: `${labelReservedHeight}px`,
+            fontSize: `${labelFontSize}px`,
             lineHeight: `${labelLineHeight}px`,
             color: 'var(--sys-icon-label)',
             overflowWrap: 'anywhere',

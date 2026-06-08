@@ -87,7 +87,7 @@ export const DesktopLayoutView: React.FC<DesktopLayoutViewProps> = ({ onEditLayo
       setCustomColsInput('5');
     }
     // 更新 store 中的行列数
-    updateDesktopLayout({ rows: newRows, cols: newCols });
+    updateDesktopLayout({ rows: newRows, cols: newCols, layoutMode: 'custom' });
   };
 
   const commitCustomInput = (type: 'row' | 'col') => {
@@ -102,12 +102,12 @@ export const DesktopLayoutView: React.FC<DesktopLayoutViewProps> = ({ onEditLayo
     if (type === 'row') {
       setCustomRows(nextValue);
       setCustomRowsInput(String(nextValue));
-      updateDesktopLayout({ rows: nextValue });
+      updateDesktopLayout({ rows: nextValue, layoutMode: 'custom' });
     }
     if (type === 'col') {
       setCustomCols(nextValue);
       setCustomColsInput(String(nextValue));
-      updateDesktopLayout({ cols: nextValue });
+      updateDesktopLayout({ cols: nextValue, layoutMode: 'custom' });
     }
   };
 
@@ -136,8 +136,8 @@ export const DesktopLayoutView: React.FC<DesktopLayoutViewProps> = ({ onEditLayo
           {/* 桌面网格布局 */}
           <motion.section variants={itemVariants} className="space-y-4 pt-2">
             
-            <div className="bg-white rounded-[2rem] p-2 shadow-[0_4px_30px_-4px_rgba(0,0,0,0.03)] border border-slate-100 flex items-stretch">
-              
+            <div className="grid grid-cols-2 gap-2 rounded-[2rem] border border-slate-100 bg-white p-2 shadow-[0_4px_30px_-4px_rgba(0,0,0,0.03)]">
+
               {/* 6x4 预设 */}
               <GridSelectorOption 
                 active={activeGrid === '6x4'} 
@@ -158,7 +158,7 @@ export const DesktopLayoutView: React.FC<DesktopLayoutViewProps> = ({ onEditLayo
 
               {/* 自定义区域 */}
               <div 
-                className={`flex-1 flex flex-col justify-center px-4 py-4 rounded-[1.5rem] transition-all duration-300 border-2 ${
+                className={`flex min-w-0 flex-col justify-center rounded-[1.5rem] border-2 px-4 py-4 transition-all duration-300 ${
                   activeGrid === 'custom' ? 'border-sky-400 shadow-sm bg-sky-50/30' : 'border-transparent'
                 }`}
                 onClick={() => setActiveGrid('custom')}

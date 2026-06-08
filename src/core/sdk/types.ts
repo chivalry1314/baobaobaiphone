@@ -192,4 +192,5 @@ export interface DesktopLayoutConfig {
   cols: number;
   pageCount: number;
   items: DesktopItem[];
+  layoutMode?: 'auto' | 'custom';
 }

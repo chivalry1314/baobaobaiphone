@@ -11,6 +11,33 @@ export interface IdbStoreConfig {
   storeName: string;
 }
 
+const IDB_OPEN_TIMEOUT_MS = 4500;
+const registeredDbStores = new Map<string, Set<string>>();
+
+const registerDbStore = (dbName: string, storeName: string): void => {
+  const stores = registeredDbStores.get(dbName) ?? new Set<string>();
+  stores.add(storeName);
+  registeredDbStores.set(dbName, stores);
+};
+
+const getRegisteredStoreNames = (dbName: string, fallbackStoreName: string): string[] => {
+  const stores = registeredDbStores.get(dbName);
+  if (!stores || stores.size === 0) return [fallbackStoreName];
+  return Array.from(stores);
+};
+
+const ensureObjectStores = (
+  db: IDBDatabase,
+  dbName: string,
+  fallbackStoreName: string
+): void => {
+  getRegisteredStoreNames(dbName, fallbackStoreName).forEach((registeredStoreName) => {
+    if (!db.objectStoreNames.contains(registeredStoreName)) {
+      db.createObjectStore(registeredStoreName);
+    }
+  });
+};
+
 const isRecoverableTransactionError = (error: unknown): boolean => {
   if (!(error instanceof DOMException)) return false;
   return (
@@ -28,22 +55,51 @@ const openIdbDatabase = (
   new Promise((resolve, reject) => {
     const request =
       typeof version === 'number' ? indexedDB.open(dbName, version) : indexedDB.open(dbName);
+    let settled = false;
+    const timeoutId = setTimeout(() => {
+      if (settled) return;
+      settled = true;
+      reject(new Error(`[idb] opening "${dbName}" timed out`));
+    }, IDB_OPEN_TIMEOUT_MS);
+
+    const clearOpenTimeout = () => {
+      clearTimeout(timeoutId);
+    };
+
+    const resolveOnce = (db: IDBDatabase) => {
+      if (settled) {
+        db.close();
+        return;
+      }
+      settled = true;
+      clearOpenTimeout();
+      resolve(db);
+    };
+
+    const rejectOnce = (error: unknown) => {
+      if (settled) return;
+      settled = true;
+      clearOpenTimeout();
+      reject(error);
+    };
 
     request.onupgradeneeded = () => {
       const db = request.result;
-      if (!db.objectStoreNames.contains(storeName)) {
-        db.createObjectStore(storeName);
-      }
+      ensureObjectStores(db, dbName, storeName);
+    };
+    request.onblocked = () => {
+      rejectOnce(new Error(`[idb] opening "${dbName}" was blocked by another connection`));
     };
     request.onerror = () => {
-      reject(request.error);
+      rejectOnce(request.error ?? new Error(`[idb] failed to open "${dbName}"`));
     };
     request.onsuccess = () => {
-      resolve(request.result);
+      resolveOnce(request.result);
     };
   });
 
 export const createIdbStore = ({ dbName, storeName }: IdbStoreConfig): IdbStore => {
+  registerDbStore(dbName, storeName);
   let dbPromise: Promise<IDBDatabase> | null = null;
 
   const attachDbLifecycleHandlers = (db: IDBDatabase) => {
@@ -152,5 +208,4 @@ export const listRecordEntries = async <T>(store: IdbStore): Promise<Array<[IdbK
   const result = await entries<IdbKey, T>(store);
   return result as Array<[IdbKey, T]>;
 };
-
 

@@ -3,10 +3,8 @@ import { listInstalledApps } from './repositories/installedRepo';
 import { listUploadedApps } from './repositories/uploadedRepo';
 
 export const loadAppMarketPersistedState = async (): Promise<AppMarketState> => {
-  const [installedApps, uploadedApps] = await Promise.all([
-    listInstalledApps(),
-    listUploadedApps(),
-  ]);
+  const installedApps = await listInstalledApps();
+  const uploadedApps = await listUploadedApps();
 
   return {
     installedAppIds: installedApps.map((item) => item.appId),

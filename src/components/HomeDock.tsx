@@ -47,6 +47,10 @@ export const HomeDock: React.FC<HomeDockProps> = ({
   const dockIcons = dockOrder
     .map((name) => dockIconMap.get(name))
     .filter((item): item is NonNullable<typeof item> => Boolean(item));
+  const dockIconSize = 54;
+  const dockIconRadius = Math.min(settings.iconRadius, Math.floor(dockIconSize / 2));
+  const dockIconShadow = Math.min(settings.iconShadow, 6);
+  const dockSlotWidth = 74;
   const isCompactPaperDock =
     typeof document !== 'undefined' &&
     getComputedStyle(document.documentElement).getPropertyValue('--sys-dock-item-mode').trim() === 'compact-paper';
@@ -78,12 +82,16 @@ export const HomeDock: React.FC<HomeDockProps> = ({
 
   return (
     <div
-      className={`absolute inset-x-0 z-50 flex justify-center px-4 ${passthrough ? 'pointer-events-none' : ''}`}
+      className={`absolute inset-x-0 z-50 flex justify-center px-3 ${passthrough ? 'pointer-events-none' : ''}`}
       style={{ bottom: `${bottomOffset}px` }}
     >
       <div
-        className="glass flex w-[92%] items-end justify-around px-4 py-3"
+        className="glass flex items-end justify-around py-3"
         style={{
+          width: 'min(92%, 400px)',
+          maxWidth: 'calc(100vw - 24px)',
+          paddingLeft: '14px',
+          paddingRight: '14px',
           backgroundColor: 'var(--sys-dock-bg)',
           border: 'var(--sys-dock-border-width) solid var(--sys-dock-border)',
           borderRadius: 'var(--sys-dock-radius)',
@@ -93,7 +101,7 @@ export const HomeDock: React.FC<HomeDockProps> = ({
         }}
       >
         <div
-          className="flex h-[72px] w-full items-center"
+          className="flex h-[66px] w-full items-center"
           style={
             isCompactPaperDock
               ? {
@@ -154,9 +162,9 @@ export const HomeDock: React.FC<HomeDockProps> = ({
                     onPointerUp={endDockDrag}
                     onPointerCancel={endDockDrag}
                     className="flex items-center justify-center transition-transform active:scale-95"
-                    style={{
-                      width: '68px',
-                      height: '68px',
+                  style={{
+                      width: `${dockSlotWidth}px`,
+                      height: '62px',
                       borderRadius: '999px',
                       border: '2px solid transparent',
                       backgroundColor: 'transparent',
@@ -167,15 +175,15 @@ export const HomeDock: React.FC<HomeDockProps> = ({
                     <div
                       className="flex items-center justify-center"
                       style={{
-                        width: '50px',
-                        height: '50px',
-                        borderRadius: '14px',
+                        width: `${dockIconSize}px`,
+                        height: `${dockIconSize}px`,
+                        borderRadius: `${dockIconRadius}px`,
                         backgroundColor: 'var(--sys-icon-bg)',
                         border: 'var(--sys-icon-border-width) solid var(--sys-icon-border)',
                         color: 'var(--sys-icon-glyph)',
                       }}
                     >
-                      {customIconNode || <DockIconComponent size={28} strokeWidth={1.8} />}
+                      {customIconNode || <DockIconComponent size={dockIconSize * 0.5} strokeWidth={1.8} />}
                     </div>
                   </button>
                 ) : (
@@ -186,6 +194,11 @@ export const HomeDock: React.FC<HomeDockProps> = ({
                     onClick={item.onClick}
                     isEditing={isEditing}
                     isEditSettling={isEditSettling}
+                    size={dockIconSize}
+                    radius={dockIconRadius}
+                    frosted={settings.iconFrosted}
+                    shadow={dockIconShadow}
+                    labelWidth={dockSlotWidth}
                     jiggleDelayMs={-index * 180}
                     jiggleDurationMs={720 + index * 55}
                     onPointerDown={(event) => {

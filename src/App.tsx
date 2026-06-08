@@ -154,6 +154,9 @@ const isWeChatEmbeddedBrowser = (): boolean => {
   return /MicroMessenger/i.test(userAgent);
 };
 
+const clampNumber = (value: number, min: number, max: number): number =>
+  Math.min(Math.max(value, min), max);
+
 const requestBrowserFullscreen = async (el: FullscreenElement): Promise<void> => {
   if (typeof el.requestFullscreen === 'function') {
     await el.requestFullscreen();
@@ -515,10 +518,17 @@ export default function App() {
   const [fullscreenHint, setFullscreenHint] = useState<string | null>(null);
   const [isStandalonePwa, setIsStandalonePwa] = useState<boolean>(() => isStandaloneDisplayMode());
   const [wechatBanner, setWechatBanner] = useState<WeChatNotificationBannerState | null>(null);
-  const [storesHydrated, setStoresHydrated] = useState(
-    () => hasCoreStoresHydrated() && hasAppMarketHydrated()
-  );
+  const [coreStoresHydrated, setCoreStoresHydrated] = useState(() => hasCoreStoresHydrated());
+  const [appMarketHydrated, setAppMarketHydrated] = useState(() => hasAppMarketHydrated());
   const [localCustomWidgets, setLocalCustomWidgets] = useState(() => readCustomWidgetLibrary());
+  const [viewportSize, setViewportSize] = useState(() => {
+    if (typeof window === 'undefined') return { width: 390, height: 844 };
+    return {
+      width: Math.round(window.visualViewport?.width ?? window.innerWidth),
+      height: Math.round(window.innerHeight),
+    };
+  });
+  const [desktopGridSize, setDesktopGridSize] = useState({ width: 0, height: 0 });
   const settings = useSettingsCoreStore((state) => state.settings);
   const updateSettings = useSettingsCoreStore((state) => state.updateSettings);
   const desktopLayout = useDesktopCoreStore((state) => state.desktopLayout);
@@ -538,6 +548,7 @@ export default function App() {
   const wechatSessions = useWeChatStore((state) => state.wechatSessions);
   const contactsSnapshot = useContactsSnapshot();
   const myCardsSnapshot = useMyCardsSnapshot();
+  const storesHydrated = coreStoresHydrated && appMarketHydrated;
 
   // 初始化桌面布局
   const { cols = 4, rows = 6, items = [], pageCount = 1 } = desktopLayout;
@@ -657,31 +668,116 @@ export default function App() {
   const desktopAutoPageTargetRef = useRef<number | null>(null);
   const fullscreenHintTimerRef = useRef<number | null>(null);
   const desktopEditSettleTimerRef = useRef<number | null>(null);
-  const isDenseGrid = cols >= 5;
+  const isIOS = isIOSDevice();
+  const isDenseGrid = cols >= 5 || rows >= 6;
   const isIOSStandalonePwa = isIOSDevice() && isStandalonePwa;
+  const isExpandedDesktopViewport = isFullscreen || isStandalonePwa;
+  const desktopViewportReferenceRows = isExpandedDesktopViewport && cols === 4 && rows === 6 ? 7 : rows;
   const isWeChatBrowser = isWeChatEmbeddedBrowser();
   const desktopDockBottomOffset = isIOSStandalonePwa || isWeChatBrowser ? 54 : 18;
-  const effectiveIconSize = isDenseGrid ? Math.min(settings.iconSize, 52) : settings.iconSize;
-  const effectiveIconRadius = Math.min(settings.iconRadius, Math.floor(effectiveIconSize / 2));
-  const effectiveIconShadow = isDenseGrid ? Math.min(settings.iconShadow, 6) : settings.iconShadow;
-  const desktopIconFootprint = effectiveIconSize + (settings.showAppName ? 28 : 0);
-  const desktopDockReservedHeight = desktopDockBottomOffset + 126;
-  const desktopBottomEmptyRowHeight = Math.max(76, desktopIconFootprint);
+  const desktopGridGap = Math.round(clampNumber(
+    16 - Math.max(0, desktopViewportReferenceRows - 4) * 1.7 - Math.max(0, cols - 4) * 2,
+    6,
+    16
+  ));
+  const desktopPagePaddingX = Math.round(clampNumber(
+    (isDenseGrid ? 14 : 24) - Math.max(0, cols - 4) * 1.5,
+    8,
+    24
+  ));
+  const desktopContentTopPadding = isFullscreen
+    ? (isIOS ? '9rem' : '4rem')
+    : (isIOS
+        ? 'calc(max(env(safe-area-inset-top, 24px), 24px) + 2.5rem)'
+        : 'calc(max(env(safe-area-inset-top, 24px), 24px) + 0.5rem)');
+  const desktopContentTopPaddingEstimate = isFullscreen ? (isIOS ? 144 : 64) : (isIOS ? 64 : 32);
+  const desktopDockReservedHeight = desktopDockBottomOffset + 114;
+  const desktopBottomEmptyRowHeight = Math.round(clampNumber(
+    viewportSize.height * 0.012,
+    8,
+    14
+  ));
   const desktopContentBottomPadding = desktopDockReservedHeight + desktopBottomEmptyRowHeight;
+  const estimatedDesktopGridWidth = Math.max(0, viewportSize.width - desktopPagePaddingX * 2);
+  const estimatedDesktopGridHeight = Math.max(
+    0,
+    viewportSize.height - desktopContentTopPaddingEstimate - desktopContentBottomPadding
+  );
+  const desktopAvailableGridWidth = desktopGridSize.width || estimatedDesktopGridWidth;
+  const desktopAvailableGridHeight = desktopGridSize.height || estimatedDesktopGridHeight;
+  const desktopCellWidth = Math.max(
+    0,
+    (desktopAvailableGridWidth - desktopGridGap * Math.max(0, cols - 1)) / Math.max(cols, 1)
+  );
+  const desktopCellHeight = Math.max(
+    0,
+    (desktopAvailableGridHeight - desktopGridGap * Math.max(0, rows - 1)) / Math.max(rows, 1)
+  );
+  const desktopLabelLineHeight = settings.showAppName
+    ? Math.round(clampNumber(
+        Math.min(
+          isExpandedDesktopViewport ? 15 : 13,
+          desktopCellHeight * (isExpandedDesktopViewport ? 0.16 : 0.16),
+          desktopCellWidth * (isExpandedDesktopViewport ? 0.23 : 0.23)
+        ),
+        10,
+        isExpandedDesktopViewport ? 15 : 13
+      ))
+    : 0;
+  const desktopLabelFontSize = settings.showAppName
+    ? Math.round(clampNumber(
+        desktopLabelLineHeight - (isExpandedDesktopViewport ? 3 : 2),
+        isExpandedDesktopViewport ? 9 : 9,
+        isExpandedDesktopViewport ? 12 : 12
+      ))
+    : 0;
+  const desktopLabelGap = settings.showAppName
+    ? Math.round(clampNumber(desktopCellHeight * 0.03, 1, isExpandedDesktopViewport ? 4 : 2))
+    : 0;
+  const maxIconSizeByCell = Math.floor(Math.min(
+    desktopCellWidth - 4,
+    desktopCellHeight - desktopLabelLineHeight - desktopLabelGap + (isExpandedDesktopViewport ? -1 : 5)
+  ));
+  const desktopIconBaseSize = settings.iconSize >= 60
+    ? Math.min(
+        settings.iconSize + (isExpandedDesktopViewport ? 4 : 10),
+        isExpandedDesktopViewport ? 64 : 70
+      )
+    : settings.iconSize;
+  const desktopIconGrowthLimit = isExpandedDesktopViewport ? 8 : 10;
+  const desktopIconGrowth = Math.min(
+    Math.max(0, maxIconSizeByCell - desktopIconBaseSize) * 0.55,
+    desktopIconGrowthLimit
+  );
+  const desktopIconTargetSize = desktopIconBaseSize + desktopIconGrowth;
+  const effectiveIconSize = Math.round(clampNumber(
+    Math.min(desktopIconTargetSize, maxIconSizeByCell),
+    22,
+    desktopIconBaseSize + desktopIconGrowthLimit
+  ));
+  const effectiveIconRadius = Math.min(settings.iconRadius, Math.floor(effectiveIconSize / 2));
+  const effectiveIconShadow = Math.min(settings.iconShadow, Math.max(3, Math.round(effectiveIconSize * 0.14)));
+  const desktopLabelWidth = Math.max(
+    24,
+    Math.floor(Math.min(desktopCellWidth - 2, Math.max(effectiveIconSize + 24, 76)))
+  );
+  const desktopWidgetRadius = Math.round(clampNumber(
+    Math.min(desktopCellWidth, desktopCellHeight) * 0.18,
+    10,
+    24
+  ));
   const shouldRenderCustomStatusBar = !isIOSStandalonePwa;
   const shouldRenderCustomHomeIndicator = !isIOSStandalonePwa;
   const fallbackFontStack = '"Inter", ui-sans-serif, system-ui, sans-serif';
 
   useEffect(() => {
-    const updateHydratedState = () => {
-      setStoresHydrated(
-        hasCoreStoresHydrated() && hasAppMarketHydrated()
-      );
-    };
+    const updateCoreHydratedState = () => setCoreStoresHydrated(hasCoreStoresHydrated());
+    const updateAppMarketHydratedState = () => setAppMarketHydrated(hasAppMarketHydrated());
 
-    updateHydratedState();
-    const unsubscribeGlobal = onCoreStoresHydrated(updateHydratedState);
-    const unsubscribeMarket = onAppMarketHydrated(updateHydratedState);
+    updateCoreHydratedState();
+    updateAppMarketHydratedState();
+    const unsubscribeGlobal = onCoreStoresHydrated(updateCoreHydratedState);
+    const unsubscribeMarket = onAppMarketHydrated(updateAppMarketHydratedState);
 
     return () => {
       unsubscribeGlobal();
@@ -690,7 +786,7 @@ export default function App() {
   }, []);
 
   useEffect(() => {
-    if (!storesHydrated) {
+    if (!coreStoresHydrated) {
       return;
     }
 
@@ -701,10 +797,10 @@ export default function App() {
     return () => {
       window.clearTimeout(timer);
     };
-  }, [storesHydrated]);
+  }, [coreStoresHydrated]);
 
   useEffect(() => {
-    if (storesHydrated) {
+    if (coreStoresHydrated) {
       return;
     }
 
@@ -715,7 +811,7 @@ export default function App() {
     return () => {
       window.clearTimeout(fallbackTimer);
     };
-  }, [storesHydrated]);
+  }, [coreStoresHydrated]);
 
   useEffect(() => {
     const doc = document as FullscreenDocument;
@@ -775,6 +871,7 @@ export default function App() {
 
     const syncViewportMetrics = () => {
       const layoutViewportHeight = Math.round(window.innerHeight);
+      const viewportWidth = Math.round(window.visualViewport?.width ?? window.innerWidth);
       const viewportHeight = Math.round(window.visualViewport?.height ?? layoutViewportHeight);
       const viewportOffsetTop = Math.max(0, Math.round(window.visualViewport?.offsetTop ?? 0));
       const fullViewportHeight = Math.max(layoutViewportHeight, viewportHeight + viewportOffsetTop);
@@ -787,6 +884,11 @@ export default function App() {
       document.documentElement.style.setProperty('--app-dvh', `${nextHeight}px`);
       document.documentElement.style.setProperty('--app-vv-offset-top', `${viewportOffsetTop}px`);
       document.documentElement.style.setProperty('--app-vv-height', `${viewportHeight}px`);
+      setViewportSize((current) => (
+        current.width === viewportWidth && current.height === nextHeight
+          ? current
+          : { width: viewportWidth, height: nextHeight }
+      ));
     };
 
     syncViewportMetrics();
@@ -806,6 +908,32 @@ export default function App() {
       document.removeEventListener('focusout', syncViewportMetrics);
     };
   }, []);
+
+  useEffect(() => {
+    const syncDesktopGridSize = () => {
+      const rect = desktopGridRef.current?.getBoundingClientRect();
+      const width = Math.max(0, Math.round(rect?.width ?? 0));
+      const height = Math.max(0, Math.round(rect?.height ?? 0));
+      setDesktopGridSize((current) => (
+        current.width === width && current.height === height ? current : { width, height }
+      ));
+    };
+
+    syncDesktopGridSize();
+    const gridNode = desktopGridRef.current;
+    const resizeObserver = typeof ResizeObserver !== 'undefined' && gridNode
+      ? new ResizeObserver(syncDesktopGridSize)
+      : null;
+    resizeObserver?.observe(gridNode);
+    window.addEventListener('resize', syncDesktopGridSize);
+    window.addEventListener('orientationchange', syncDesktopGridSize);
+
+    return () => {
+      resizeObserver?.disconnect();
+      window.removeEventListener('resize', syncDesktopGridSize);
+      window.removeEventListener('orientationchange', syncDesktopGridSize);
+    };
+  }, [activeAppId, cols, rows, desktopContentBottomPadding, desktopContentTopPadding, desktopPagePaddingX]);
 
   useEffect(() => {
     const builtinFontStyleId = 'builtin-handwriting-font-face';
@@ -868,9 +996,35 @@ export default function App() {
     });
   }, [resolvedThemeTokens]);
 
+  const isAutoDesktopLayout = desktopLayout.layoutMode === 'auto' ||
+    (
+      desktopLayout.layoutMode === undefined &&
+      cols === 4 &&
+      (rows === 4 || rows === 6)
+    );
+  const preferredDesktopRows = 6;
+
+  useEffect(() => {
+    if (!coreStoresHydrated || !isAutoDesktopLayout) return;
+    if (cols === 4 && rows === preferredDesktopRows && desktopLayout.layoutMode === 'auto') return;
+    updateDesktopLayout({
+      cols: 4,
+      rows: preferredDesktopRows,
+      layoutMode: 'auto',
+    });
+  }, [
+    coreStoresHydrated,
+    cols,
+    rows,
+    preferredDesktopRows,
+    desktopLayout.layoutMode,
+    isAutoDesktopLayout,
+    updateDesktopLayout,
+  ]);
+
   // ================= 新增：桌面初始化逻辑 =================
   useEffect(() => {
-    if (!storesHydrated) return;
+    if (!coreStoresHydrated) return;
 
     let nextItems = [...items];
     const hasAppIcon = (appId: string) =>
@@ -902,7 +1056,7 @@ export default function App() {
         },
       ];
     });
-  }, [storesHydrated, items, rows, cols, addDesktopItem]);
+  }, [coreStoresHydrated, items, rows, cols, addDesktopItem]);
   // ========================================================
 
   // 追踪上一次行列数的 ref
@@ -911,7 +1065,7 @@ export default function App() {
 
   // 监听桌面布局变化，只处理行列数更新时的重排
   useEffect(() => {
-    if (!storesHydrated) return;
+    if (!coreStoresHydrated) return;
 
     const currentGrid = { rows, cols };
     if (!hasInitializedGridRef.current) {
@@ -934,18 +1088,60 @@ export default function App() {
       return;
     }
 
-    // 行列数变化了，重新排列所有 app 到新网格（按照索引顺序）
-    existingApps.forEach((app: DesktopItem, index: number) => {
-      const newX = index % cols;
-      const newY = Math.floor(index / cols);
-      if (app.x !== newX || app.y !== newY) {
-        updateDesktopItem(app.instanceId, { x: newX, y: newY });
+    const nextItems = items.map((item) => ({ ...item }));
+    const nextAppItems = nextItems
+      .filter((item) => item.type === 'app')
+      .sort((left, right) => {
+        const leftPage = left.page ?? 0;
+        const rightPage = right.page ?? 0;
+        if (leftPage !== rightPage) return leftPage - rightPage;
+        return left.y * prevGrid.current.cols + left.x - (right.y * prevGrid.current.cols + right.x);
+      });
+    const nextWidgetItems = nextItems.filter((item) => item.type === 'widget');
+    const maxExistingPage = Math.max(0, ...nextItems.map((item) => item.page ?? 0));
+    const occupiedByWidgets = (page: number, x: number, y: number) =>
+      nextWidgetItems.some((widget) => {
+        const widgetPage = widget.page ?? 0;
+        if (widgetPage !== page) return false;
+        const widgetWidth = Math.min(Math.max(widget.w || 1, 1), cols);
+        const widgetHeight = Math.min(Math.max(widget.h || 1, 1), rows);
+        return x >= widget.x && x < widget.x + widgetWidth && y >= widget.y && y < widget.y + widgetHeight;
+      });
+    const occupiedAppCells = new Set<string>();
+    const findNextAvailableAppCell = () => {
+      for (let page = 0; page <= maxExistingPage + nextAppItems.length + 1; page += 1) {
+        for (let y = 0; y < rows; y += 1) {
+          for (let x = 0; x < cols; x += 1) {
+            const key = `${page}:${x}:${y}`;
+            if (occupiedAppCells.has(key) || occupiedByWidgets(page, x, y)) continue;
+            occupiedAppCells.add(key);
+            return { page, x, y };
+          }
+        }
+      }
+      return { page: maxExistingPage + 1, x: 0, y: 0 };
+    };
+
+    nextWidgetItems.forEach((widget) => {
+      const nextW = Math.min(Math.max(widget.w || 1, 1), cols);
+      const nextH = Math.min(Math.max(widget.h || 1, 1), rows);
+      const nextX = clampNumber(widget.x, 0, Math.max(0, cols - nextW));
+      const nextY = clampNumber(widget.y, 0, Math.max(0, rows - nextH));
+      if (widget.x !== nextX || widget.y !== nextY || widget.w !== nextW || widget.h !== nextH) {
+        updateDesktopItem(widget.instanceId, { x: nextX, y: nextY, w: nextW, h: nextH });
+      }
+    });
+
+    nextAppItems.forEach((app) => {
+      const nextCell = findNextAvailableAppCell();
+      if ((app.page ?? 0) !== nextCell.page || app.x !== nextCell.x || app.y !== nextCell.y) {
+        updateDesktopItem(app.instanceId, nextCell);
       }
     });
 
     // 更新 ref
     prevGrid.current = currentGrid;
-  }, [storesHydrated, rows, cols, items, updateDesktopItem]);
+  }, [coreStoresHydrated, rows, cols, items, updateDesktopItem]);
 
   const installedRuntimeApps = useMemo(
     () => getInstalledRuntimeMarketApps(installedAppIds, uploadedApps),
@@ -1318,14 +1514,32 @@ export default function App() {
     desktopAutoPageTargetRef.current = null;
   }, []);
 
-  const resolveCellFromPointer = useCallback((clientX: number, clientY: number) => {
+  const resolveNearestGridCell = useCallback((
+    pointX: number,
+    pointY: number,
+    spanWidth = 1,
+    spanHeight = 1
+  ) => {
     const grid = desktopGridRef.current;
     if (!grid) return null;
     const rect = grid.getBoundingClientRect();
-    const col = Math.max(0, Math.min(cols - 1, Math.floor(((clientX - rect.left) / rect.width) * cols)));
-    const row = Math.max(0, Math.min(rows - 1, Math.floor(((clientY - rect.top) / rect.height) * rows)));
-    return { x: col, y: row };
-  }, [cols, rows]);
+    const cellWidth = Math.max(1, (rect.width - desktopGridGap * Math.max(0, cols - 1)) / cols);
+    const cellHeight = Math.max(1, (rect.height - desktopGridGap * Math.max(0, rows - 1)) / rows);
+    const strideX = cellWidth + desktopGridGap;
+    const strideY = cellHeight + desktopGridGap;
+    const footprintWidth = cellWidth * spanWidth + desktopGridGap * Math.max(0, spanWidth - 1);
+    const footprintHeight = cellHeight * spanHeight + desktopGridGap * Math.max(0, spanHeight - 1);
+    const x = Math.round((pointX - rect.left - footprintWidth / 2) / strideX);
+    const y = Math.round((pointY - rect.top - footprintHeight / 2) / strideY);
+    return {
+      x: clampNumber(x, 0, Math.max(0, cols - spanWidth)),
+      y: clampNumber(y, 0, Math.max(0, rows - spanHeight)),
+    };
+  }, [cols, rows, desktopGridGap]);
+
+  const resolveCellFromPointer = useCallback((clientX: number, clientY: number) => {
+    return resolveNearestGridCell(clientX, clientY);
+  }, [resolveNearestGridCell]);
 
   const resolveWidgetCellFromPointer = useCallback((
     clientX: number,
@@ -1338,27 +1552,23 @@ export default function App() {
     const grid = desktopGridRef.current;
     if (!grid) return null;
     const rect = grid.getBoundingClientRect();
-    const cellWidth = rect.width / cols;
-    const cellHeight = rect.height / rows;
+    const cellWidth = Math.max(1, (rect.width - desktopGridGap * Math.max(0, cols - 1)) / cols);
+    const cellHeight = Math.max(1, (rect.height - desktopGridGap * Math.max(0, rows - 1)) / rows);
     const left = clientX - pointerOffsetX;
     const top = clientY - pointerOffsetY;
-    const x = Math.max(0, Math.min(cols - width, Math.round((left - rect.left) / cellWidth)));
-    const y = Math.max(0, Math.min(rows - height, Math.round((top - rect.top) / cellHeight)));
-    return { x, y };
-  }, [cols, rows]);
+    return resolveNearestGridCell(
+      left + (cellWidth * width + desktopGridGap * Math.max(0, width - 1)) / 2,
+      top + (cellHeight * height + desktopGridGap * Math.max(0, height - 1)) / 2,
+      width,
+      height
+    );
+  }, [cols, rows, desktopGridGap, resolveNearestGridCell]);
 
   const resolveIconCellFromPointer = useCallback((clientX: number, clientY: number, pointerOffsetX: number, pointerOffsetY: number) => {
-    const grid = desktopGridRef.current;
-    if (!grid) return null;
-    const rect = grid.getBoundingClientRect();
-    const cellWidth = rect.width / cols;
-    const cellHeight = rect.height / rows;
     const centerX = clientX - pointerOffsetX;
     const centerY = clientY - pointerOffsetY;
-    const x = Math.max(0, Math.min(cols - 1, Math.floor((centerX - rect.left) / cellWidth)));
-    const y = Math.max(0, Math.min(rows - 1, Math.floor((centerY - rect.top) / cellHeight)));
-    return { x, y };
-  }, [cols, rows]);
+    return resolveNearestGridCell(centerX, centerY);
+  }, [resolveNearestGridCell]);
 
   const isCellBlockedByWidget = useCallback((x: number, y: number) => (
     widgetItems.some((widget) => x >= widget.x && x < widget.x + widget.w && y >= widget.y && y < widget.y + widget.h)
@@ -1865,15 +2075,15 @@ export default function App() {
     const grid = desktopGridRef.current;
     if (!item || !grid) return;
     const rect = grid.getBoundingClientRect();
-    const cellWidth = rect.width / cols;
-    const cellHeight = rect.height / rows;
+    const cellWidth = Math.max(1, (rect.width - desktopGridGap * Math.max(0, cols - 1)) / cols);
+    const cellHeight = Math.max(1, (rect.height - desktopGridGap * Math.max(0, rows - 1)) / rows);
     const nextW = Math.max(1, Math.min(cols - item.x, Math.round(resize.startW + (event.clientX - resize.startX) / cellWidth)));
     const nextH = Math.max(1, Math.min(rows - item.y, Math.round(resize.startH + (event.clientY - resize.startY) / cellHeight)));
     if (canPlaceDesktopWidgetFrame(item, item.x, item.y, nextW, nextH)) {
       moveAppsAwayFromWidgetFrame(item, item.x, item.y, nextW, nextH);
       updateDesktopItem(item.instanceId, { w: nextW, h: nextH });
     }
-  }, [canPlaceDesktopWidgetFrame, cols, items, moveAppsAwayFromWidgetFrame, rows, updateDesktopItem]);
+  }, [canPlaceDesktopWidgetFrame, cols, desktopGridGap, items, moveAppsAwayFromWidgetFrame, rows, updateDesktopItem]);
 
   const endDesktopWidgetResize = useCallback((event: React.PointerEvent<HTMLButtonElement>) => {
     event.stopPropagation();
@@ -2447,15 +2657,12 @@ export default function App() {
 
       {/* Main Content Area */}
       <main
-        className={`flex-1 z-10 min-h-0 overflow-hidden ${isDenseGrid ? 'px-3' : 'px-6'}`}
+        className="flex-1 z-10 min-h-0 overflow-hidden"
         style={{ 
-          // ✨ 核心魔法：利用已有的 isIOSDevice() 动态判断系统，分配不同的 paddingTop
-          paddingTop: isFullscreen 
-            ? (isIOSDevice() ? '9rem' : '4rem')
-            : (isIOSDevice() 
-                ? 'calc(max(env(safe-area-inset-top, 24px), 24px) + 2.5rem)' // iOS：额外加 2.5rem，避开刘海/灵动岛，增加呼吸感
-                : 'calc(max(env(safe-area-inset-top, 24px), 24px) + 0.5rem)'), // 安卓：只加 0.5rem，整体网格上提，紧凑自然
-          paddingBottom: `calc(env(safe-area-inset-bottom, 20px) + ${desktopContentBottomPadding}px)`
+          paddingLeft: `${desktopPagePaddingX}px`,
+          paddingRight: `${desktopPagePaddingX}px`,
+          paddingTop: desktopContentTopPadding,
+          paddingBottom: `calc(env(safe-area-inset-bottom, 20px) + ${desktopContentBottomPadding}px)`,
         }}
         onTouchStart={(e) => {
           if (
@@ -2495,10 +2702,11 @@ export default function App() {
         {/* 统一桌面网格 - Widget 和 App 在同一个 grid 中渲染 */}
         <div
           ref={desktopGridRef}
-          className={`grid h-full min-h-0 ${isDenseGrid ? 'gap-3' : 'gap-4'}`}
+          className="grid h-full min-h-0"
           style={{
-            gridTemplateColumns: `repeat(${cols}, 1fr)`,
-            gridTemplateRows: `repeat(${rows}, minmax(${desktopIconFootprint}px, 1fr))`,
+            gap: `${desktopGridGap}px`,
+            gridTemplateColumns: `repeat(${cols}, minmax(0, 1fr))`,
+            gridTemplateRows: `repeat(${rows}, minmax(0, 1fr))`,
             gridAutoRows: 'minmax(0, 1fr)',
           }}
         >
@@ -2525,6 +2733,13 @@ export default function App() {
                   const gridColumnEnd = gridColumnStart + w;
                   const gridRowStart = widgetItem.y + 1;
                   const gridRowEnd = gridRowStart + h;
+                  const widgetPixelWidth = Math.max(0, desktopCellWidth * w + desktopGridGap * Math.max(0, w - 1));
+                  const widgetPixelHeight = Math.max(0, desktopCellHeight * h + desktopGridGap * Math.max(0, h - 1));
+                  const widgetContentScale = clampNumber(
+                    Math.min(widgetPixelWidth / Math.max(1, w * 84), widgetPixelHeight / Math.max(1, h * 84)),
+                    0.68,
+                    1
+                  );
                   const draggingOffset = draggingDesktopWidget?.instanceId === widgetItem.instanceId
                     ? draggingDesktopWidget
                     : null;
@@ -2533,9 +2748,13 @@ export default function App() {
                     <div
                       key={widgetItem.instanceId}
                       data-desktop-widget-id={widgetItem.instanceId}
+                      className={`relative h-full w-full overflow-hidden touch-none ${isDesktopEditing ? 'cursor-grab active:cursor-grabbing' : ''}`}
                       style={{
                         gridColumn: `${gridColumnStart} / ${gridColumnEnd}`,
                         gridRow: `${gridRowStart} / ${gridRowEnd}`,
+                        minWidth: 0,
+                        minHeight: 0,
+                        borderRadius: `${desktopWidgetRadius}px`,
                         transform: draggingOffset
                           ? `translate3d(${draggingOffset.dx}px, ${draggingOffset.dy}px, 0)`
                           : undefined,
@@ -2544,7 +2763,6 @@ export default function App() {
                           : 'transform 260ms cubic-bezier(0.22, 1, 0.36, 1)',
                         zIndex: draggingOffset ? 60 : undefined,
                       }}
-                      className={`relative rounded-2xl touch-none ${isDesktopEditing ? 'cursor-grab active:cursor-grabbing' : ''}`}
                       onPointerDownCapture={(event) => {
                         if ((event.target as HTMLElement).closest('[data-custom-widget-press-layer]')) return;
                         if (!isDesktopEditing) startDesktopWidgetPointer(event, widgetItem);
@@ -2621,7 +2839,16 @@ export default function App() {
                         </>
                       ) : null}
                       <div className="h-full w-full overflow-hidden rounded-2xl">
-                        <WidgetPlaceholder
+                        <div
+                          className="h-full w-full origin-top-left"
+                          style={{
+                            width: widgetContentScale < 1 ? `${100 / widgetContentScale}%` : '100%',
+                            height: widgetContentScale < 1 ? `${100 / widgetContentScale}%` : '100%',
+                            transform: widgetContentScale < 1 ? `scale(${widgetContentScale})` : undefined,
+                            transformOrigin: 'top left',
+                          }}
+                        >
+                          <WidgetPlaceholder
                             name={widgetItem.data?.name || widgetConfig?.name || 'Widget'}
                             backgroundImage={widgetItem.data?.backgroundImage || widgetItem.data?.placeholderIcon || ''}
                             defaultIcon={widgetConfig?.defaultIcon || ''}
@@ -2649,6 +2876,7 @@ export default function App() {
                             width={w}
                             height={h}
                           />
+                        </div>
                       </div>
                       {isDesktopEditing &&
                       widgetItem.data?.templateId === 'glass-frame' &&
@@ -2720,7 +2948,14 @@ export default function App() {
                     const customIconNode = customIcon
                       ? <img src={customIcon} alt={app.name} className="w-full h-full object-cover" />
                       : runtimeIcon
-                        ? <span className="text-[26px] leading-none">{runtimeIcon}</span>
+                        ? (
+                          <span
+                            className="leading-none"
+                            style={{ fontSize: `${Math.max(16, Math.round(effectiveIconSize * 0.43))}px` }}
+                          >
+                            {runtimeIcon}
+                          </span>
+                        )
                         : undefined;
 
                     // 计算 App 的 grid 位置
@@ -2736,10 +2971,13 @@ export default function App() {
                       <div
                         key={appItem.instanceId}
                         data-desktop-icon-id={appItem.instanceId}
-                        className="self-start justify-self-center"
+                        className="place-self-center"
                         style={{
                           gridColumn: `${gridColumnStart}`,
                           gridRow: `${gridRowStart}`,
+                          width: `${Math.max(desktopCellWidth, desktopLabelWidth)}px`,
+                          maxWidth: '100%',
+                          minWidth: 0,
                           transform: draggingOffset
                             ? `translate3d(${draggingOffset.dx}px, ${draggingOffset.dy}px, 0)`
                             : undefined,
@@ -2771,6 +3009,10 @@ export default function App() {
                           radius={effectiveIconRadius}
                           frosted={settings.iconFrosted}
                           shadow={effectiveIconShadow}
+                          labelWidth={desktopLabelWidth}
+                          labelFontSize={desktopLabelFontSize}
+                          labelLineHeight={desktopLabelLineHeight}
+                          labelGap={desktopLabelGap}
                         />
                       </div>
                     );
@@ -2793,7 +3035,14 @@ export default function App() {
         const customIconNode = customIcon
           ? <img src={customIcon} alt={app.name} className="w-full h-full object-cover" />
           : runtimeIcon
-            ? <span className="text-[26px] leading-none">{runtimeIcon}</span>
+            ? (
+              <span
+                className="leading-none"
+                style={{ fontSize: `${Math.max(16, Math.round(effectiveIconSize * 0.43))}px` }}
+              >
+                {runtimeIcon}
+              </span>
+            )
             : undefined;
         return (
           <div
@@ -2815,6 +3064,10 @@ export default function App() {
               radius={effectiveIconRadius}
               frosted={settings.iconFrosted}
               shadow={effectiveIconShadow}
+              labelWidth={desktopLabelWidth}
+              labelFontSize={desktopLabelFontSize}
+              labelLineHeight={desktopLabelLineHeight}
+              labelGap={desktopLabelGap}
             />
           </div>
         );
@@ -2827,8 +3080,14 @@ export default function App() {
         const width = item.w || widgetConfig?.defaultWidth || 1;
         const height = item.h || widgetConfig?.defaultHeight || 1;
         const gridRect = desktopGridRef.current?.getBoundingClientRect();
-        const overlayWidth = gridRect ? (gridRect.width / cols) * width : width * 86;
-        const overlayHeight = gridRect ? (gridRect.height / rows) * height : height * 86;
+        const overlayCellWidth = gridRect
+          ? Math.max(1, (gridRect.width - desktopGridGap * Math.max(0, cols - 1)) / cols)
+          : 86;
+        const overlayCellHeight = gridRect
+          ? Math.max(1, (gridRect.height - desktopGridGap * Math.max(0, rows - 1)) / rows)
+          : 86;
+        const overlayWidth = overlayCellWidth * width + desktopGridGap * Math.max(0, width - 1);
+        const overlayHeight = overlayCellHeight * height + desktopGridGap * Math.max(0, height - 1);
         return (
           <div
             className="pointer-events-none fixed z-[80] overflow-hidden rounded-2xl"

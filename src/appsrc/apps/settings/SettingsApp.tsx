@@ -584,6 +584,3 @@ export const SettingsApp: React.FC<SettingsAppProps> = ({ onClose, context }) =>
 export type { SettingsAppProps };
 
 
-
-
-
