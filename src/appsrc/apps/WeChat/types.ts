@@ -222,6 +222,12 @@ export interface WeChatCustomBubbleStyle {
   id: string;
   name: string;
   css: string;
+  target?: 'self' | 'peer';
+  mirrored?: boolean;
+  selfCss?: string;
+  peerCss?: string;
+  selfMirrored?: boolean;
+  peerMirrored?: boolean;
 }
 
 export interface WeChatCustomFontStyle {

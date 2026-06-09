@@ -740,6 +740,9 @@ export const WeChatChatView: React.FC<WeChatChatViewProps> = ({
     customBubbleStyles: session?.customBubbleStyles || [],
     customChatFonts: session?.customChatFonts || [],
   };
+  const selectedCustomBubbleStyle = (sessionUiSettings.customBubbleStyles || []).find(
+    (item) => item.id === sessionUiSettings.customBubbleStyleId
+  ) || null;
   const hideFloatingBubble = Boolean(wechatUiSettings.hideFloatingBubble);
   const updateCurrentSessionUiSettings = useCallback(
     (settings: Parameters<typeof updateWeChatSessionSettings>[1]) => {
@@ -3022,16 +3025,43 @@ export const WeChatChatView: React.FC<WeChatChatViewProps> = ({
     }
   };
 
-  const handleAddCustomBubbleStyle = (name: string, css: string) => {
+  const handleAddCustomBubbleStyle = (name: string, selfCss: string, peerCss: string, selfMirrored: boolean, peerMirrored: boolean) => {
     const nextStyle = {
       id: `bubble-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`,
       name: name.trim() || '自定义气泡',
-      css: css.trim(),
+      css: (selfCss || peerCss).trim(),
+      selfCss: selfCss.trim(),
+      peerCss: peerCss.trim(),
+      selfMirrored,
+      peerMirrored,
     };
     updateCurrentSessionUiSettings({
       customBubbleCss: nextStyle.css,
       customBubbleStyleId: nextStyle.id,
       customBubbleStyles: [nextStyle, ...(sessionUiSettings.customBubbleStyles || [])],
+    });
+  };
+
+  const handleUpdateCustomBubbleStyle = (id: string, name: string, selfCss: string, peerCss: string, selfMirrored: boolean, peerMirrored: boolean) => {
+    const nextName = name.trim() || '自定义气泡';
+    const nextCss = (selfCss || peerCss).trim();
+    updateCurrentSessionUiSettings({
+      customBubbleCss: sessionUiSettings.customBubbleStyleId === id ? nextCss : sessionUiSettings.customBubbleCss,
+      customBubbleStyles: (sessionUiSettings.customBubbleStyles || []).map((item) =>
+        item.id === id
+          ? {
+              ...item,
+              name: nextName,
+              css: nextCss,
+              selfCss: selfCss.trim(),
+              peerCss: peerCss.trim(),
+              selfMirrored,
+              peerMirrored,
+              target: undefined,
+              mirrored: undefined,
+            }
+          : item
+      ),
     });
   };
 
@@ -3580,13 +3610,27 @@ export const WeChatChatView: React.FC<WeChatChatViewProps> = ({
                         </span>
                       </div>
                     ) : null}
+                    {(() => {
+                      const isUserMessage = message.role === 'user';
+                      const customBubbleCssForMessage = selectedCustomBubbleStyle
+                        ? (isUserMessage
+                            ? selectedCustomBubbleStyle.selfCss || (selectedCustomBubbleStyle.target === 'self' || !selectedCustomBubbleStyle.target ? selectedCustomBubbleStyle.css : '')
+                            : selectedCustomBubbleStyle.peerCss || (selectedCustomBubbleStyle.target === 'peer' ? selectedCustomBubbleStyle.css : ''))
+                        : sessionUiSettings.customBubbleCss;
+                      const customBubbleMirroredForMessage = selectedCustomBubbleStyle
+                        ? (isUserMessage
+                            ? Boolean(selectedCustomBubbleStyle.selfMirrored ?? (selectedCustomBubbleStyle.target === 'self' ? selectedCustomBubbleStyle.mirrored : false))
+                            : Boolean(selectedCustomBubbleStyle.peerMirrored ?? (selectedCustomBubbleStyle.target === 'peer' ? selectedCustomBubbleStyle.mirrored : false)))
+                        : false;
+                      return (
                     <WeChatChatMessageItem 
                       message={message} isUser={message.role === 'user'} 
                       userAvatar={wechatUserProfile?.avatar} characterAvatar={character.avatar} characterName={character.name}
                       selfBubblePreset={sessionUiSettings.selfBubblePreset}
                       peerBubblePreset={sessionUiSettings.peerBubblePreset}
                       selfBubbleColor={sessionUiSettings.selfBubbleColor}
-                      customBubbleCss={sessionUiSettings.customBubbleCss}
+                      customBubbleCss={customBubbleCssForMessage}
+                      customBubbleMirrored={customBubbleMirroredForMessage}
                       chatFontFamily={chatFontFamily}
                       customRenderConfig={customRenderConfig}
                       isSelected={selectedMessageIds.includes(message.id)} isSelectionMode={isSelectionMode}
@@ -3599,6 +3643,8 @@ export const WeChatChatView: React.FC<WeChatChatViewProps> = ({
                       onToggleSelection={readOnly ? () => undefined : toggleSelection}
                       onAvatarClick={readOnly ? undefined : handlePeerAvatarTap}
                     />
+                      );
+                    })()}
                   </div>
                 );
               })}
@@ -3647,6 +3693,7 @@ export const WeChatChatView: React.FC<WeChatChatViewProps> = ({
           onSelectBubbleColor={(color) => updateCurrentSessionUiSettings({ selfBubbleColor: color })}
           onSelectCustomBubbleStyle={(id, css) => updateCurrentSessionUiSettings({ customBubbleStyleId: id, customBubbleCss: css })}
           onAddCustomBubbleStyle={handleAddCustomBubbleStyle}
+          onUpdateCustomBubbleStyle={handleUpdateCustomBubbleStyle}
           onDeleteCustomBubbleStyle={handleDeleteCustomBubbleStyle}
           onAddCustomFontFile={handleAddCustomFontFile}
           onDeleteCustomFont={handleDeleteCustomFont}

@@ -30,6 +30,8 @@ interface WeChatChatMessageItemProps {
   peerBubblePreset: WeChatBubblePreset;
   selfBubbleColor?: string;
   customBubbleCss?: string;
+  customBubbleTarget?: 'self' | 'peer';
+  customBubbleMirrored?: boolean;
   chatFontFamily?: string;
   customRenderConfig: WeChatUiRenderConfig | null;
   isSelected: boolean;
@@ -175,7 +177,8 @@ const normalizeImageBubbleFill = (style: CSSProperties | undefined, isUser: bool
     backgroundClip: style.backgroundClip || 'padding-box',
   };
   if (typeof next.borderImageSlice === 'string') {
-    next.borderImageSlice = next.borderImageSlice.replace(/\s+fill\b/i, '').trim();
+    const sliceWithoutFill = next.borderImageSlice.replace(/\s+fill\b/i, '').trim();
+    next.borderImageSlice = `${sliceWithoutFill} fill`;
   }
   return next;
 };
@@ -184,24 +187,7 @@ const buildImageBubbleFillLayerStyle = (
   style: CSSProperties | undefined,
   isUser: boolean
 ): CSSProperties | undefined => {
-  if (!style?.borderImageSource) return undefined;
-  const radius = typeof style.borderRadius === 'number'
-    ? `${style.borderRadius}px`
-    : style.borderRadius || '18px';
-  return {
-    position: 'absolute',
-    inset: '-2px',
-    zIndex: 0,
-    borderRadius: radius,
-    background: isUser ? 'rgba(255,255,255,0.08)' : '#ffffff',
-    backdropFilter: 'blur(8px) saturate(118%)',
-    WebkitBackdropFilter: 'blur(8px) saturate(118%)',
-    filter: 'blur(1px)',
-    boxShadow: isUser
-      ? '0 0 14px 4px rgba(255,255,255,0.10), inset 0 0 0 1px rgba(255,255,255,0.06)'
-      : '0 0 16px 5px rgba(255,255,255,0.9), inset 0 0 0 1px rgba(255,255,255,0.32)',
-    pointerEvents: 'none',
-  };
+  return undefined;
 };
 
 const parseBubblePseudoStyle = (
@@ -330,7 +316,7 @@ const formatDreamMusicSummaryDuration = (durationMs: number | undefined): string
 
 export const WeChatChatMessageItem: React.FC<WeChatChatMessageItemProps> = ({
   message, isUser, userAvatar, characterAvatar, characterName,
-  selfBubblePreset, peerBubblePreset, selfBubbleColor, customBubbleCss, chatFontFamily, customRenderConfig,
+  selfBubblePreset, peerBubblePreset, selfBubbleColor, customBubbleCss, customBubbleTarget, customBubbleMirrored, chatFontFamily, customRenderConfig,
   isSelected, isSelectionMode, isMenuOpen, onMessageClick, onOpenMessageMenu, onVoiceMessagePlay, onOrderRequestAction, isVoicePlaying, onToggleSelection, onAvatarClick
 }) => {
   const isPat = message.type === 'pat';
@@ -359,11 +345,11 @@ export const WeChatChatMessageItem: React.FC<WeChatChatMessageItemProps> = ({
   const customCssBubbleStyleRaw = normalizeImageBubbleFill(parseCssDeclarationStyle(customBubbleCss || ''), isUser);
   const customCssBubbleBeforeStyleRaw = parseBubblePseudoStyle(customBubbleCss || '', '.bubble::before');
   const customCssBubbleAfterStyleRaw = parseBubblePseudoStyle(customBubbleCss || '', '.bubble::after');
-  const shouldMirrorImageBubble = !isUser && Boolean(customCssBubbleStyleRaw?.borderImageSource);
+  const shouldMirrorImageBubble = Boolean(customBubbleMirrored && customCssBubbleStyleRaw?.borderImageSource);
   const customCssBubbleStyle = customCssBubbleStyleRaw;
   const imageBubbleFillLayerStyle = buildImageBubbleFillLayerStyle(customCssBubbleStyle, isUser);
-  const customCssBubbleBeforeStyle = isUser ? customCssBubbleBeforeStyleRaw : mirrorBubbleSideStyle(customCssBubbleBeforeStyleRaw);
-  const customCssBubbleAfterStyle = isUser ? customCssBubbleAfterStyleRaw : mirrorBubbleSideStyle(customCssBubbleAfterStyleRaw);
+  const customCssBubbleBeforeStyle = shouldMirrorImageBubble ? mirrorBubbleSideStyle(customCssBubbleBeforeStyleRaw) : customCssBubbleBeforeStyleRaw;
+  const customCssBubbleAfterStyle = shouldMirrorImageBubble ? mirrorBubbleSideStyle(customCssBubbleAfterStyleRaw) : customCssBubbleAfterStyleRaw;
   const selfBubbleColorStyle: CSSProperties | undefined = isUser
     ? normalizeSoftBubbleColor(effectiveSelfBubbleColor)
     : undefined;

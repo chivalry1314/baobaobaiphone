@@ -37,9 +37,18 @@ import {
 
 type BubbleHandleGroup = 'stretch' | 'content';
 type BubbleHandleEdge = 'top' | 'right' | 'bottom' | 'left';
+type BubbleSide = 'self' | 'peer';
 type BubbleHandleTarget = {
   group: BubbleHandleGroup;
   edge: BubbleHandleEdge;
+};
+type BubbleEditorSideDraft = {
+  image: string;
+  size: { width: number; height: number };
+  stretch: { top: number; right: number; bottom: number; left: number };
+  content: { top: number; right: number; bottom: number; left: number };
+  radius: number;
+  mirrored: boolean;
 };
 
 interface WeChatChatInputBarProps {
@@ -77,7 +86,8 @@ interface WeChatChatInputBarProps {
   onSelectBubblePreset: (preset: WeChatBubblePreset) => void;
   onSelectBubbleColor: (color: string) => void;
   onSelectCustomBubbleStyle: (id: string, css: string) => void;
-  onAddCustomBubbleStyle: (name: string, css: string) => void;
+  onAddCustomBubbleStyle: (name: string, selfCss: string, peerCss: string, selfMirrored: boolean, peerMirrored: boolean) => void;
+  onUpdateCustomBubbleStyle: (id: string, name: string, selfCss: string, peerCss: string, selfMirrored: boolean, peerMirrored: boolean) => void;
   onDeleteCustomBubbleStyle: (id: string) => void;
   onAddCustomFontFile: (file: File, name: string) => void;
   onDeleteCustomFont: (id: string) => void;
@@ -129,6 +139,7 @@ export const WeChatChatInputBar: React.FC<WeChatChatInputBarProps> = ({
   onSelectBubbleColor,
   onSelectCustomBubbleStyle,
   onAddCustomBubbleStyle,
+  onUpdateCustomBubbleStyle,
   onDeleteCustomBubbleStyle,
   onAddCustomFontFile,
   onDeleteCustomFont,
@@ -156,12 +167,33 @@ export const WeChatChatInputBar: React.FC<WeChatChatInputBarProps> = ({
   const [isManagingCustomBubbles, setIsManagingCustomBubbles] = React.useState(false);
   const [isManagingCustomFonts, setIsManagingCustomFonts] = React.useState(false);
   const [isBubbleEditorOpen, setIsBubbleEditorOpen] = React.useState(false);
+  const [editingBubbleStyleId, setEditingBubbleStyleId] = React.useState<string | null>(null);
   const [bubbleEditorName, setBubbleEditorName] = React.useState('自定义气泡');
   const [bubbleEditorImage, setBubbleEditorImage] = React.useState('');
   const [bubbleEditorSize, setBubbleEditorSize] = React.useState({ width: 0, height: 0 });
   const [bubbleStretchInsets, setBubbleStretchInsets] = React.useState({ top: 24, right: 24, bottom: 24, left: 24 });
   const [bubbleContentInsets, setBubbleContentInsets] = React.useState({ top: 18, right: 18, bottom: 18, left: 18 });
   const [bubbleFillRadius, setBubbleFillRadius] = React.useState(18);
+  const [bubbleEditorTarget, setBubbleEditorTarget] = React.useState<BubbleSide>('self');
+  const [bubbleEditorMirrored, setBubbleEditorMirrored] = React.useState(false);
+  const [bubbleSideDrafts, setBubbleSideDrafts] = React.useState<Record<BubbleSide, BubbleEditorSideDraft>>({
+    self: {
+      image: '',
+      size: { width: 0, height: 0 },
+      stretch: { top: 24, right: 24, bottom: 24, left: 24 },
+      content: { top: 18, right: 18, bottom: 18, left: 18 },
+      radius: 18,
+      mirrored: false,
+    },
+    peer: {
+      image: '',
+      size: { width: 0, height: 0 },
+      stretch: { top: 24, right: 24, bottom: 24, left: 24 },
+      content: { top: 18, right: 18, bottom: 18, left: 18 },
+      radius: 18,
+      mirrored: false,
+    },
+  });
   const [selectedBubbleHandle, setSelectedBubbleHandle] = React.useState<BubbleHandleTarget | null>(null);
   const [activeBubbleHandle, setActiveBubbleHandle] = React.useState<BubbleHandleTarget | null>(null);
   const editorRef = React.useRef<HTMLDivElement | null>(null);
@@ -256,29 +288,146 @@ export const WeChatChatInputBar: React.FC<WeChatChatInputBarProps> = ({
         return acc;
       }, {});
   };
+  const parsePixelValue = (value: unknown): number | null => {
+    if (typeof value === 'number' && Number.isFinite(value)) return value;
+    if (typeof value !== 'string') return null;
+    const match = value.match(/-?\d+(?:\.\d+)?/);
+    return match ? Number(match[0]) : null;
+  };
+  const parseNumberList = (value: unknown): number[] => {
+    if (typeof value !== 'string') return [];
+    return value.match(/-?\d+(?:\.\d+)?/g)?.map(Number).filter(Number.isFinite) || [];
+  };
+  const extractBubbleImageUrl = (value: unknown): string => {
+    if (typeof value !== 'string') return '';
+    const match = value.match(/url\((["']?)(.*?)\1\)/i);
+    return match?.[2] || '';
+  };
+  const createDefaultBubbleDraft = (): BubbleEditorSideDraft => ({
+    image: '',
+    size: { width: 0, height: 0 },
+    stretch: { top: 24, right: 24, bottom: 24, left: 24 },
+    content: { top: 18, right: 18, bottom: 18, left: 18 },
+    radius: 18,
+    mirrored: false,
+  });
+  const parseBubbleCssToDraft = (css?: string, mirrored = false): BubbleEditorSideDraft => {
+    const parsed = css ? parseCssPreviewStyle(css) : undefined;
+    const image = extractBubbleImageUrl(parsed?.borderImageSource);
+    const draft = createDefaultBubbleDraft();
+    draft.image = image;
+    draft.size = image
+      ? {
+          width: BUBBLE_EDITOR_TARGET_WIDTH,
+          height: BUBBLE_EDITOR_TARGET_HEIGHT,
+        }
+      : { width: 0, height: 0 };
+    draft.mirrored = mirrored;
+    const slice = parseNumberList(parsed?.borderImageSlice);
+    if (slice.length >= 4) {
+      draft.stretch = {
+        top: slice[0],
+        right: slice[1],
+        bottom: slice[2],
+        left: slice[3],
+      };
+    }
+    const padding = parseNumberList(parsed?.padding);
+    if (padding.length >= 4) {
+      draft.content = {
+        top: Math.round(padding[0] / 0.2),
+        right: Math.round(padding[1] / 0.16),
+        bottom: Math.round(padding[2] / 0.2),
+        left: Math.round(padding[3] / 0.16),
+      };
+    }
+    draft.radius = Math.max(0, Math.round(parsePixelValue(parsed?.borderRadius) ?? 18));
+    return draft;
+  };
+  const readCurrentBubbleDraft = (): BubbleEditorSideDraft => ({
+    image: bubbleEditorImage,
+    size: bubbleEditorSize,
+    stretch: bubbleStretchInsets,
+    content: bubbleContentInsets,
+    radius: bubbleFillRadius,
+    mirrored: bubbleEditorMirrored,
+  });
+  const loadBubbleDraft = (draft: BubbleEditorSideDraft) => {
+    setBubbleEditorImage(draft.image);
+    setBubbleEditorSize(draft.size);
+    setBubbleStretchInsets(draft.stretch);
+    setBubbleContentInsets(draft.content);
+    setBubbleFillRadius(draft.radius);
+    setBubbleEditorMirrored(draft.mirrored);
+    setSelectedBubbleHandle(null);
+    setActiveBubbleHandle(null);
+  };
+  const buildImageBubbleCssFromDraft = (draft: BubbleEditorSideDraft): string => {
+    if (!draft.image || !draft.size.width || !draft.size.height) return '';
+    const clean = (value: number, max: number) => Math.max(0, Math.min(max, Math.round(value)));
+    const top = clean(draft.stretch.top, draft.size.height);
+    const right = clean(draft.stretch.right, draft.size.width);
+    const bottom = clean(draft.stretch.bottom, draft.size.height);
+    const left = clean(draft.stretch.left, draft.size.width);
+    const contentTop = Math.max(8, Math.min(28, clean(draft.content.top, draft.size.height) * 0.2));
+    const contentRight = Math.max(10, Math.min(34, clean(draft.content.right, draft.size.width) * 0.16));
+    const contentBottom = Math.max(8, Math.min(28, clean(draft.content.bottom, draft.size.height) * 0.2));
+    const contentLeft = Math.max(10, Math.min(34, clean(draft.content.left, draft.size.width) * 0.16));
+    const renderTop = Math.max(8, Math.min(32, top * 0.2));
+    const renderRight = Math.max(8, Math.min(38, right * 0.16));
+    const renderBottom = Math.max(8, Math.min(32, bottom * 0.2));
+    const renderLeft = Math.max(8, Math.min(38, left * 0.16));
+    return `.bubble{
+border-style:solid;
+border-color:transparent;
+border-width:${renderTop}px ${renderRight}px ${renderBottom}px ${renderLeft}px;
+border-image-source:url("${draft.image}");
+border-image-slice:${top} ${right} ${bottom} ${left} fill;
+border-image-width:${renderTop}px ${renderRight}px ${renderBottom}px ${renderLeft}px;
+border-image-outset:0.5px;
+border-image-repeat:stretch;
+background:transparent;
+background-clip:padding-box;
+border-radius:${draft.radius}px;
+padding:${contentTop}px ${contentRight}px ${contentBottom}px ${contentLeft}px;
+}`;
+  };
+  const openBubbleEditor = (style?: WeChatCustomBubbleStyle) => {
+    const selfDraft = parseBubbleCssToDraft(
+      style?.selfCss || (style?.target === 'self' ? style.css : !style?.target ? style?.css : ''),
+      Boolean(style?.selfMirrored ?? (style?.target === 'self' ? style?.mirrored : false))
+    );
+    const peerDraft = parseBubbleCssToDraft(
+      style?.peerCss || (style?.target === 'peer' ? style.css : ''),
+      Boolean(style?.peerMirrored ?? (style?.target === 'peer' ? style?.mirrored : false))
+    );
+    const drafts = { self: selfDraft, peer: peerDraft };
+    const initialSide: BubbleSide = selfDraft.image || !peerDraft.image ? 'self' : 'peer';
+    setEditingBubbleStyleId(style?.id || null);
+    setBubbleEditorName(style?.name || '自定义气泡');
+    setBubbleSideDrafts(drafts);
+    setBubbleEditorTarget(initialSide);
+    loadBubbleDraft(drafts[initialSide]);
+    setIsBubbleEditorOpen(true);
+  };
+  const switchBubbleEditorSide = (nextSide: BubbleSide) => {
+    setBubbleSideDrafts((prev) => {
+      const next = {
+        ...prev,
+        [bubbleEditorTarget]: readCurrentBubbleDraft(),
+      };
+      loadBubbleDraft(next[nextSide]);
+      return next;
+    });
+    setBubbleEditorTarget(nextSide);
+  };
   const buildBubbleFillLayerStyle = (
     style: React.CSSProperties | undefined,
     isUser: boolean
   ): React.CSSProperties | undefined => {
-    if (!style?.borderImageSource) return undefined;
-    const radius = typeof style.borderRadius === 'number'
-      ? `${style.borderRadius}px`
-      : style.borderRadius || '18px';
-    return {
-      position: 'absolute',
-      inset: '-2px',
-      zIndex: 0,
-      borderRadius: radius,
-      background: isUser ? 'rgba(255,255,255,0.08)' : '#ffffff',
-      backdropFilter: 'blur(8px) saturate(118%)',
-      WebkitBackdropFilter: 'blur(8px) saturate(118%)',
-      filter: 'blur(1px)',
-      boxShadow: isUser
-        ? '0 0 14px 4px rgba(255,255,255,0.10), inset 0 0 0 1px rgba(255,255,255,0.06)'
-        : '0 0 16px 5px rgba(255,255,255,0.9), inset 0 0 0 1px rgba(255,255,255,0.32)',
-      pointerEvents: 'none',
-    };
+    return undefined;
   };
+
   const bubbleEditorContentMaskStyle = React.useMemo<React.CSSProperties>(() => {
     if (!bubbleEditorImage || !bubbleEditorSize.width || !bubbleEditorSize.height) return {};
     const clean = (value: number, max: number) => Math.max(0, Math.min(max, Math.round(value)));
@@ -334,7 +483,7 @@ border-style:solid;
 border-color:transparent;
 border-width:${renderTop}px ${renderRight}px ${renderBottom}px ${renderLeft}px;
 border-image-source:url("${bubbleEditorImage}");
-border-image-slice:${top} ${right} ${bottom} ${left};
+border-image-slice:${top} ${right} ${bottom} ${left} fill;
 border-image-width:${renderTop}px ${renderRight}px ${renderBottom}px ${renderLeft}px;
 border-image-outset:0.5px;
 border-image-repeat:stretch;
@@ -346,22 +495,30 @@ padding:${contentTop}px ${contentRight}px ${contentBottom}px ${contentLeft}px;
   }, [bubbleContentInsets, bubbleEditorImage, bubbleEditorSize, bubbleFillRadius, bubbleStretchInsets]);
 
   const generatedBubbleCss = buildImageBubbleCss();
-  const bubblePreviewStyle = React.useMemo<React.CSSProperties | undefined>(() => {
-    if (!generatedBubbleCss) return undefined;
+  const previewDrafts = React.useMemo(() => ({
+    ...bubbleSideDrafts,
+    [bubbleEditorTarget]: readCurrentBubbleDraft(),
+  }), [bubbleSideDrafts, bubbleEditorTarget, bubbleEditorImage, bubbleEditorSize, bubbleStretchInsets, bubbleContentInsets, bubbleFillRadius, bubbleEditorMirrored]);
+  const selfPreviewCss = buildImageBubbleCssFromDraft(previewDrafts.self);
+  const peerPreviewCss = buildImageBubbleCssFromDraft(previewDrafts.peer);
+  const toPreviewStyle = (css: string): React.CSSProperties | undefined => {
+    if (!css) return undefined;
     return {
-      ...parseCssPreviewStyle(generatedBubbleCss),
+      ...parseCssPreviewStyle(css),
       position: 'relative',
       isolation: 'isolate',
     };
-  }, [generatedBubbleCss]);
-  const peerBubblePreviewFillStyle = React.useMemo(
-    () => buildBubbleFillLayerStyle(bubblePreviewStyle, false),
-    [bubblePreviewStyle]
-  );
-  const selfBubblePreviewFillStyle = React.useMemo(
-    () => buildBubbleFillLayerStyle(bubblePreviewStyle, true),
-    [bubblePreviewStyle]
-  );
+  };
+  const bubblePreviewStyleForSide = React.useCallback((side: BubbleSide): React.CSSProperties | undefined => {
+    const base = side === 'self' ? toPreviewStyle(selfPreviewCss) : toPreviewStyle(peerPreviewCss);
+    if (!base) return undefined;
+    const mirrored = previewDrafts[side].mirrored;
+    if (!mirrored) return base;
+    return {
+      ...base,
+      transform: `${base.transform || ''} scaleX(-1)`.trim(),
+    };
+  }, [peerPreviewCss, previewDrafts, selfPreviewCss]);
 
   const updateBubbleHandleByPoint = React.useCallback((handle: BubbleHandleTarget, clientX: number, clientY: number) => {
     if (!bubbleEditorImageBoxRef.current || !bubbleEditorSize.width || !bubbleEditorSize.height) return;
@@ -1226,10 +1383,21 @@ padding:${contentTop}px ${contentRight}px ${contentBottom}px ${contentLeft}px;
             <div className="text-[17px] font-medium">编辑气泡</div>
             <button
               type="button"
-              disabled={!generatedBubbleCss}
+              disabled={!generatedBubbleCss && !bubbleSideDrafts.self.image && !bubbleSideDrafts.peer.image}
               onClick={() => {
-                if (!generatedBubbleCss) return;
-                onAddCustomBubbleStyle(bubbleEditorName || '自定义气泡', generatedBubbleCss);
+                const nextDrafts = {
+                  ...bubbleSideDrafts,
+                  [bubbleEditorTarget]: readCurrentBubbleDraft(),
+                };
+                const selfCss = buildImageBubbleCssFromDraft(nextDrafts.self);
+                const peerCss = buildImageBubbleCssFromDraft(nextDrafts.peer);
+                if (!selfCss && !peerCss) return;
+                if (editingBubbleStyleId) {
+                  onUpdateCustomBubbleStyle(editingBubbleStyleId, bubbleEditorName || '自定义气泡', selfCss, peerCss, nextDrafts.self.mirrored, nextDrafts.peer.mirrored);
+                } else {
+                  onAddCustomBubbleStyle(bubbleEditorName || '自定义气泡', selfCss, peerCss, nextDrafts.self.mirrored, nextDrafts.peer.mirrored);
+                }
+                setEditingBubbleStyleId(null);
                 setIsBubbleEditorOpen(false);
               }}
               className="min-w-14 px-2 text-right text-[14px] text-[#07C160] active:opacity-60 disabled:text-gray-300"
@@ -1245,6 +1413,39 @@ padding:${contentTop}px ${contentRight}px ${contentBottom}px ${contentLeft}px;
               setSelectedBubbleHandle(null);
             }}
           >
+            <div className="mb-4 rounded-xl bg-white p-3 shadow-sm">
+              <div className="mb-2 text-[16px] font-semibold">编辑对象</div>
+              <div className="flex items-center gap-2">
+                {[
+                  { key: 'self' as const, label: '发送方' },
+                  { key: 'peer' as const, label: '接收方' },
+                ].map((option) => {
+                  const active = bubbleEditorTarget === option.key;
+                  const configured = option.key === bubbleEditorTarget
+                    ? Boolean(bubbleEditorImage)
+                    : Boolean(bubbleSideDrafts[option.key].image);
+                  return (
+                    <button
+                      key={option.key}
+                      type="button"
+                      onClick={() => switchBubbleEditorSide(option.key)}
+                      className="inline-flex items-center gap-1.5 rounded-full px-2.5 py-1.5 text-[13px] text-[#333] active:bg-black/5"
+                    >
+                      <span
+                        className={`h-3.5 w-3.5 rounded-full border ${
+                          active
+                            ? 'border-[#07C160] bg-[#07C160]'
+                            : configured
+                              ? 'border-[#07C160] bg-white'
+                              : 'border-gray-300 bg-white'
+                        }`}
+                      />
+                      <span>{option.label}</span>
+                    </button>
+                  );
+                })}
+              </div>
+            </div>
             <div className="mb-4">
               <div className="mb-2 text-[16px] font-semibold">定义拉伸区域</div>
               <div className="text-[13px] leading-relaxed text-[#666]">
@@ -1311,47 +1512,50 @@ padding:${contentTop}px ${contentRight}px ${contentBottom}px ${contentLeft}px;
                 className="mt-3 h-9 w-full rounded-md border border-gray-200 px-3 text-[14px] outline-none"
                 placeholder="气泡名称"
               />
+              <button
+                type="button"
+                onClick={() => setBubbleEditorMirrored((value) => !value)}
+                className="mt-2 inline-flex items-center gap-1.5 rounded-full px-2.5 py-1.5 text-[13px] text-[#333] active:bg-black/5"
+              >
+                <span
+                  className={`h-3.5 w-3.5 rounded-full border ${bubbleEditorMirrored ? 'border-[#07C160] bg-[#07C160]' : 'border-gray-300 bg-white'}`}
+                />
+                <span>镜像</span>
+              </button>
             </div>
             <div className="rounded-xl bg-white p-4 shadow-sm">
-              <div className="mb-2 flex items-center gap-3">
-                <div className="shrink-0 text-[16px] font-semibold">效果预览</div>
-                <label className="flex min-w-0 flex-1 items-center gap-2 text-[12px] text-[#666]">
-                  <span className="shrink-0">圆角</span>
-                  <input
-                    type="range"
-                    min={4}
-                    max={30}
-                    step={1}
-                    value={bubbleFillRadius}
-                    onChange={(event) => setBubbleFillRadius(Number(event.target.value))}
-                    className="min-w-0 flex-1 accent-[#07C160]"
-                    aria-label="调整覆盖层四角弧度"
-                  />
-                  <span className="w-9 shrink-0 text-right tabular-nums">{bubbleFillRadius}px</span>
-                </label>
-              </div>
+              <div className="mb-2 text-[16px] font-semibold">效果预览</div>
               <div className="mb-4 text-[13px] text-[#666]">查看不同文字长度下的拉伸效果</div>
               <div className="rounded-xl bg-[#EDEDED] px-3 pb-1 pt-3">
                 {[
-                  { label: '接收方覆盖白色', text: '你好', fillStyle: peerBubblePreviewFillStyle, align: 'start' },
-                  { label: '发送方覆盖磨砂无色', text: '这是一条测试消息', fillStyle: selfBubblePreviewFillStyle, align: 'end' },
-                  {
-                    label: '长文本拉伸',
-                    text: '这是一条比较长的测试消息，用来查看气泡的拉伸效果是否正常',
-                    fillStyle: peerBubblePreviewFillStyle,
-                    align: 'start',
-                  },
+                  { label: '短文本', text: '你好' },
+                  { label: '中长文本', text: '这是一条测试消息' },
+                  { label: '长文本', text: '这是一条比较长的测试消息，用来查看气泡的拉伸效果是否正常' },
                 ].map((item) => (
                   <div key={item.label} className="mb-4">
                     <div className="mb-1 text-[13px] text-[#777]">{item.label}</div>
-                    <div className={`flex ${item.align === 'end' ? 'justify-end' : 'justify-start'}`}>
+                    <div className={`flex ${bubbleEditorTarget === 'self' ? 'justify-end' : 'justify-start'}`}>
+                      {(() => {
+                        const side = bubbleEditorTarget;
+                        const style = bubblePreviewStyleForSide(side);
+                        const mirrored = Boolean(style && previewDrafts[side].mirrored);
+                        const fallbackClass = side === 'self'
+                          ? 'rounded-lg rounded-tr-none bg-[#bbf7d0] px-3.5 py-2.5'
+                          : 'rounded-lg rounded-tl-none bg-white px-3.5 py-2.5';
+                        return (
                       <div
-                        className="inline-block max-w-full text-[16px] leading-[1.4]"
-                        style={bubblePreviewStyle}
+                        className={`inline-block max-w-full text-[16px] leading-[1.4] ${style ? '' : fallbackClass}`}
+                        style={style}
                       >
-                        {item.fillStyle ? <span aria-hidden className="pointer-events-none absolute" style={item.fillStyle} /> : null}
-                        <span className="relative z-10">{item.text}</span>
+                        <span
+                          className="relative z-10"
+                          style={mirrored ? { display: 'inline-block', transform: 'scaleX(-1)' } : undefined}
+                        >
+                          {item.text}
+                        </span>
                       </div>
+                        );
+                      })()}
                     </div>
                   </div>
                 ))}
@@ -1896,34 +2100,73 @@ padding:${contentTop}px ${contentRight}px ${contentBottom}px ${contentLeft}px;
                       {customBubbleStyles.length > 0 ? (
                         <div className="mb-3 grid grid-cols-2 gap-2">
                           {customBubbleStyles.map((item) => {
-                            const itemPreviewStyle = parseCssPreviewStyle(item.css);
-                            const itemPreviewFillStyle = buildBubbleFillLayerStyle(itemPreviewStyle, true);
+                            const selfCss = item.selfCss || (item.target === 'self' || !item.target ? item.css : '');
+                            const peerCss = item.peerCss || (item.target === 'peer' ? item.css : '');
+                            const previewItems = [
+                              {
+                                side: 'peer' as const,
+                                label: '接收方',
+                                css: peerCss,
+                                mirrored: Boolean(item.peerMirrored ?? (item.target === 'peer' ? item.mirrored : false)),
+                                fallbackClass: 'rounded-lg rounded-tl-none bg-white px-2.5 py-1.5',
+                                justifyClass: 'justify-start',
+                              },
+                              {
+                                side: 'self' as const,
+                                label: '发送方',
+                                css: selfCss,
+                                mirrored: Boolean(item.selfMirrored ?? (item.target === 'self' ? item.mirrored : false)),
+                                fallbackClass: 'rounded-lg rounded-tr-none px-2.5 py-1.5',
+                                fallbackStyle: getSoftPreviewColor(currentBubbleColor),
+                                justifyClass: 'justify-end',
+                              },
+                            ];
                             return (
                               <div key={item.id} className="relative">
                                 <button
                                   type="button"
                                   onClick={() => {
+                                    if (isManagingCustomBubbles) {
+                                      openBubbleEditor(item);
+                                      return;
+                                    }
                                     onSelectCustomBubbleStyle(item.id, item.css);
                                   }}
                                   className={`w-full rounded-lg border bg-white p-2 text-left text-[12px] active:opacity-80 ${
                                     currentCustomBubbleStyleId === item.id ? 'border-[#07C160]' : 'border-transparent'
                                   }`}
                                 >
-                                  <div className="mb-2 flex justify-end rounded-lg bg-[#EDEDED] p-2">
-                                    <div
-                                      className="max-w-full px-3 py-1.5 text-[12px] text-gray-900"
-                                      style={{
-                                        ...getSoftPreviewColor(currentBubbleColor),
-                                        ...itemPreviewStyle,
-                                        position: 'relative',
-                                        isolation: 'isolate',
-                                      }}
-                                    >
-                                      {itemPreviewFillStyle ? <span aria-hidden className="pointer-events-none absolute" style={itemPreviewFillStyle} /> : null}
-                                      <span className="relative z-10">{item.name}</span>
-                                    </div>
+                                  <div className="mb-2 rounded-lg bg-[#EDEDED] p-2">
+                                    {previewItems.map((preview) => {
+                                      const parsedStyle = preview.css ? parseCssPreviewStyle(preview.css) : undefined;
+                                      const bubbleStyle: React.CSSProperties | undefined = parsedStyle
+                                        ? {
+                                            ...parsedStyle,
+                                            position: 'relative',
+                                            isolation: 'isolate',
+                                            transform: preview.mirrored
+                                              ? `${parsedStyle.transform || ''} scaleX(-1)`.trim()
+                                              : parsedStyle.transform,
+                                          }
+                                        : preview.fallbackStyle;
+                                      return (
+                                        <div key={preview.side} className={`mb-1.5 flex last:mb-0 ${preview.justifyClass}`}>
+                                          <div
+                                            className={`max-w-full text-[12px] leading-[1.35] text-gray-900 ${parsedStyle ? '' : preview.fallbackClass}`}
+                                            style={bubbleStyle}
+                                          >
+                                            <span
+                                              className="relative z-10"
+                                              style={parsedStyle && preview.mirrored ? { display: 'inline-block', transform: 'scaleX(-1)' } : undefined}
+                                            >
+                                              {preview.label}
+                                            </span>
+                                          </div>
+                                        </div>
+                                      );
+                                    })}
                                   </div>
-                                  <div className="truncate text-[#999]">{item.css}</div>
+                                  <div className="truncate text-[#999]">{item.name}</div>
                                 </button>
                                 {isManagingCustomBubbles ? (
                                   <button
@@ -1944,8 +2187,7 @@ padding:${contentTop}px ${contentRight}px ${contentBottom}px ${contentLeft}px;
                         <button
                           type="button"
                           onClick={() => {
-                            setBubbleEditorName('自定义气泡');
-                            setIsBubbleEditorOpen(true);
+                            openBubbleEditor();
                           }}
                           className="flex h-12 w-12 items-center justify-center rounded-xl border border-dashed border-[#999] text-[#333] active:bg-black/5"
                           aria-label="制作气泡"
