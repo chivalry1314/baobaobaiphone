@@ -35,6 +35,13 @@ import {
   Loader2,
 } from 'lucide-react';
 
+type BubbleHandleGroup = 'stretch' | 'content';
+type BubbleHandleEdge = 'top' | 'right' | 'bottom' | 'left';
+type BubbleHandleTarget = {
+  group: BubbleHandleGroup;
+  edge: BubbleHandleEdge;
+};
+
 interface WeChatChatInputBarProps {
   readOnly?: boolean;
   isKeyboardVisible?: boolean;
@@ -154,15 +161,15 @@ export const WeChatChatInputBar: React.FC<WeChatChatInputBarProps> = ({
   const [bubbleEditorSize, setBubbleEditorSize] = React.useState({ width: 0, height: 0 });
   const [bubbleStretchInsets, setBubbleStretchInsets] = React.useState({ top: 24, right: 24, bottom: 24, left: 24 });
   const [bubbleContentInsets, setBubbleContentInsets] = React.useState({ top: 18, right: 18, bottom: 18, left: 18 });
-  const [activeBubbleHandle, setActiveBubbleHandle] = React.useState<{
-    group: 'stretch' | 'content';
-    edge: 'top' | 'right' | 'bottom' | 'left';
-  } | null>(null);
+  const [bubbleFillRadius, setBubbleFillRadius] = React.useState(18);
+  const [selectedBubbleHandle, setSelectedBubbleHandle] = React.useState<BubbleHandleTarget | null>(null);
+  const [activeBubbleHandle, setActiveBubbleHandle] = React.useState<BubbleHandleTarget | null>(null);
   const editorRef = React.useRef<HTMLDivElement | null>(null);
   const customStickerInputRef = React.useRef<HTMLInputElement | null>(null);
   const customFontInputRef = React.useRef<HTMLInputElement | null>(null);
   const customBubbleImageInputRef = React.useRef<HTMLInputElement | null>(null);
   const bubbleEditorImageBoxRef = React.useRef<HTMLDivElement | null>(null);
+  const bubbleEditorScrollerRef = React.useRef<HTMLDivElement | null>(null);
   const savedEditorRangeRef = React.useRef<Range | null>(null);
   const BUBBLE_EDITOR_TARGET_WIDTH = 360;
   const BUBBLE_EDITOR_TARGET_HEIGHT = 160;
@@ -249,6 +256,29 @@ export const WeChatChatInputBar: React.FC<WeChatChatInputBarProps> = ({
         return acc;
       }, {});
   };
+  const buildBubbleFillLayerStyle = (
+    style: React.CSSProperties | undefined,
+    isUser: boolean
+  ): React.CSSProperties | undefined => {
+    if (!style?.borderImageSource) return undefined;
+    const radius = typeof style.borderRadius === 'number'
+      ? `${style.borderRadius}px`
+      : style.borderRadius || '18px';
+    return {
+      position: 'absolute',
+      inset: '-2px',
+      zIndex: 0,
+      borderRadius: radius,
+      background: isUser ? 'rgba(255,255,255,0.08)' : '#ffffff',
+      backdropFilter: 'blur(8px) saturate(118%)',
+      WebkitBackdropFilter: 'blur(8px) saturate(118%)',
+      filter: 'blur(1px)',
+      boxShadow: isUser
+        ? '0 0 14px 4px rgba(255,255,255,0.10), inset 0 0 0 1px rgba(255,255,255,0.06)'
+        : '0 0 16px 5px rgba(255,255,255,0.9), inset 0 0 0 1px rgba(255,255,255,0.32)',
+      pointerEvents: 'none',
+    };
+  };
   const bubbleEditorContentMaskStyle = React.useMemo<React.CSSProperties>(() => {
     if (!bubbleEditorImage || !bubbleEditorSize.width || !bubbleEditorSize.height) return {};
     const clean = (value: number, max: number) => Math.max(0, Math.min(max, Math.round(value)));
@@ -306,54 +336,91 @@ border-width:${renderTop}px ${renderRight}px ${renderBottom}px ${renderLeft}px;
 border-image-source:url("${bubbleEditorImage}");
 border-image-slice:${top} ${right} ${bottom} ${left};
 border-image-width:${renderTop}px ${renderRight}px ${renderBottom}px ${renderLeft}px;
+border-image-outset:0.5px;
 border-image-repeat:stretch;
 background:transparent;
 background-clip:padding-box;
+border-radius:${bubbleFillRadius}px;
 padding:${contentTop}px ${contentRight}px ${contentBottom}px ${contentLeft}px;
 }`;
-  }, [bubbleContentInsets, bubbleEditorImage, bubbleEditorSize, bubbleStretchInsets]);
+  }, [bubbleContentInsets, bubbleEditorImage, bubbleEditorSize, bubbleFillRadius, bubbleStretchInsets]);
 
   const generatedBubbleCss = buildImageBubbleCss();
+  const bubblePreviewStyle = React.useMemo<React.CSSProperties | undefined>(() => {
+    if (!generatedBubbleCss) return undefined;
+    return {
+      ...parseCssPreviewStyle(generatedBubbleCss),
+      position: 'relative',
+      isolation: 'isolate',
+    };
+  }, [generatedBubbleCss]);
+  const peerBubblePreviewFillStyle = React.useMemo(
+    () => buildBubbleFillLayerStyle(bubblePreviewStyle, false),
+    [bubblePreviewStyle]
+  );
+  const selfBubblePreviewFillStyle = React.useMemo(
+    () => buildBubbleFillLayerStyle(bubblePreviewStyle, true),
+    [bubblePreviewStyle]
+  );
 
-  const updateBubbleHandleByPoint = React.useCallback((clientX: number, clientY: number) => {
-    if (!activeBubbleHandle || !bubbleEditorImageBoxRef.current || !bubbleEditorSize.width || !bubbleEditorSize.height) return;
+  const updateBubbleHandleByPoint = React.useCallback((handle: BubbleHandleTarget, clientX: number, clientY: number) => {
+    if (!bubbleEditorImageBoxRef.current || !bubbleEditorSize.width || !bubbleEditorSize.height) return;
     const rect = bubbleEditorImageBoxRef.current.getBoundingClientRect();
     const x = Math.max(0, Math.min(rect.width, clientX - rect.left));
     const y = Math.max(0, Math.min(rect.height, clientY - rect.top));
     const imageX = (x / rect.width) * bubbleEditorSize.width;
     const imageY = (y / rect.height) * bubbleEditorSize.height;
-    const setter = activeBubbleHandle.group === 'stretch' ? setBubbleStretchInsets : setBubbleContentInsets;
+    const setter = handle.group === 'stretch' ? setBubbleStretchInsets : setBubbleContentInsets;
     setter((prev) => {
       const next = { ...prev };
-      const minGapX = activeBubbleHandle.group === 'content' ? 48 : 24;
-      const minGapY = activeBubbleHandle.group === 'content' ? 28 : 18;
+      const minGapX = handle.group === 'content' ? 48 : 24;
+      const minGapY = handle.group === 'content' ? 28 : 18;
       const clamp = (value: number, min: number, max: number) =>
         Math.max(min, Math.min(max, Math.round(value)));
-      if (activeBubbleHandle.edge === 'left') {
+      if (handle.edge === 'left') {
         next.left = clamp(imageX, 0, bubbleEditorSize.width - prev.right - minGapX);
       }
-      if (activeBubbleHandle.edge === 'right') {
+      if (handle.edge === 'right') {
         next.right = clamp(bubbleEditorSize.width - imageX, 0, bubbleEditorSize.width - prev.left - minGapX);
       }
-      if (activeBubbleHandle.edge === 'top') {
+      if (handle.edge === 'top') {
         next.top = clamp(imageY, 0, bubbleEditorSize.height - prev.bottom - minGapY);
       }
-      if (activeBubbleHandle.edge === 'bottom') {
+      if (handle.edge === 'bottom') {
         next.bottom = clamp(bubbleEditorSize.height - imageY, 0, bubbleEditorSize.height - prev.top - minGapY);
       }
       return next;
     });
-  }, [activeBubbleHandle, bubbleEditorSize]);
+  }, [bubbleEditorSize]);
 
   React.useEffect(() => {
     if (!activeBubbleHandle) return undefined;
-    const handleMove = (event: PointerEvent) => updateBubbleHandleByPoint(event.clientX, event.clientY);
+    const scroller = bubbleEditorScrollerRef.current;
+    const previousTouchAction = scroller?.style.touchAction || '';
+    const previousOverscrollBehavior = scroller?.style.overscrollBehavior || '';
+    if (scroller) {
+      scroller.style.touchAction = 'none';
+      scroller.style.overscrollBehavior = 'contain';
+    }
+    const handleMove = (event: PointerEvent) => {
+      event.preventDefault();
+      updateBubbleHandleByPoint(activeBubbleHandle, event.clientX, event.clientY);
+    };
+    const blockTouchScroll = (event: TouchEvent) => event.preventDefault();
     const handleUp = () => setActiveBubbleHandle(null);
-    window.addEventListener('pointermove', handleMove);
+    window.addEventListener('pointermove', handleMove, { passive: false });
     window.addEventListener('pointerup', handleUp);
+    window.addEventListener('pointercancel', handleUp);
+    window.addEventListener('touchmove', blockTouchScroll, { passive: false });
     return () => {
       window.removeEventListener('pointermove', handleMove);
       window.removeEventListener('pointerup', handleUp);
+      window.removeEventListener('pointercancel', handleUp);
+      window.removeEventListener('touchmove', blockTouchScroll);
+      if (scroller) {
+        scroller.style.touchAction = previousTouchAction;
+        scroller.style.overscrollBehavior = previousOverscrollBehavior;
+      }
     };
   }, [activeBubbleHandle, updateBubbleHandleByPoint]);
 
@@ -765,12 +832,10 @@ padding:${contentTop}px ${contentRight}px ${contentBottom}px ${contentLeft}px;
   }, []);
 
   const bubbleHandleLineStyle = (
-    group: 'stretch' | 'content',
-    edge: 'top' | 'right' | 'bottom' | 'left'
+    group: BubbleHandleGroup,
+    edge: BubbleHandleEdge
   ): React.CSSProperties => {
     const insets = group === 'stretch' ? bubbleStretchInsets : bubbleContentInsets;
-    const color = group === 'stretch' ? '#f59e0b' : '#0ea5e9';
-    const dashed = group === 'content';
     if (!bubbleEditorSize.width || !bubbleEditorSize.height) return {};
     const isHorizontal = edge === 'top' || edge === 'bottom';
     const pos =
@@ -786,17 +851,158 @@ padding:${contentTop}px ${contentRight}px ${contentBottom}px ${contentLeft}px;
           top: `${pos}%`,
           left: 0,
           right: 0,
-          borderTop: `3px ${dashed ? 'dashed' : 'solid'} ${color}`,
+          height: '32px',
+          padding: 0,
+          border: 0,
+          backgroundColor: 'transparent',
           cursor: 'ns-resize',
+          transform: 'translateY(-16px)',
+          touchAction: 'none',
+          WebkitUserSelect: 'none',
+          userSelect: 'none',
         }
       : {
           left: `${pos}%`,
           top: 0,
           bottom: 0,
-          borderLeft: `3px ${dashed ? 'dashed' : 'solid'} ${color}`,
+          width: '32px',
+          padding: 0,
+          border: 0,
+          backgroundColor: 'transparent',
           cursor: 'ew-resize',
+          transform: 'translateX(-16px)',
+          touchAction: 'none',
+          WebkitUserSelect: 'none',
+          userSelect: 'none',
         };
   };
+
+  const bubbleHandleVisualLineStyle = (
+    group: BubbleHandleGroup,
+    edge: BubbleHandleEdge,
+    selected: boolean
+  ): React.CSSProperties => {
+    const color = group === 'stretch' ? '#f59e0b' : '#0ea5e9';
+    const dashed = group === 'content';
+    const isHorizontal = edge === 'top' || edge === 'bottom';
+    return {
+      position: 'absolute',
+      left: isHorizontal ? 0 : '50%',
+      right: isHorizontal ? 0 : undefined,
+      top: isHorizontal ? '50%' : 0,
+      bottom: isHorizontal ? undefined : 0,
+      width: isHorizontal ? undefined : selected ? '5px' : '3px',
+      height: isHorizontal ? selected ? '5px' : '3px' : undefined,
+      borderRadius: '999px',
+      backgroundColor: dashed ? 'transparent' : color,
+      borderTop: isHorizontal && dashed ? `${selected ? 5 : 3}px dashed ${color}` : undefined,
+      borderLeft: !isHorizontal && dashed ? `${selected ? 5 : 3}px dashed ${color}` : undefined,
+      boxShadow: selected ? `0 0 0 6px color-mix(in srgb, ${color} 18%, transparent)` : undefined,
+      opacity: selected ? 1 : 0.92,
+      transform: isHorizontal ? 'translateY(-50%)' : 'translateX(-50%)',
+      pointerEvents: 'none',
+    };
+  };
+
+  const bubbleHandleGripStyle = (
+    group: BubbleHandleGroup,
+    edge: BubbleHandleEdge
+  ): React.CSSProperties => {
+    const color = group === 'stretch' ? '#f59e0b' : '#0ea5e9';
+    const isHorizontal = edge === 'top' || edge === 'bottom';
+    return {
+      position: 'absolute',
+      left: isHorizontal ? '50%' : '50%',
+      top: isHorizontal ? '50%' : '50%',
+      width: isHorizontal ? '56px' : '22px',
+      height: isHorizontal ? '22px' : '56px',
+      borderRadius: '999px',
+      border: `2px solid ${color}`,
+      backgroundColor: 'rgba(255, 255, 255, 0.92)',
+      boxShadow: '0 8px 18px rgba(15, 23, 42, 0.18)',
+      transform: 'translate(-50%, -50%)',
+      pointerEvents: 'none',
+    };
+  };
+
+  const startBubbleHandleDrag = (
+    event: React.PointerEvent<HTMLButtonElement>,
+    handle: BubbleHandleTarget
+  ) => {
+    event.preventDefault();
+    event.stopPropagation();
+    setSelectedBubbleHandle(handle);
+    setActiveBubbleHandle(handle);
+    event.currentTarget.setPointerCapture(event.pointerId);
+  };
+
+  const updateBubbleInsetValue = (handle: BubbleHandleTarget, rawValue: string) => {
+    const parsed = Number.parseInt(rawValue, 10);
+    const value = Number.isFinite(parsed) ? parsed : 0;
+    const setter = handle.group === 'stretch' ? setBubbleStretchInsets : setBubbleContentInsets;
+    setter((prev) => {
+      const next = { ...prev };
+      const axisMax = handle.edge === 'left' || handle.edge === 'right'
+        ? bubbleEditorSize.width
+        : bubbleEditorSize.height;
+      const opposite = handle.edge === 'left'
+        ? prev.right
+        : handle.edge === 'right'
+          ? prev.left
+          : handle.edge === 'top'
+            ? prev.bottom
+            : prev.top;
+      const minGap = handle.group === 'content'
+        ? (handle.edge === 'left' || handle.edge === 'right' ? 48 : 28)
+        : (handle.edge === 'left' || handle.edge === 'right' ? 24 : 18);
+      const max = Math.max(0, axisMax - opposite - minGap);
+      next[handle.edge] = Math.max(0, Math.min(max, value));
+      return next;
+    });
+    setSelectedBubbleHandle(handle);
+  };
+
+  const isSameBubbleHandle = (left: BubbleHandleTarget | null, right: BubbleHandleTarget): boolean =>
+    left?.group === right.group && left.edge === right.edge;
+
+  const renderBubbleHandles = (group: BubbleHandleGroup) =>
+    (['top', 'right', 'bottom', 'left'] as const).map((edge) => {
+      const handle = { group, edge };
+      const selected = isSameBubbleHandle(selectedBubbleHandle, handle);
+      return (
+        <button
+          key={`${group}-${edge}`}
+          type="button"
+          data-bubble-handle="true"
+          onPointerDown={(event) => startBubbleHandleDrag(event, handle)}
+          onClick={(event) => {
+            event.preventDefault();
+            event.stopPropagation();
+            setSelectedBubbleHandle(handle);
+          }}
+          className={`absolute ${group === 'stretch' ? 'z-20' : 'z-30'}`}
+          style={bubbleHandleLineStyle(group, edge)}
+          aria-label={`调整${group === 'stretch' ? '拉伸' : '内容'}区域${edge}`}
+        >
+          <span style={bubbleHandleVisualLineStyle(group, edge, selected)} />
+          {selected ? <span style={bubbleHandleGripStyle(group, edge)} /> : null}
+        </button>
+      );
+    });
+
+  const renderBubbleParamInput = (handle: BubbleHandleTarget, label: string, value: number) => (
+    <label key={`${handle.group}-${handle.edge}`} className="flex items-center justify-between gap-2 rounded-lg bg-[#F7F7F7] px-2.5 py-2">
+      <span className="shrink-0 text-[12px] text-[#555]">{label}</span>
+      <input
+        type="number"
+        inputMode="numeric"
+        value={value}
+        onFocus={() => setSelectedBubbleHandle(handle)}
+        onChange={(event) => updateBubbleInsetValue(handle, event.target.value)}
+        className="h-7 w-16 rounded-md border border-gray-200 bg-white px-2 text-right text-[12px] text-[#111] outline-none focus:border-[#07C160]"
+      />
+    </label>
+  );
 
   if (readOnly) {
     return (
@@ -1031,7 +1237,14 @@ padding:${contentTop}px ${contentRight}px ${contentBottom}px ${contentLeft}px;
               完成
             </button>
           </div>
-          <div className="min-h-0 flex-1 overflow-y-auto px-5 py-5">
+          <div
+            ref={bubbleEditorScrollerRef}
+            className="min-h-0 flex-1 overflow-y-auto px-5 py-5"
+            onPointerDown={(event) => {
+              if ((event.target as HTMLElement).closest('[data-bubble-handle]')) return;
+              setSelectedBubbleHandle(null);
+            }}
+          >
             <div className="mb-4">
               <div className="mb-2 text-[16px] font-semibold">定义拉伸区域</div>
               <div className="text-[13px] leading-relaxed text-[#666]">
@@ -1058,32 +1271,8 @@ padding:${contentTop}px ${contentRight}px ${contentBottom}px ${contentLeft}px;
                     }}
                     aria-hidden
                   />
-                  {(['top', 'right', 'bottom', 'left'] as const).map((edge) => (
-                    <button
-                      key={`stretch-${edge}`}
-                      type="button"
-                      onPointerDown={(event) => {
-                        event.preventDefault();
-                        setActiveBubbleHandle({ group: 'stretch', edge });
-                      }}
-                      className="absolute z-20 touch-none"
-                      style={bubbleHandleLineStyle('stretch', edge)}
-                      aria-label={`调整拉伸区域${edge}`}
-                    />
-                  ))}
-                  {(['top', 'right', 'bottom', 'left'] as const).map((edge) => (
-                    <button
-                      key={`content-${edge}`}
-                      type="button"
-                      onPointerDown={(event) => {
-                        event.preventDefault();
-                        setActiveBubbleHandle({ group: 'content', edge });
-                      }}
-                      className="absolute z-30 touch-none"
-                      style={bubbleHandleLineStyle('content', edge)}
-                      aria-label={`调整内容区域${edge}`}
-                    />
-                  ))}
+                  {renderBubbleHandles('stretch')}
+                  {renderBubbleHandles('content')}
                 </div>
               ) : (
                 <button
@@ -1106,15 +1295,15 @@ padding:${contentTop}px ${contentRight}px ${contentBottom}px ${contentLeft}px;
             </div>
             <div className="mb-4 rounded-xl bg-white p-4 shadow-sm">
               <div className="mb-3 text-[16px] font-semibold">配置参数</div>
-              <div className="grid grid-cols-2 gap-2 text-[12px] text-[#666]">
-                <div>拉伸 上: {bubbleStretchInsets.top}px</div>
-                <div>拉伸 右: {bubbleStretchInsets.right}px</div>
-                <div>拉伸 下: {bubbleStretchInsets.bottom}px</div>
-                <div>拉伸 左: {bubbleStretchInsets.left}px</div>
-                <div>内容 上: {bubbleContentInsets.top}px</div>
-                <div>内容 右: {bubbleContentInsets.right}px</div>
-                <div>内容 下: {bubbleContentInsets.bottom}px</div>
-                <div>内容 左: {bubbleContentInsets.left}px</div>
+              <div className="grid grid-cols-2 gap-2">
+                {renderBubbleParamInput({ group: 'stretch', edge: 'top' }, '拉伸 上', bubbleStretchInsets.top)}
+                {renderBubbleParamInput({ group: 'stretch', edge: 'right' }, '拉伸 右', bubbleStretchInsets.right)}
+                {renderBubbleParamInput({ group: 'stretch', edge: 'bottom' }, '拉伸 下', bubbleStretchInsets.bottom)}
+                {renderBubbleParamInput({ group: 'stretch', edge: 'left' }, '拉伸 左', bubbleStretchInsets.left)}
+                {renderBubbleParamInput({ group: 'content', edge: 'top' }, '内容 上', bubbleContentInsets.top)}
+                {renderBubbleParamInput({ group: 'content', edge: 'right' }, '内容 右', bubbleContentInsets.right)}
+                {renderBubbleParamInput({ group: 'content', edge: 'bottom' }, '内容 下', bubbleContentInsets.bottom)}
+                {renderBubbleParamInput({ group: 'content', edge: 'left' }, '内容 左', bubbleContentInsets.left)}
               </div>
               <input
                 value={bubbleEditorName}
@@ -1124,19 +1313,49 @@ padding:${contentTop}px ${contentRight}px ${contentBottom}px ${contentLeft}px;
               />
             </div>
             <div className="rounded-xl bg-white p-4 shadow-sm">
-              <div className="mb-1 text-[16px] font-semibold">效果预览</div>
+              <div className="mb-2 flex items-center gap-3">
+                <div className="shrink-0 text-[16px] font-semibold">效果预览</div>
+                <label className="flex min-w-0 flex-1 items-center gap-2 text-[12px] text-[#666]">
+                  <span className="shrink-0">圆角</span>
+                  <input
+                    type="range"
+                    min={4}
+                    max={30}
+                    step={1}
+                    value={bubbleFillRadius}
+                    onChange={(event) => setBubbleFillRadius(Number(event.target.value))}
+                    className="min-w-0 flex-1 accent-[#07C160]"
+                    aria-label="调整覆盖层四角弧度"
+                  />
+                  <span className="w-9 shrink-0 text-right tabular-nums">{bubbleFillRadius}px</span>
+                </label>
+              </div>
               <div className="mb-4 text-[13px] text-[#666]">查看不同文字长度下的拉伸效果</div>
-              {['你好', '这是一条测试消息', '这是一条比较长的测试消息，用来查看气泡的拉伸效果是否正常'].map((text) => (
-                <div key={text} className="mb-4">
-                  <div className="mb-1 text-[13px] text-[#777]">{text.length <= 2 ? '短文本' : text.length < 10 ? '中等文本' : '长文本'}</div>
-                  <div
-                    className="inline-block max-w-full text-[16px] leading-[1.4]"
-                    style={generatedBubbleCss ? parseCssPreviewStyle(generatedBubbleCss) : undefined}
-                  >
-                    {text}
+              <div className="rounded-xl bg-[#EDEDED] px-3 pb-1 pt-3">
+                {[
+                  { label: '接收方覆盖白色', text: '你好', fillStyle: peerBubblePreviewFillStyle, align: 'start' },
+                  { label: '发送方覆盖磨砂无色', text: '这是一条测试消息', fillStyle: selfBubblePreviewFillStyle, align: 'end' },
+                  {
+                    label: '长文本拉伸',
+                    text: '这是一条比较长的测试消息，用来查看气泡的拉伸效果是否正常',
+                    fillStyle: peerBubblePreviewFillStyle,
+                    align: 'start',
+                  },
+                ].map((item) => (
+                  <div key={item.label} className="mb-4">
+                    <div className="mb-1 text-[13px] text-[#777]">{item.label}</div>
+                    <div className={`flex ${item.align === 'end' ? 'justify-end' : 'justify-start'}`}>
+                      <div
+                        className="inline-block max-w-full text-[16px] leading-[1.4]"
+                        style={bubblePreviewStyle}
+                      >
+                        {item.fillStyle ? <span aria-hidden className="pointer-events-none absolute" style={item.fillStyle} /> : null}
+                        <span className="relative z-10">{item.text}</span>
+                      </div>
+                    </div>
                   </div>
-                </div>
-              ))}
+                ))}
+              </div>
             </div>
           </div>
         </div>
@@ -1676,42 +1895,49 @@ padding:${contentTop}px ${contentRight}px ${contentBottom}px ${contentLeft}px;
                       <div className="mb-2 text-[12px] text-[#777]">自定义气泡</div>
                       {customBubbleStyles.length > 0 ? (
                         <div className="mb-3 grid grid-cols-2 gap-2">
-                          {customBubbleStyles.map((item) => (
-                            <div key={item.id} className="relative">
-                              <button
-                                type="button"
-                                onClick={() => {
-                                  onSelectCustomBubbleStyle(item.id, item.css);
-                                }}
-                                className={`w-full rounded-lg border bg-white p-2 text-left text-[12px] active:opacity-80 ${
-                                  currentCustomBubbleStyleId === item.id ? 'border-[#07C160]' : 'border-transparent'
-                                }`}
-                              >
-                                <div className="mb-2 flex justify-end">
-                                  <div
-                                    className="max-w-full px-3 py-1.5 text-[12px] text-gray-900"
-                                    style={{
-                                      ...getSoftPreviewColor(currentBubbleColor),
-                                      ...parseCssPreviewStyle(item.css),
-                                    }}
-                                  >
-                                    {item.name}
-                                  </div>
-                                </div>
-                                <div className="truncate text-[#999]">{item.css}</div>
-                              </button>
-                              {isManagingCustomBubbles ? (
+                          {customBubbleStyles.map((item) => {
+                            const itemPreviewStyle = parseCssPreviewStyle(item.css);
+                            const itemPreviewFillStyle = buildBubbleFillLayerStyle(itemPreviewStyle, true);
+                            return (
+                              <div key={item.id} className="relative">
                                 <button
                                   type="button"
-                                  onClick={() => onDeleteCustomBubbleStyle(item.id)}
-                                  className="absolute -right-2 -top-2 z-50 flex h-6 w-6 items-center justify-center rounded-full bg-black/65 text-white shadow"
-                                  aria-label={`删除${item.name}`}
+                                  onClick={() => {
+                                    onSelectCustomBubbleStyle(item.id, item.css);
+                                  }}
+                                  className={`w-full rounded-lg border bg-white p-2 text-left text-[12px] active:opacity-80 ${
+                                    currentCustomBubbleStyleId === item.id ? 'border-[#07C160]' : 'border-transparent'
+                                  }`}
                                 >
-                                  <Trash2 size={13} strokeWidth={2} />
+                                  <div className="mb-2 flex justify-end rounded-lg bg-[#EDEDED] p-2">
+                                    <div
+                                      className="max-w-full px-3 py-1.5 text-[12px] text-gray-900"
+                                      style={{
+                                        ...getSoftPreviewColor(currentBubbleColor),
+                                        ...itemPreviewStyle,
+                                        position: 'relative',
+                                        isolation: 'isolate',
+                                      }}
+                                    >
+                                      {itemPreviewFillStyle ? <span aria-hidden className="pointer-events-none absolute" style={itemPreviewFillStyle} /> : null}
+                                      <span className="relative z-10">{item.name}</span>
+                                    </div>
+                                  </div>
+                                  <div className="truncate text-[#999]">{item.css}</div>
                                 </button>
-                              ) : null}
-                            </div>
-                          ))}
+                                {isManagingCustomBubbles ? (
+                                  <button
+                                    type="button"
+                                    onClick={() => onDeleteCustomBubbleStyle(item.id)}
+                                    className="absolute -right-2 -top-2 z-50 flex h-6 w-6 items-center justify-center rounded-full bg-black/65 text-white shadow"
+                                    aria-label={`删除${item.name}`}
+                                  >
+                                    <Trash2 size={13} strokeWidth={2} />
+                                  </button>
+                                ) : null}
+                              </div>
+                            );
+                          })}
                         </div>
                       ) : null}
                       <div className="mb-2 flex items-center gap-2">
@@ -1881,5 +2107,3 @@ padding:${contentTop}px ${contentRight}px ${contentBottom}px ${contentLeft}px;
     </div>
   );
 };
-
-
