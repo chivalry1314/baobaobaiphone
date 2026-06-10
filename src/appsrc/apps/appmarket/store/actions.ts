@@ -7,6 +7,7 @@ import {
   removeUploadedApp as removeUploadedAppEntity,
   upsertUploadedApp,
 } from '../data/repositories/uploadedRepo';
+import { setShareThemeSourcePreference } from '../data/repositories/preferencesRepo';
 import { normalizeUploadedApp } from './utils';
 import type { AppMarketStore } from './types';
 
@@ -27,7 +28,7 @@ export const createAppMarketActions = ({
   get,
 }: CreateAppMarketActionsInput): Pick<
   AppMarketStore,
-  'installApp' | 'uninstallApp' | 'addUploadedApp' | 'removeUploadedApp'
+  'installApp' | 'uninstallApp' | 'addUploadedApp' | 'removeUploadedApp' | 'setShareThemeSourceBaseUrl'
 > => ({
   installApp: (appId) => {
     const normalizedId = appId.trim();
@@ -121,6 +122,17 @@ export const createAppMarketActions = ({
             ? [...state.installedAppIds, normalizedId]
             : state.installedAppIds,
       }));
+    });
+  },
+
+  setShareThemeSourceBaseUrl: (value) => {
+    const normalizedValue = value.trim();
+    const previousValue = get().shareThemeSourceBaseUrl;
+    set({ shareThemeSourceBaseUrl: normalizedValue });
+
+    void setShareThemeSourcePreference(normalizedValue).catch((error) => {
+      console.error('[AppMarketStore] 远程主题地址持久化失败：', error);
+      set({ shareThemeSourceBaseUrl: previousValue });
     });
   },
 });

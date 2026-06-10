@@ -5,6 +5,7 @@ export interface AppMarketActions {
   uninstallApp: (appId: string) => void;
   addUploadedApp: (payload: CreateUploadedAppPayload) => UploadedMarketApp;
   removeUploadedApp: (appId: string) => void;
+  setShareThemeSourceBaseUrl: (value: string) => void;
 }
 
 export interface AppMarketStore extends AppMarketState, AppMarketActions {
