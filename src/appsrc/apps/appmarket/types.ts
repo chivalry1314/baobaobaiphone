@@ -38,7 +38,6 @@ export interface CreateUploadedAppPayload {
 export interface AppMarketState {
   installedAppIds: string[];
   uploadedApps: UploadedMarketApp[];
-  shareThemeSourceBaseUrl: string;
 }
 
 export interface RemoteShareTheme {
@@ -69,6 +68,7 @@ export interface RemoteShareThemeCard {
   id: string;
   title: string;
   description: string;
+  tags: string[];
   accessMode: 'free' | 'paid';
   updatedAt: string;
   previewUrl: string;

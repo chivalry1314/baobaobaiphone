@@ -19,7 +19,6 @@ const emitHydrated = () => {
 export const useAppMarketStore = create<AppMarketStore>()((set, get) => ({
   installedAppIds: [],
   uploadedApps: [],
-  shareThemeSourceBaseUrl: '',
   isHydrated: false,
   ...createAppMarketActions({
     set,

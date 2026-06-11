@@ -1,4 +1,5 @@
 import React, { useEffect, useMemo, useRef, useState } from 'react';
+import { useVirtualizer } from '@tanstack/react-virtual';
 import {
   AlertCircle,
   Check,
@@ -18,7 +19,7 @@ import { importThemePackage } from '../../../../core/theme/importThemePackage';
 import { useThemeStore } from '../../../../core/stores/theme/store';
 import { slugifyThemeId } from '../../../../core/theme/types';
 import type { ThemeDefinition } from '../../../../core/theme/types';
-import { useAppMarketStore } from '../store';
+import { ONLINE_THEME_SOURCE_BASE_URL } from '../onlineThemeSourceConfig';
 import {
   buildRemoteShareThemeAbsoluteUrl,
   buildRemoteShareThemeCardUrl,
@@ -26,7 +27,12 @@ import {
   downloadRemoteShareThemePackage,
   normalizeShareThemeSourceBaseUrl,
 } from '../shareThemeClient';
+import type { DiscoverRemoteShareThemesResponse } from '../shareThemeClient';
 import type { RemoteShareThemeItem } from '../types';
+
+const REMOTE_THEME_PAGE_SIZE = 24;
+const REMOTE_THEME_LOAD_AHEAD = 4;
+const REMOTE_THEME_CARD_ESTIMATED_HEIGHT = 520;
 
 const mergeThemeCatalog = (
   builtinThemes: ThemeDefinition[],
@@ -38,6 +44,287 @@ const mergeThemeCatalog = (
 
 const getRemoteThemeLocalId = (item: RemoteShareThemeItem): string =>
   slugifyThemeId(item.systemTheme.id || item.systemTheme.name || item.card.id);
+
+const getRemoteThemeDisplayName = (item: RemoteShareThemeItem): string =>
+  item.card.title.trim() || item.systemTheme.name.trim() || '未命名主题';
+
+const getRemoteThemeDisplayDescription = (item: RemoteShareThemeItem): string =>
+  item.card.description.trim() ||
+  item.systemTheme.description.trim() ||
+  '该卡片下挂载了一个可安装的系统主题包。';
+
+const getRemoteThemeDisplayTags = (item: RemoteShareThemeItem): string[] =>
+  item.card.tags.length ? item.card.tags : item.systemTheme.tags;
+
+const mergeRemoteThemeItems = (
+  currentItems: RemoteShareThemeItem[],
+  nextItems: RemoteShareThemeItem[]
+): RemoteShareThemeItem[] => {
+  if (!currentItems.length) return nextItems;
+  if (!nextItems.length) return currentItems;
+
+  const itemMap = new Map(currentItems.map((item) => [item.card.id, item]));
+  nextItems.forEach((item) => {
+    itemMap.set(item.card.id, item);
+  });
+  return Array.from(itemMap.values());
+};
+
+const isMeaningfulRemoteThemeAuthor = (author: string): boolean => {
+  const normalized = author.trim().toLowerCase();
+  return Boolean(normalized) && normalized !== 'user' && normalized !== 'unknown';
+};
+
+const isMeaningfulRemoteThemeVersion = (version: string): boolean => {
+  const normalized = version.trim().toLowerCase();
+  return Boolean(normalized) && normalized !== '1.0.0';
+};
+
+const getRemoteThemeCreatorName = (item: RemoteShareThemeItem): string => {
+  const nickname = item.creator.nickname.trim();
+  if (nickname) {
+    return nickname;
+  }
+
+  const username = item.creator.username.trim();
+  if (username) {
+    return username;
+  }
+
+  if (isMeaningfulRemoteThemeAuthor(item.systemTheme.author)) {
+    return item.systemTheme.author.trim();
+  }
+
+  return '未知作者';
+};
+
+const getRemoteThemeHeroMeta = (item: RemoteShareThemeItem): string => {
+  const creatorName = getRemoteThemeCreatorName(item);
+  const nickname = item.creator.nickname.trim();
+  const username = item.creator.username.trim();
+
+  if (nickname && username && nickname !== username) {
+    return `${creatorName} @${username}`;
+  }
+
+  if (
+    !nickname &&
+    !username &&
+    isMeaningfulRemoteThemeAuthor(item.systemTheme.author) &&
+    isMeaningfulRemoteThemeVersion(item.systemTheme.version)
+  ) {
+    return `${creatorName} · ${item.systemTheme.version.trim()}`;
+  }
+
+  return creatorName;
+};
+
+const RemoteThemeCard: React.FC<{
+  item: RemoteShareThemeItem;
+  remoteBaseUrl: string;
+  installedThemeSet: Set<string>;
+  activeThemeId: string;
+  remoteInstallingId: string;
+  accessCodeDrafts: Record<string, string>;
+  setAccessCodeDrafts: React.Dispatch<React.SetStateAction<Record<string, string>>>;
+  handleApplyTheme: (themeId: string, themeName: string) => void;
+  handleInstallRemoteTheme: (item: RemoteShareThemeItem) => Promise<void>;
+  handleUninstallTheme: (themeId: string, themeName: string) => void;
+}> = ({
+  item,
+  remoteBaseUrl,
+  installedThemeSet,
+  activeThemeId,
+  remoteInstallingId,
+  accessCodeDrafts,
+  setAccessCodeDrafts,
+  handleApplyTheme,
+  handleInstallRemoteTheme,
+  handleUninstallTheme,
+}) => {
+  const localThemeId = getRemoteThemeLocalId(item);
+  const displayThemeName = getRemoteThemeDisplayName(item);
+  const displayThemeDescription = getRemoteThemeDisplayDescription(item);
+  const displayThemeTags = getRemoteThemeDisplayTags(item);
+  const displayThemeHeroMeta = getRemoteThemeHeroMeta(item);
+  const isInstalled = installedThemeSet.has(localThemeId);
+  const isActive = activeThemeId === localThemeId;
+  const pending = remoteInstallingId === item.card.id;
+  const requiresCode = item.accessCodeStatus === 'required';
+  const canInstall = item.accessCodeStatus === 'none' || item.accessCodeStatus === 'required';
+
+  return (
+    <div
+      className="overflow-hidden rounded-[28px]"
+      style={{
+        backgroundColor: 'color-mix(in srgb, var(--sys-surface) 90%, white)',
+        boxShadow: '0 18px 38px -28px var(--sys-shadow-color)',
+        border: '1px solid color-mix(in srgb, var(--sys-border) 68%, transparent)',
+      }}
+    >
+      <div className="relative">
+        <img
+          src={buildRemoteShareThemeAbsoluteUrl(remoteBaseUrl, item.card.previewUrl)}
+          alt={displayThemeName}
+          className="h-44 w-full object-cover"
+        />
+        <div className="absolute inset-0 bg-gradient-to-t from-black/60 via-black/10 to-transparent" />
+        <div className="absolute right-4 top-4 flex flex-wrap justify-end gap-2">
+          <span
+            className="inline-flex items-center gap-2 rounded-full px-3 py-1 text-[11px] font-semibold backdrop-blur-sm"
+            style={{
+              backgroundColor: 'color-mix(in srgb, var(--sys-surface-strong) 70%, transparent)',
+              color: 'var(--sys-status-fg)',
+            }}
+          >
+            <PackageOpen size={13} />
+            在线卡片
+          </span>
+          <span
+            className="inline-flex items-center gap-2 rounded-full px-3 py-1 text-[11px] font-semibold backdrop-blur-sm"
+            style={{
+              backgroundColor:
+                item.card.accessMode === 'paid'
+                  ? 'color-mix(in srgb, var(--sys-danger-soft) 88%, white)'
+                  : 'color-mix(in srgb, var(--sys-accent-soft) 88%, white)',
+              color: item.card.accessMode === 'paid' ? 'var(--sys-danger)' : 'var(--sys-accent-muted)',
+            }}
+          >
+            {item.card.accessMode === 'paid' ? '需提取码' : '免费'}
+          </span>
+        </div>
+        <div className="absolute bottom-0 left-0 right-0 p-4">
+          <div className="flex items-end justify-between gap-4">
+            <div className="min-w-0">
+              <div className="truncate text-[22px] font-semibold text-white">{displayThemeName}</div>
+              <div className="mt-1 text-[12px] text-white/78">{displayThemeHeroMeta}</div>
+            </div>
+            {isActive ? (
+              <div
+                className="rounded-full px-3 py-1 text-[11px] font-semibold"
+                style={{
+                  backgroundColor: 'var(--sys-accent)',
+                  color: 'var(--sys-accent-text)',
+                }}
+              >
+                启用中
+              </div>
+            ) : isInstalled ? (
+              <div
+                className="rounded-full px-3 py-1 text-[11px] font-semibold backdrop-blur-sm"
+                style={{
+                  backgroundColor: 'color-mix(in srgb, var(--sys-surface-strong) 72%, transparent)',
+                  color: 'var(--sys-status-fg)',
+                }}
+              >
+                已安装
+              </div>
+            ) : null}
+          </div>
+        </div>
+      </div>
+
+      <div className="space-y-4 p-4">
+        <div className="text-[13px] leading-6" style={{ color: 'var(--sys-muted-text)' }}>
+          {displayThemeDescription}
+        </div>
+
+        <div className="flex flex-wrap gap-2">
+          {displayThemeTags.map((tag) => (
+            <span
+              key={`${item.card.id}-${tag}`}
+              className="rounded-full px-2.5 py-1 text-[11px] font-medium"
+              style={{
+                backgroundColor: 'color-mix(in srgb, var(--sys-surface) 72%, transparent)',
+                color: 'var(--sys-muted-text)',
+              }}
+            >
+              {tag}
+            </span>
+          ))}
+
+        </div>
+
+        {requiresCode ? (
+          <div
+            className="rounded-[20px] p-4"
+            style={{
+              backgroundColor: 'color-mix(in srgb, #f59e0b 12%, white)',
+              border: '1px solid color-mix(in srgb, #f59e0b 26%, transparent)',
+            }}
+          >
+            <input
+              value={accessCodeDrafts[item.card.id] || ''}
+              onChange={(event) =>
+                setAccessCodeDrafts((current) => ({
+                  ...current,
+                  [item.card.id]: event.target.value.toUpperCase(),
+                }))
+              }
+              placeholder="请输入提取码"
+              className="min-w-0 w-full rounded-[16px] px-4 py-3 text-[13px] font-medium outline-none transition"
+              style={{
+                backgroundColor: 'color-mix(in srgb, var(--sys-surface) 98%, white)',
+                color: 'var(--sys-surface-text)',
+                border: '2px solid color-mix(in srgb, #f59e0b 58%, white)',
+                boxShadow: '0 10px 22px -18px color-mix(in srgb, #f59e0b 48%, transparent)',
+              }}
+            />
+          </div>
+        ) : null}
+
+        <div className="grid grid-cols-2 gap-3">
+          {isInstalled ? (
+            <button
+              type="button"
+              onClick={() => handleApplyTheme(localThemeId, displayThemeName)}
+              className="flex items-center justify-center gap-2 rounded-[18px] px-4 py-3 text-[13px] font-semibold"
+              style={{
+                backgroundColor: isActive ? 'var(--sys-accent)' : 'var(--sys-surface-strong)',
+                color: isActive ? 'var(--sys-accent-text)' : 'var(--sys-surface-text)',
+              }}
+            >
+              <Palette size={15} />
+              {isActive ? '当前主题' : '立即应用'}
+            </button>
+          ) : (
+            <button
+              type="button"
+              onClick={() => void handleInstallRemoteTheme(item)}
+              disabled={!canInstall || pending}
+              className="flex items-center justify-center gap-2 rounded-[18px] px-4 py-3 text-[13px] font-semibold disabled:opacity-60"
+              style={{
+                backgroundColor: 'var(--sys-accent)',
+                color: 'var(--sys-accent-text)',
+              }}
+            >
+              <Download size={15} />
+              {pending ? '下载安装中...' : '下载安装'}
+            </button>
+          )}
+          <button
+            type="button"
+            onClick={() =>
+              isInstalled
+                ? handleUninstallTheme(localThemeId, displayThemeName)
+                : handleApplyTheme(localThemeId, displayThemeName)
+            }
+            disabled={!isInstalled}
+            className="rounded-[18px] px-4 py-3 text-[13px] font-semibold disabled:opacity-50"
+            style={{
+              backgroundColor: isInstalled
+                ? 'color-mix(in srgb, var(--sys-danger-soft) 88%, white)'
+                : 'color-mix(in srgb, var(--sys-surface) 72%, transparent)',
+              color: isInstalled ? 'var(--sys-danger)' : 'var(--sys-muted-text)',
+            }}
+          >
+            {isInstalled ? '移除' : '安装后可移除'}
+          </button>
+        </div>
+      </div>
+    </div>
+  );
+};
 
 type ThemeSourceTab = 'online' | 'builtin' | 'uploaded';
 
@@ -53,13 +340,15 @@ const THEME_SOURCE_TABS: Array<{
 
 export const ThemeMarketView: React.FC = () => {
   const importThemeInputRef = useRef<HTMLInputElement>(null);
+  const remoteListRef = useRef<HTMLDivElement | null>(null);
   const [isImportingTheme, setIsImportingTheme] = useState(false);
   const [statusMessage, setStatusMessage] = useState<string | null>(null);
   const [remoteThemes, setRemoteThemes] = useState<RemoteShareThemeItem[]>([]);
   const [remoteLoading, setRemoteLoading] = useState(false);
+  const [remoteLoadingMore, setRemoteLoadingMore] = useState(false);
   const [remoteError, setRemoteError] = useState<string | null>(null);
+  const [remotePagination, setRemotePagination] = useState<DiscoverRemoteShareThemesResponse['pagination'] | null>(null);
   const [remoteInstallingId, setRemoteInstallingId] = useState('');
-  const [remoteBaseUrlDraft, setRemoteBaseUrlDraft] = useState('');
   const [accessCodeDrafts, setAccessCodeDrafts] = useState<Record<string, string>>({});
   const [activeSourceTab, setActiveSourceTab] = useState<ThemeSourceTab>('online');
 
@@ -69,14 +358,14 @@ export const ThemeMarketView: React.FC = () => {
     activeThemeId,
     uninstallTheme,
     addUploadedTheme,
+    updateUploadedThemeMetadata,
     removeUploadedTheme,
     applyTheme,
   } = useThemeStore();
-  const { shareThemeSourceBaseUrl, setShareThemeSourceBaseUrl } = useAppMarketStore();
 
   const remoteBaseUrl = useMemo(
-    () => normalizeShareThemeSourceBaseUrl(shareThemeSourceBaseUrl),
-    [shareThemeSourceBaseUrl]
+    () => normalizeShareThemeSourceBaseUrl(ONLINE_THEME_SOURCE_BASE_URL),
+    []
   );
 
   const allThemes = useMemo(
@@ -105,10 +394,16 @@ export const ThemeMarketView: React.FC = () => {
     }),
     [builtinThemes.length, remoteThemes.length, uploadedThemes.length]
   );
+  const remoteHasMore = Boolean(remotePagination?.hasMore);
+  const remoteCountLabel = remotePagination?.total ?? remoteThemes.length;
 
-  useEffect(() => {
-    setRemoteBaseUrlDraft(remoteBaseUrl);
-  }, [remoteBaseUrl]);
+  const remoteVirtualizer = useVirtualizer({
+    count: remoteThemes.length,
+    getScrollElement: () => remoteListRef.current,
+    estimateSize: () => REMOTE_THEME_CARD_ESTIMATED_HEIGHT,
+    overscan: 3,
+    getItemKey: (index) => remoteThemes[index]?.card.id ?? `remote-theme-${index}`,
+  });
 
   const showMessage = (message: string) => {
     setStatusMessage(message);
@@ -117,36 +412,104 @@ export const ThemeMarketView: React.FC = () => {
     }, 2200);
   };
 
-  const loadRemoteThemes = async (targetBaseUrl: string) => {
+  const loadRemoteThemes = async (
+    targetBaseUrl: string,
+    options?: {
+      page?: number;
+      append?: boolean;
+    }
+  ) => {
     const normalizedBaseUrl = normalizeShareThemeSourceBaseUrl(targetBaseUrl);
+    const page = options?.page && options.page > 0 ? options.page : 1;
+    const append = Boolean(options?.append && page > 1);
     if (!normalizedBaseUrl) {
       setRemoteThemes([]);
+      setRemotePagination(null);
       setRemoteError(null);
+      setRemoteLoading(false);
+      setRemoteLoadingMore(false);
       return;
     }
 
     try {
-      setRemoteLoading(true);
+      if (append) {
+        setRemoteLoadingMore(true);
+      } else {
+        setRemoteLoading(true);
+      }
       setRemoteError(null);
-      const response = await discoverRemoteShareThemes(normalizedBaseUrl);
-      setRemoteThemes(response.items || []);
+      const response = await discoverRemoteShareThemes(normalizedBaseUrl, {
+        page,
+        size: REMOTE_THEME_PAGE_SIZE,
+      });
+      setRemotePagination(response.pagination);
+      setRemoteThemes((current) =>
+        append ? mergeRemoteThemeItems(current, response.items || []) : response.items || []
+      );
     } catch (error) {
       const message = error instanceof Error ? error.message : '在线主题加载失败，请稍后重试';
-      setRemoteThemes([]);
+      if (!append) {
+        setRemoteThemes([]);
+        setRemotePagination(null);
+      } else {
+        setRemotePagination((current) => (current ? { ...current, hasMore: false } : current));
+      }
       setRemoteError(message);
     } finally {
-      setRemoteLoading(false);
+      if (append) {
+        setRemoteLoadingMore(false);
+      } else {
+        setRemoteLoading(false);
+      }
     }
   };
 
   useEffect(() => {
     if (!remoteBaseUrl) {
       setRemoteThemes([]);
+      setRemotePagination(null);
       setRemoteError(null);
       return;
     }
-    void loadRemoteThemes(remoteBaseUrl);
+    void loadRemoteThemes(remoteBaseUrl, { page: 1 });
   }, [remoteBaseUrl]);
+
+  useEffect(() => {
+    const [lastVisibleItem] = remoteVirtualizer.getVirtualItems().slice(-1);
+    if (!lastVisibleItem) return;
+    if (!remoteHasMore || remoteLoading || remoteLoadingMore || !remoteBaseUrl) return;
+    if (lastVisibleItem.index < remoteThemes.length - REMOTE_THEME_LOAD_AHEAD) return;
+
+    void loadRemoteThemes(remoteBaseUrl, {
+      page: (remotePagination?.page ?? 1) + 1,
+      append: true,
+    });
+  }, [
+    remoteBaseUrl,
+    remoteHasMore,
+    remoteLoading,
+    remoteLoadingMore,
+    remotePagination,
+    remoteThemes.length,
+    remoteVirtualizer,
+  ]);
+
+  useEffect(() => {
+    if (!remoteBaseUrl || !remoteThemes.length || !uploadedThemes.length) return;
+    const uploadedThemeIds = new Set(uploadedThemes.map((theme) => theme.id));
+    remoteThemes.forEach((item) => {
+      const localThemeId = getRemoteThemeLocalId(item);
+      if (!uploadedThemeIds.has(localThemeId)) return;
+      updateUploadedThemeMetadata(localThemeId, {
+        name: getRemoteThemeDisplayName(item),
+        description: getRemoteThemeDisplayDescription(item),
+        tags: getRemoteThemeDisplayTags(item),
+        coverImage: item.card.previewUrl
+          ? buildRemoteShareThemeAbsoluteUrl(remoteBaseUrl, item.card.previewUrl)
+          : undefined,
+      });
+    });
+  }, [remoteBaseUrl, remoteThemes, updateUploadedThemeMetadata, uploadedThemes]);
 
   const handleImportThemePackage = async (event: React.ChangeEvent<HTMLInputElement>) => {
     const file = event.target.files?.[0];
@@ -185,22 +548,9 @@ export const ThemeMarketView: React.FC = () => {
     showMessage(`已启用“${themeName}”`);
   };
 
-  const handleSaveRemoteSource = async () => {
-    const normalized = normalizeShareThemeSourceBaseUrl(remoteBaseUrlDraft);
-    setShareThemeSourceBaseUrl(normalized);
-    if (!normalized) {
-      setRemoteThemes([]);
-      setRemoteError(null);
-      showMessage('已清空在线主题源');
-      return;
-    }
-    await loadRemoteThemes(normalized);
-    showMessage('在线主题源已更新');
-  };
-
   const handleInstallRemoteTheme = async (item: RemoteShareThemeItem) => {
     if (!remoteBaseUrl) {
-      window.alert('请先填写分享前端地址');
+      window.alert('请先在 onlineThemeSourceConfig.ts 中配置在线主题源地址');
       return;
     }
 
@@ -225,13 +575,24 @@ export const ThemeMarketView: React.FC = () => {
 
     try {
       setRemoteInstallingId(item.card.id);
+      const displayThemeName = getRemoteThemeDisplayName(item);
+      const displayThemeDescription = getRemoteThemeDisplayDescription(item);
+      const displayThemeTags = getRemoteThemeDisplayTags(item);
       const file = await downloadRemoteShareThemePackage({
         baseUrl: remoteBaseUrl,
         item,
         accessCode: normalizedCode,
       });
       const importedTheme = await importThemePackage(file);
-      const storedTheme = addUploadedTheme(importedTheme);
+      const storedTheme = addUploadedTheme({
+        ...importedTheme,
+        name: displayThemeName,
+        description: displayThemeDescription,
+        tags: displayThemeTags,
+        coverImage: item.card.previewUrl
+          ? buildRemoteShareThemeAbsoluteUrl(remoteBaseUrl, item.card.previewUrl)
+          : importedTheme.coverImage,
+      });
       applyTheme(storedTheme.id);
       showMessage(`系统主题“${storedTheme.name}”已下载、安装并启用`);
     } catch (error) {
@@ -413,67 +774,29 @@ export const ThemeMarketView: React.FC = () => {
 
       {activeSourceTab === 'online' ? (
       <div
-        className="rounded-[28px] p-5"
+        className="flex justify-end"
         style={{
-          backgroundColor: 'color-mix(in srgb, var(--sys-surface) 92%, white)',
-          boxShadow: '0 14px 40px -28px var(--sys-shadow-color)',
-          border: '1px solid color-mix(in srgb, var(--sys-border) 68%, transparent)',
         }}
       >
-        <div className="flex flex-wrap items-center justify-between gap-3">
-          <div>
-            <div className="text-[16px] font-semibold" style={{ color: 'var(--sys-surface-text)' }}>在线系统主题源</div>
-            <div className="mt-1 text-[12px] leading-5" style={{ color: 'var(--sys-muted-text)' }}>
-              填写 `sharefrontend` 地址后，这里会读取卡片下挂载的 `system_theme` 资源并展示为可安装主题。
-            </div>
-          </div>
-          <button
-            type="button"
-            onClick={() => void loadRemoteThemes(remoteBaseUrlDraft)}
-            className="flex items-center gap-2 rounded-[16px] px-4 py-2.5 text-[12px] font-semibold"
-            style={{
-              backgroundColor: 'color-mix(in srgb, var(--sys-surface) 72%, transparent)',
-              color: 'var(--sys-surface-text)',
-            }}
-            disabled={remoteLoading}
-          >
-            <RefreshCw size={14} className={remoteLoading ? 'animate-spin' : ''} />
-            {remoteLoading ? '刷新中...' : '刷新在线主题'}
-          </button>
-        </div>
-
-        <div className="mt-4 flex flex-col gap-3 sm:flex-row">
-          <input
-            value={remoteBaseUrlDraft}
-            onChange={(event) => setRemoteBaseUrlDraft(event.target.value)}
-            placeholder="例如：https://share.example.com"
-            className="min-w-0 flex-1 rounded-[18px] px-4 py-3 text-[13px] outline-none"
-            style={{
-              backgroundColor: 'color-mix(in srgb, var(--sys-surface) 72%, transparent)',
-              color: 'var(--sys-surface-text)',
-              border: '1px solid color-mix(in srgb, var(--sys-border) 60%, transparent)',
-            }}
-          />
-          <button
-            type="button"
-            onClick={() => void handleSaveRemoteSource()}
-            className="rounded-[18px] px-5 py-3 text-[13px] font-semibold"
-            style={{
-              backgroundColor: 'var(--sys-accent)',
-              color: 'var(--sys-accent-text)',
-            }}
-          >
-            保存并连接
-          </button>
-        </div>
-
-        <div className="mt-3 text-[12px] leading-5" style={{ color: 'var(--sys-muted-text)' }}>
-          本地联调建议使用 `http://127.0.0.1:3001`。如果线上部署为不同域名，需要让分享后端的 CORS 允许当前站点访问。
-        </div>
+        <button
+          type="button"
+          onClick={() => void loadRemoteThemes(remoteBaseUrl)}
+          className="inline-flex h-10 w-10 items-center justify-center rounded-full"
+          style={{
+            backgroundColor: 'color-mix(in srgb, var(--sys-surface) 72%, transparent)',
+            color: 'var(--sys-surface-text)',
+            border: '1px solid color-mix(in srgb, var(--sys-border) 60%, transparent)',
+          }}
+          disabled={remoteLoading}
+          aria-label={remoteLoading ? '刷新中' : '刷新在线主题'}
+          title={remoteLoading ? '刷新中' : '刷新在线主题'}
+        >
+          <RefreshCw size={16} className={remoteLoading ? 'animate-spin' : ''} />
+        </button>
 
         {remoteError ? (
           <div
-            className="mt-4 rounded-[18px] px-4 py-3 text-[12px] font-medium"
+            className="ml-3 rounded-[18px] px-4 py-3 text-[12px] font-medium"
             style={{
               backgroundColor: 'color-mix(in srgb, var(--sys-danger-soft) 88%, white)',
               color: 'var(--sys-danger)',
@@ -503,7 +826,7 @@ export const ThemeMarketView: React.FC = () => {
       <div className="space-y-3">
         <div className="flex items-center justify-between px-1">
           <h3 className="text-[11px] font-bold tracking-[0.28em]" style={{ color: 'var(--sys-muted-text)' }}>在线系统主题</h3>
-          <span className="text-[12px]" style={{ color: 'var(--sys-muted-text)' }}>{remoteThemes.length} 套可查询</span>
+          <span className="text-[12px]" style={{ color: 'var(--sys-muted-text)' }}>{remoteCountLabel} 套可查询</span>
         </div>
 
         {!remoteThemes.length && !remoteLoading ? (
@@ -521,252 +844,51 @@ export const ThemeMarketView: React.FC = () => {
           </div>
         ) : null}
 
-        {remoteThemes.map((item) => {
-          const localThemeId = getRemoteThemeLocalId(item);
-          const isInstalled = installedThemeSet.has(localThemeId);
-          const isActive = activeThemeId === localThemeId;
-          const pending = remoteInstallingId === item.card.id;
-          const requiresCode = item.accessCodeStatus === 'required';
-          const canInstall = item.accessCodeStatus === 'none' || item.accessCodeStatus === 'required';
+        {remoteThemes.length ? (
+          <div ref={remoteListRef} className="max-h-[72vh] overflow-y-auto pr-1">
+            <div className="relative" style={{ height: `${remoteVirtualizer.getTotalSize()}px` }}>
+              {remoteVirtualizer.getVirtualItems().map((virtualItem) => {
+                const item = remoteThemes[virtualItem.index];
+                if (!item) return null;
 
-          return (
-            <div
-              key={item.card.id}
-              className="overflow-hidden rounded-[28px]"
-              style={{
-                backgroundColor: 'color-mix(in srgb, var(--sys-surface) 90%, white)',
-                boxShadow: '0 18px 38px -28px var(--sys-shadow-color)',
-                border: '1px solid color-mix(in srgb, var(--sys-border) 68%, transparent)',
-              }}
-            >
-              <div className="relative">
-                <img
-                  src={buildRemoteShareThemeAbsoluteUrl(remoteBaseUrl || remoteBaseUrlDraft, item.card.previewUrl)}
-                  alt={item.systemTheme.name}
-                  className="h-44 w-full object-cover"
-                />
-                <div className="absolute inset-0 bg-gradient-to-t from-black/60 via-black/10 to-transparent" />
-                <div className="absolute right-4 top-4 flex flex-wrap justify-end gap-2">
-                  <span
-                    className="inline-flex items-center gap-2 rounded-full px-3 py-1 text-[11px] font-semibold backdrop-blur-sm"
-                    style={{
-                      backgroundColor: 'color-mix(in srgb, var(--sys-surface-strong) 70%, transparent)',
-                      color: 'var(--sys-status-fg)',
-                    }}
+                return (
+                  <div
+                    key={virtualItem.key}
+                    ref={remoteVirtualizer.measureElement}
+                    data-index={virtualItem.index}
+                    className="absolute left-0 right-0 pb-3"
+                    style={{ transform: `translateY(${virtualItem.start}px)` }}
                   >
-                    <PackageOpen size={13} />
-                    在线卡片
-                  </span>
-                  <span
-                    className="inline-flex items-center gap-2 rounded-full px-3 py-1 text-[11px] font-semibold backdrop-blur-sm"
-                    style={{
-                      backgroundColor:
-                        item.card.accessMode === 'paid'
-                          ? 'color-mix(in srgb, var(--sys-danger-soft) 88%, white)'
-                          : 'color-mix(in srgb, var(--sys-accent-soft) 88%, white)',
-                      color: item.card.accessMode === 'paid' ? 'var(--sys-danger)' : 'var(--sys-accent-muted)',
-                    }}
-                  >
-                    {item.card.accessMode === 'paid' ? '需提取码' : '免费'}
-                  </span>
-                </div>
-                <div className="absolute bottom-0 left-0 right-0 p-4">
-                  <div className="flex items-end justify-between gap-4">
-                    <div className="min-w-0">
-                      <div className="truncate text-[22px] font-semibold text-white">{item.systemTheme.name}</div>
-                      <div className="mt-1 text-[12px] text-white/78">
-                        {item.systemTheme.author || item.creator.nickname || '未知作者'}
-                        {item.systemTheme.version ? ` · ${item.systemTheme.version}` : ''}
-                      </div>
-                    </div>
-                    {isActive ? (
-                      <div
-                        className="rounded-full px-3 py-1 text-[11px] font-semibold"
-                        style={{
-                          backgroundColor: 'var(--sys-accent)',
-                          color: 'var(--sys-accent-text)',
-                        }}
-                      >
-                        启用中
-                      </div>
-                    ) : isInstalled ? (
-                      <div
-                        className="rounded-full px-3 py-1 text-[11px] font-semibold backdrop-blur-sm"
-                        style={{
-                          backgroundColor: 'color-mix(in srgb, var(--sys-surface-strong) 72%, transparent)',
-                          color: 'var(--sys-status-fg)',
-                        }}
-                      >
-                        已安装
-                      </div>
-                    ) : null}
+                    <RemoteThemeCard
+                      item={item}
+                      remoteBaseUrl={remoteBaseUrl}
+                      installedThemeSet={installedThemeSet}
+                      activeThemeId={activeThemeId}
+                      remoteInstallingId={remoteInstallingId}
+                      accessCodeDrafts={accessCodeDrafts}
+                      setAccessCodeDrafts={setAccessCodeDrafts}
+                      handleApplyTheme={handleApplyTheme}
+                      handleInstallRemoteTheme={handleInstallRemoteTheme}
+                      handleUninstallTheme={handleUninstallTheme}
+                    />
                   </div>
-                </div>
-              </div>
-
-              <div className="space-y-4 p-4">
-                <div className="text-[13px] leading-6" style={{ color: 'var(--sys-muted-text)' }}>
-                  {item.systemTheme.description || item.card.description || '该卡片下挂载了一个可安装的系统主题包。'}
-                </div>
-
-                <div className="flex flex-wrap gap-2">
-                  {item.systemTheme.tags.map((tag) => (
-                    <span
-                      key={`${item.card.id}-${tag}`}
-                      className="rounded-full px-2.5 py-1 text-[11px] font-medium"
-                      style={{
-                        backgroundColor: 'color-mix(in srgb, var(--sys-surface) 72%, transparent)',
-                        color: 'var(--sys-muted-text)',
-                      }}
-                    >
-                      {tag}
-                    </span>
-                  ))}
-                  <span
-                    className="rounded-full px-2.5 py-1 text-[11px] font-medium"
-                    style={{
-                      backgroundColor: 'var(--sys-accent-soft)',
-                      color: 'var(--sys-accent-muted)',
-                    }}
-                  >
-                    {item.systemTheme.protocol}
-                  </span>
-                  <span
-                    className="rounded-full px-2.5 py-1 text-[11px] font-medium"
-                    style={{
-                      backgroundColor: 'color-mix(in srgb, var(--sys-surface) 72%, transparent)',
-                      color: 'var(--sys-muted-text)',
-                    }}
-                  >
-                    {item.systemTheme.fileName}
-                  </span>
-                </div>
-
-                <div
-                  className="rounded-[20px] p-4"
-                  style={{
-                    backgroundColor: 'color-mix(in srgb, var(--sys-surface) 72%, transparent)',
-                  }}
-                >
-                  <div className="flex flex-wrap items-center justify-between gap-3">
-                    <div>
-                      <div className="text-[13px] font-semibold" style={{ color: 'var(--sys-surface-text)' }}>
-                        {item.creator.nickname || item.creator.username}
-                      </div>
-                      <div className="mt-1 text-[11px]" style={{ color: 'var(--sys-muted-text)' }}>
-                        卡片下载 {item.stats.downloadCount} 次 · 包格式 {item.systemTheme.format.toUpperCase()}
-                      </div>
-                    </div>
-                    <a
-                      href={buildRemoteShareThemeCardUrl(remoteBaseUrl || remoteBaseUrlDraft, item.card.id)}
-                      target="_blank"
-                      rel="noreferrer"
-                      className="inline-flex items-center gap-2 rounded-[14px] px-3 py-2 text-[12px] font-semibold"
-                      style={{
-                        backgroundColor: 'color-mix(in srgb, var(--sys-surface) 92%, white)',
-                        color: 'var(--sys-surface-text)',
-                      }}
-                    >
-                      <ExternalLink size={14} />
-                      查看卡片
-                    </a>
-                  </div>
-
-                  {requiresCode ? (
-                    <div
-                      className="mt-3 flex flex-col gap-3 rounded-[18px] p-3"
-                      style={{
-                        backgroundColor: 'color-mix(in srgb, #f59e0b 12%, white)',
-                        border: '1px solid color-mix(in srgb, #f59e0b 26%, transparent)',
-                      }}
-                    >
-                      <div className="inline-flex items-center gap-2 text-[12px] font-semibold" style={{ color: '#b45309' }}>
-                        <KeyRound size={15} />
-                        需要先输入提取码
-                      </div>
-                      <label
-                        className="inline-flex items-center gap-1.5 text-[11px] font-semibold tracking-[0.14em]"
-                        style={{ color: '#b45309' }}
-                      >
-                        <AlertCircle size={13} />
-                        提取码
-                      </label>
-                      <input
-                        value={accessCodeDrafts[item.card.id] || ''}
-                        onChange={(event) =>
-                          setAccessCodeDrafts((current) => ({
-                            ...current,
-                            [item.card.id]: event.target.value.toUpperCase(),
-                          }))
-                        }
-                        placeholder="请输入提取码"
-                        className="min-w-0 w-full rounded-[16px] px-4 py-3 text-[13px] font-medium outline-none transition"
-                        style={{
-                          backgroundColor: 'color-mix(in srgb, var(--sys-surface) 98%, white)',
-                          color: 'var(--sys-surface-text)',
-                          border: '2px solid color-mix(in srgb, #f59e0b 58%, white)',
-                          boxShadow: '0 10px 22px -18px color-mix(in srgb, #f59e0b 48%, transparent)',
-                        }}
-                      />
-                      <div className="text-[11px] leading-5" style={{ color: 'var(--sys-muted-text)' }}>
-                        这个卡片需要提取码。输入正确后会直接下载主题包并导入本地主题库。
-                      </div>
-                    </div>
-                  ) : null}
-                </div>
-
-                <div className="grid grid-cols-2 gap-3">
-                  {isInstalled ? (
-                    <button
-                      type="button"
-                      onClick={() => handleApplyTheme(localThemeId, item.systemTheme.name)}
-                      className="flex items-center justify-center gap-2 rounded-[18px] px-4 py-3 text-[13px] font-semibold"
-                      style={{
-                        backgroundColor: isActive ? 'var(--sys-accent)' : 'var(--sys-surface-strong)',
-                        color: isActive ? 'var(--sys-accent-text)' : 'var(--sys-surface-text)',
-                      }}
-                    >
-                      <Palette size={15} />
-                      {isActive ? '当前主题' : '立即应用'}
-                    </button>
-                  ) : (
-                    <button
-                      type="button"
-                      onClick={() => void handleInstallRemoteTheme(item)}
-                      disabled={!canInstall || pending}
-                      className="flex items-center justify-center gap-2 rounded-[18px] px-4 py-3 text-[13px] font-semibold disabled:opacity-60"
-                      style={{
-                        backgroundColor: 'var(--sys-accent)',
-                        color: 'var(--sys-accent-text)',
-                      }}
-                    >
-                      <Download size={15} />
-                      {pending ? '下载安装中...' : '下载安装'}
-                    </button>
-                  )}
-                  <button
-                    type="button"
-                    onClick={() =>
-                      isInstalled
-                        ? handleUninstallTheme(localThemeId, item.systemTheme.name)
-                        : handleApplyTheme(localThemeId, item.systemTheme.name)
-                    }
-                    disabled={!isInstalled}
-                    className="rounded-[18px] px-4 py-3 text-[13px] font-semibold disabled:opacity-50"
-                    style={{
-                      backgroundColor: isInstalled
-                        ? 'color-mix(in srgb, var(--sys-danger-soft) 88%, white)'
-                        : 'color-mix(in srgb, var(--sys-surface) 72%, transparent)',
-                      color: isInstalled ? 'var(--sys-danger)' : 'var(--sys-muted-text)',
-                    }}
-                  >
-                    {isInstalled ? '移除' : '安装后可移除'}
-                  </button>
-                </div>
-              </div>
+                );
+              })}
             </div>
-          );
-        })}
+          </div>
+        ) : null}
+
+        {remoteLoadingMore ? (
+          <div className="px-1 text-[12px]" style={{ color: 'var(--sys-muted-text)' }}>
+            正在加载更多在线主题...
+          </div>
+        ) : null}
+
+        {remoteHasMore && !remoteLoadingMore && remoteThemes.length ? (
+          <div className="px-1 text-[12px]" style={{ color: 'var(--sys-muted-text)' }}>
+            继续下滑会自动加载更多
+          </div>
+        ) : null}
       </div>
       ) : null}
 

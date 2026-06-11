@@ -43,6 +43,10 @@ export interface ThemeStoreState {
   installTheme: (themeId: string) => void;
   uninstallTheme: (themeId: string) => void;
   addUploadedTheme: (theme: ThemeDefinition) => ThemeDefinition;
+  updateUploadedThemeMetadata: (
+    themeId: string,
+    patch: Partial<Pick<ThemeDefinition, 'name' | 'description' | 'coverImage' | 'tags'>>
+  ) => void;
   removeUploadedTheme: (themeId: string) => void;
   applyTheme: (themeId: string) => void;
   resetToDefaultTheme: () => void;
@@ -152,6 +156,24 @@ export const useThemeStore = create<ThemeStoreState>()(
         });
 
         return storedTheme;
+      },
+
+      updateUploadedThemeMetadata: (themeId, patch) => {
+        const normalizedId = themeId.trim();
+        if (!normalizedId) return;
+        set((state) => ({
+          uploadedThemes: state.uploadedThemes.map((theme) =>
+            theme.id === normalizedId
+              ? {
+                  ...theme,
+                  name: typeof patch.name === 'string' ? patch.name : theme.name,
+                  description: typeof patch.description === 'string' ? patch.description : theme.description,
+                  coverImage: typeof patch.coverImage === 'string' ? patch.coverImage : theme.coverImage,
+                  tags: Array.isArray(patch.tags) ? patch.tags : theme.tags,
+                }
+              : theme
+          ),
+        }));
       },
 
       removeUploadedTheme: (themeId) => {

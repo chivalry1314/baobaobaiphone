@@ -2,7 +2,7 @@ import type { RemoteShareThemeItem } from './types';
 
 const DEFAULT_PAGE_SIZE = 24;
 
-type DiscoverRemoteShareThemesResponse = {
+export type DiscoverRemoteShareThemesResponse = {
   items: RemoteShareThemeItem[];
   pagination: {
     page: number;
