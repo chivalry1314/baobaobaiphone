@@ -1,4 +1,4 @@
-import type { GlobalSettings } from '../sdk/types';
+import type { DesktopLayoutConfig, GlobalSettings } from '../sdk/types';
 
 export const THEME_MANAGED_SETTING_KEYS = [
   'wallpaper',
@@ -84,6 +84,8 @@ export interface ThemeDefinition {
   previewImages: string[];
   settingsPatch: ThemeSettingsPatch;
   tokens?: ThemeVisualTokens;
+  desktopLayout?: DesktopLayoutConfig;
+  desktopIcons?: ThemeDesktopIconSnapshot[];
   sizeLabel?: string;
   importedAt?: number;
 }
@@ -92,6 +94,21 @@ export interface ThemePackageFontRef {
   file: string;
   name?: string;
   format?: string;
+}
+
+export interface ThemeDesktopIconSnapshot {
+  appId: string;
+  name: string;
+  icon?: string | null;
+  color?: string | null;
+  customIcon?: string | null;
+  source: 'desktop' | 'dock';
+  page?: number;
+  x?: number;
+  y?: number;
+  w?: number;
+  h?: number;
+  order?: number;
 }
 
 export interface ThemePackageDescriptor {
@@ -108,6 +125,8 @@ export interface ThemePackageDescriptor {
   customFont?: ThemePackageFontRef;
   settingsPatch?: ThemeSettingsPatch;
   themeTokens?: ThemeVisualTokens;
+  desktopLayout?: DesktopLayoutConfig;
+  desktopIcons?: ThemeDesktopIconSnapshot[];
   tokens?: string;
 }
 

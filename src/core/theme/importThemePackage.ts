@@ -183,6 +183,8 @@ const resolveInlineThemeDefinition = (
           : [],
     settingsPatch: basePatch,
     tokens: normalized.themeTokens,
+    desktopLayout: normalized.desktopLayout,
+    desktopIcons: normalized.desktopIcons,
     sizeLabel: formatBytesLabel(fileSize),
     importedAt: Date.now(),
   };
@@ -344,6 +346,8 @@ const resolveZippedThemeDefinition = async (
     previewImages,
     settingsPatch: basePatch,
     tokens: mergedDescriptor.themeTokens,
+    desktopLayout: mergedDescriptor.desktopLayout,
+    desktopIcons: mergedDescriptor.desktopIcons,
     sizeLabel: formatBytesLabel(fileSize),
     importedAt: Date.now(),
   };

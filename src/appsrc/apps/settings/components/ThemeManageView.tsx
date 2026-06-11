@@ -1,9 +1,11 @@
-import React, { useMemo, useRef } from 'react';
+import React, { useMemo, useRef, useState } from 'react';
 import { motion } from 'motion/react';
-import { ChevronLeft, Compass, Image as ImageIcon, Palette, Sparkles, Trash2 } from 'lucide-react';
+import { ChevronLeft, Compass, Download, Image as ImageIcon, Palette, Sparkles, Trash2 } from 'lucide-react';
 import { useGlobalSettingsStore } from '@baobaobaiOS/sdk';
 
+import { exportCurrentThemePackage } from '../../../../core/theme/exportCurrentThemePackage';
 import { BUILTIN_THEME_CATALOG } from '../../../../core/theme/presetThemes';
+import { useDesktopCoreStore } from '../../../../core/stores/desktop/store';
 import { useThemeStore } from '../../../../core/stores/theme/store';
 
 export interface ThemeManageViewProps {
@@ -33,7 +35,9 @@ export const ThemeManageView: React.FC<ThemeManageViewProps> = ({
   onOpenThemeMarket,
 }) => {
   const wallpaperInputRef = useRef<HTMLInputElement>(null);
+  const [isExporting, setIsExporting] = useState(false);
   const { settings, updateSettings } = useGlobalSettingsStore();
+  const desktopLayout = useDesktopCoreStore((state) => state.desktopLayout);
   const { activeThemeId, resetToDefaultTheme, detachFromTheme, installedThemeIds, uploadedThemes } =
     useThemeStore();
 
@@ -48,6 +52,33 @@ export const ThemeManageView: React.FC<ThemeManageViewProps> = ({
     updateSettings(patch);
     if (activeThemeId) {
       detachFromTheme();
+    }
+  };
+
+  const handleExportCurrentTheme = async () => {
+    if (isExporting) return;
+
+    setIsExporting(true);
+    try {
+      const { blob, fileName } = await exportCurrentThemePackage({
+        settings,
+        desktopLayout,
+        activeThemeId,
+        uploadedThemes,
+      });
+
+      const url = URL.createObjectURL(blob);
+      const link = document.createElement('a');
+      link.href = url;
+      link.download = fileName;
+      link.click();
+      URL.revokeObjectURL(url);
+      window.alert('当前系统主题已导出。');
+    } catch (error) {
+      const message = error instanceof Error ? error.message : '导出当前系统主题失败。';
+      window.alert(message);
+    } finally {
+      setIsExporting(false);
     }
   };
 
@@ -196,6 +227,37 @@ export const ThemeManageView: React.FC<ThemeManageViewProps> = ({
                 </div>
               </button>
             </div>
+
+            <button
+              type="button"
+              onClick={() => void handleExportCurrentTheme()}
+              disabled={isExporting}
+              className="mt-3 flex w-full items-center gap-3 rounded-[22px] px-4 py-4 text-left disabled:cursor-not-allowed disabled:opacity-70"
+              style={{
+                backgroundColor: 'color-mix(in srgb, var(--sys-surface) 88%, white)',
+                color: 'var(--sys-surface-text)',
+                boxShadow: '0 16px 30px -24px var(--sys-shadow-color)',
+                border: '1px solid color-mix(in srgb, var(--sys-border) 56%, transparent)',
+              }}
+            >
+              <div
+                className="grid h-11 w-11 shrink-0 place-items-center rounded-2xl"
+                style={{
+                  backgroundColor: 'var(--sys-accent-soft)',
+                  color: 'var(--sys-accent-muted)',
+                }}
+              >
+                <Download size={18} />
+              </div>
+              <div className="min-w-0">
+                <div className="whitespace-nowrap text-[12px] font-semibold">
+                  {isExporting ? '正在导出当前主题' : '导出当前系统主题'}
+                </div>
+                <div className="mt-0.5 text-[11px]" style={{ color: 'var(--sys-muted-text)' }}>
+                  导出当前生效的壁纸、字体、图标与主题 token
+                </div>
+              </div>
+            </button>
           </div>
         </motion.section>
 

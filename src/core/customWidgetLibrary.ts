@@ -21,6 +21,10 @@ const writeCustomWidgetLibrary = (widgets: CustomWidgetDefinition[]) => {
   window.dispatchEvent(new Event(CUSTOM_WIDGET_LIBRARY_CHANGED_EVENT));
 };
 
+export const replaceCustomWidgetLibrary = (widgets: CustomWidgetDefinition[]) => {
+  writeCustomWidgetLibrary(widgets);
+};
+
 export const upsertCustomWidgetLibraryItem = (widget: CustomWidgetDefinition) => {
   const widgets = readCustomWidgetLibrary();
   const index = widgets.findIndex((item) => item.id === widget.id || (item.name === widget.name && item.widgetCode === widget.widgetCode));
@@ -28,6 +32,23 @@ export const upsertCustomWidgetLibraryItem = (widget: CustomWidgetDefinition) =>
     index >= 0
       ? widgets.map((item, itemIndex) => (itemIndex === index ? { ...widget, id: item.id } : item))
       : [...widgets, widget];
+  writeCustomWidgetLibrary(nextWidgets);
+};
+
+export const upsertCustomWidgetLibraryItems = (widgets: CustomWidgetDefinition[]) => {
+  if (!widgets.length) return;
+
+  let nextWidgets = readCustomWidgetLibrary();
+  widgets.forEach((widget) => {
+    const index = nextWidgets.findIndex(
+      (item) => item.id === widget.id || (item.name === widget.name && item.widgetCode === widget.widgetCode)
+    );
+    nextWidgets =
+      index >= 0
+        ? nextWidgets.map((item, itemIndex) => (itemIndex === index ? { ...widget, id: item.id } : item))
+        : [...nextWidgets, widget];
+  });
+
   writeCustomWidgetLibrary(nextWidgets);
 };
 

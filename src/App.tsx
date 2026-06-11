@@ -15,6 +15,7 @@ import { hasCoreStoresHydrated, onCoreStoresHydrated } from './core/stores/hydra
 import { useSettingsCoreStore } from './core/stores/settings/store';
 import { useThemeStore } from './core/stores/theme/store';
 import { BUILTIN_THEME_CATALOG } from './core/theme/presetThemes';
+import { resolveThemeTokens } from './core/theme/runtimeTokens';
 import { ensureWebPushSubscription, isPushOpenAppMessage, PUSH_OPEN_APP_MESSAGE_TYPE } from './core/push/webPush';
 import { isSystemAppId, SYSTEM_APP_IDS } from './core/systemApps';
 import { CUSTOM_WIDGET_LIBRARY_CHANGED_EVENT, readCustomWidgetLibrary } from './core/customWidgetLibrary';
@@ -380,57 +381,6 @@ const clearPendingPushLaunch = (): void => {
   url.searchParams.delete('mp_params');
   const nextUrl = `${url.pathname}${url.search}${url.hash}`;
   window.history.replaceState({}, '', nextUrl);
-};
-
-const DEFAULT_THEME_TOKENS: Required<ThemeVisualTokens> = {
-  desktopOverlay: 'none',
-  systemBg: '#eff6ff',
-  surface: 'rgba(255,255,255,0.18)',
-  surfaceStrong: 'rgba(255,255,255,0.34)',
-  surfaceText: '#0f172a',
-  mutedText: 'rgba(15,23,42,0.68)',
-  border: 'rgba(255,255,255,0.5)',
-  shadowColor: 'rgba(15,23,42,0.15)',
-  accent: '#10b981',
-  accentText: '#ffffff',
-  accentSoft: 'rgba(16,185,129,0.14)',
-  accentMuted: '#059669',
-  danger: '#ef4444',
-  dangerText: '#ffffff',
-  dangerSoft: 'rgba(239,68,68,0.12)',
-  glassBg: 'rgba(255,255,255,0.20)',
-  glassBorder: 'rgba(255,255,255,0.30)',
-  glassIconBg: 'rgba(255,255,255,0.25)',
-  dockItemMode: 'default',
-  dockBg: 'rgba(255,255,255,0.20)',
-  dockBorder: 'rgba(255,255,255,0.30)',
-  dockBorderWidth: '1px',
-  dockRadius: '2.5rem',
-  dockBlur: '24px',
-  dockShadow: '0 12px 36px rgba(15,23,42,0.15)',
-  dockActiveBg: 'transparent',
-  dockActiveFg: '#111827',
-  dockActiveBorder: 'transparent',
-  iconBg: 'rgba(255,255,255,0.25)',
-  iconBorder: 'rgba(255,255,255,0.5)',
-  iconBorderWidth: '1px',
-  iconInnerBg: 'transparent',
-  iconInnerInset: '0px',
-  iconTexture: 'none',
-  iconLabel: '#111827',
-  iconGlyph: '#111827',
-  iconShadowColor: 'rgba(0,0,0,0.15)',
-  badgeBg: '#ff3b30',
-  badgeText: '#ffffff',
-  badgeRing: 'rgba(255,255,255,0.92)',
-  statusFg: '#111827',
-  statusMuted: 'rgba(17,24,39,0.78)',
-  statusChipBg: 'rgba(255,255,255,0.22)',
-  statusChipBorder: 'rgba(255,255,255,0.28)',
-  statusChipBorderWidth: '1px',
-  statusBatteryBg: '#111827',
-  statusBatteryCap: 'rgba(17,24,39,0.4)',
-  statusBatteryBorderWidth: '1px',
 };
 
 const DEFAULT_BOOT_SCREEN_TOKENS: Pick<
@@ -971,12 +921,7 @@ export default function App() {
   );
 
   const resolvedThemeTokens = useMemo(
-    () => {
-      return {
-        ...DEFAULT_THEME_TOKENS,
-        ...(activeTheme?.tokens || {}),
-      };
-    },
+    () => resolveThemeTokens(activeTheme),
     [activeTheme]
   );
 

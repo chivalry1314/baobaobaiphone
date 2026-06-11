@@ -1,6 +1,9 @@
 import { create } from 'zustand';
 import { persist } from 'zustand/middleware';
 
+import { upsertCustomWidgetLibraryItems } from '../../customWidgetLibrary';
+import type { DesktopLayoutConfig } from '../types';
+import { defaultDesktopLayout, useDesktopCoreStore } from '../desktop/store';
 import { useSettingsCoreStore } from '../settings/store';
 import { defaultSettings } from '../settings/store';
 import { BUILTIN_THEME_CATALOG } from '../../theme/presetThemes';
@@ -16,11 +19,27 @@ const BUILTIN_THEME_ID_SET = new Set(BUILTIN_THEME_CATALOG.map((theme) => theme.
 const DEFAULT_THEME_MANAGED_SETTINGS = extractThemeManagedSettings(defaultSettings);
 type UploadedThemeDefinition = ThemeDefinition & { source: 'imported' };
 
+const cloneDesktopLayout = (layout: DesktopLayoutConfig): DesktopLayoutConfig => ({
+  rows: layout.rows,
+  cols: layout.cols,
+  pageCount: layout.pageCount,
+  layoutMode: layout.layoutMode,
+  items: (layout.items || []).map((item) => ({
+    ...item,
+    data: item.data ? { ...item.data } : undefined,
+  })),
+  customWidgets: (layout.customWidgets || []).map((widget) => ({
+    ...widget,
+    data: widget.data ? { ...widget.data } : undefined,
+  })),
+});
+
 export interface ThemeStoreState {
   installedThemeIds: string[];
   uploadedThemes: UploadedThemeDefinition[];
   activeThemeId: string | null;
   previousManualSettings: ThemeSettingsPatch | null;
+  previousManualDesktopLayout: DesktopLayoutConfig | null;
   installTheme: (themeId: string) => void;
   uninstallTheme: (themeId: string) => void;
   addUploadedTheme: (theme: ThemeDefinition) => ThemeDefinition;
@@ -64,6 +83,7 @@ export const useThemeStore = create<ThemeStoreState>()(
       uploadedThemes: [],
       activeThemeId: null,
       previousManualSettings: null,
+      previousManualDesktopLayout: null,
 
       installTheme: (themeId) => {
         const normalizedId = themeId.trim();
@@ -148,8 +168,12 @@ export const useThemeStore = create<ThemeStoreState>()(
 
         const wasActive = state.activeThemeId === normalizedId;
         const previousManualSettings = state.previousManualSettings;
+        const previousManualDesktopLayout = state.previousManualDesktopLayout;
         if (wasActive && previousManualSettings) {
           useSettingsCoreStore.getState().updateSettings(previousManualSettings);
+        }
+        if (wasActive && previousManualDesktopLayout) {
+          useDesktopCoreStore.getState().updateDesktopLayout(cloneDesktopLayout(previousManualDesktopLayout));
         }
 
         set((currentState) => ({
@@ -161,6 +185,10 @@ export const useThemeStore = create<ThemeStoreState>()(
             currentState.activeThemeId === normalizedId
               ? null
               : currentState.previousManualSettings,
+          previousManualDesktopLayout:
+            currentState.activeThemeId === normalizedId
+              ? null
+              : currentState.previousManualDesktopLayout,
         }));
       },
 
@@ -172,16 +200,26 @@ export const useThemeStore = create<ThemeStoreState>()(
         if (!theme) return;
 
         const settingsStore = useSettingsCoreStore.getState();
+        const desktopStore = useDesktopCoreStore.getState();
         const activeThemeId = get().activeThemeId;
         const manualSnapshot =
           activeThemeId === null
             ? extractThemeManagedSettings(settingsStore.settings)
             : get().previousManualSettings || extractThemeManagedSettings(settingsStore.settings);
+        const manualDesktopLayoutSnapshot =
+          activeThemeId === null
+            ? cloneDesktopLayout(desktopStore.desktopLayout)
+            : get().previousManualDesktopLayout || cloneDesktopLayout(desktopStore.desktopLayout);
 
         settingsStore.updateSettings(theme.settingsPatch);
+        if (theme.desktopLayout) {
+          upsertCustomWidgetLibraryItems(theme.desktopLayout.customWidgets || []);
+          desktopStore.updateDesktopLayout(cloneDesktopLayout(theme.desktopLayout));
+        }
         set((state) => ({
           activeThemeId: normalizedId,
           previousManualSettings: manualSnapshot,
+          previousManualDesktopLayout: manualDesktopLayoutSnapshot,
           installedThemeIds: state.installedThemeIds.includes(normalizedId)
             ? state.installedThemeIds
             : [...state.installedThemeIds, normalizedId],
@@ -190,10 +228,14 @@ export const useThemeStore = create<ThemeStoreState>()(
 
       resetToDefaultTheme: () => {
         useSettingsCoreStore.getState().updateSettings(DEFAULT_THEME_MANAGED_SETTINGS);
+        useDesktopCoreStore.getState().updateDesktopLayout(
+          cloneDesktopLayout(defaultDesktopLayout)
+        );
 
         set({
           activeThemeId: null,
           previousManualSettings: null,
+          previousManualDesktopLayout: null,
         });
       },
 
@@ -201,6 +243,7 @@ export const useThemeStore = create<ThemeStoreState>()(
         set({
           activeThemeId: null,
           previousManualSettings: null,
+          previousManualDesktopLayout: null,
         });
       },
     }),
