@@ -19,6 +19,14 @@ const BUILTIN_THEME_ID_SET = new Set(BUILTIN_THEME_CATALOG.map((theme) => theme.
 const DEFAULT_THEME_MANAGED_SETTINGS = extractThemeManagedSettings(defaultSettings);
 type UploadedThemeDefinition = ThemeDefinition & { source: 'imported' };
 
+const shallowEqualArrays = <T>(a: T[], b: T[]): boolean => {
+  if (a.length !== b.length) return false;
+  for (let i = 0; i < a.length; i += 1) {
+    if (a[i] !== b[i]) return false;
+  }
+  return true;
+};
+
 const cloneDesktopLayout = (layout: DesktopLayoutConfig): DesktopLayoutConfig => ({
   rows: layout.rows,
   cols: layout.cols,
@@ -161,19 +169,39 @@ export const useThemeStore = create<ThemeStoreState>()(
       updateUploadedThemeMetadata: (themeId, patch) => {
         const normalizedId = themeId.trim();
         if (!normalizedId) return;
-        set((state) => ({
-          uploadedThemes: state.uploadedThemes.map((theme) =>
-            theme.id === normalizedId
-              ? {
-                  ...theme,
-                  name: typeof patch.name === 'string' ? patch.name : theme.name,
-                  description: typeof patch.description === 'string' ? patch.description : theme.description,
-                  coverImage: typeof patch.coverImage === 'string' ? patch.coverImage : theme.coverImage,
-                  tags: Array.isArray(patch.tags) ? patch.tags : theme.tags,
-                }
-              : theme
-          ),
-        }));
+        set((state) => {
+          let hasChanges = false;
+          const nextUploadedThemes = state.uploadedThemes.map((theme) => {
+            if (theme.id !== normalizedId) return theme;
+
+            const nextName = typeof patch.name === 'string' ? patch.name : theme.name;
+            const nextDescription =
+              typeof patch.description === 'string' ? patch.description : theme.description;
+            const nextCoverImage =
+              typeof patch.coverImage === 'string' ? patch.coverImage : theme.coverImage;
+            const nextTags = Array.isArray(patch.tags) ? patch.tags : theme.tags;
+
+            if (
+              nextName !== theme.name ||
+              nextDescription !== theme.description ||
+              nextCoverImage !== theme.coverImage ||
+              !shallowEqualArrays(nextTags, theme.tags)
+            ) {
+              hasChanges = true;
+              return {
+                ...theme,
+                name: nextName,
+                description: nextDescription,
+                coverImage: nextCoverImage,
+                tags: nextTags,
+              };
+            }
+
+            return theme;
+          });
+
+          return hasChanges ? { uploadedThemes: nextUploadedThemes } : state;
+        });
       },
 
       removeUploadedTheme: (themeId) => {

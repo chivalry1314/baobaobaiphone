@@ -1,10 +1,13 @@
 const path = require('path');
+const webpack = require('webpack');
 const HtmlWebpackPlugin = require('html-webpack-plugin');
 const HTMLInlineScriptPlugin = require('html-inline-script-webpack-plugin');
 const MiniCssExtractPlugin = require('mini-css-extract-plugin');
 const HTMLInlineCSSWebpackPlugin = require('html-inline-css-webpack-plugin').default;
 const CssMinimizerPlugin = require('css-minimizer-webpack-plugin');
 const TerserPlugin = require('terser-webpack-plugin');
+
+require('dotenv').config({ path: '.env.production' });
 
 module.exports = {
   mode: 'production',
@@ -54,6 +57,11 @@ module.exports = {
     ],
   },
   plugins: [
+    new webpack.DefinePlugin({
+      'import.meta.env.VITE_ONLINE_THEME_SOURCE_BASE_URL': JSON.stringify(
+        process.env.VITE_ONLINE_THEME_SOURCE_BASE_URL || ''
+      ),
+    }),
     new MiniCssExtractPlugin({
       filename: '[name].css',
     }),
