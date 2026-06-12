@@ -2,9 +2,6 @@ import React, { useEffect, useState } from 'react';
 import { motion, AnimatePresence } from 'motion/react';
 import {
   LayoutDashboard,
-  UploadCloud,
-  DownloadCloud,
-  AlertCircle,
   ChevronRight
 } from 'lucide-react';
 import { useGlobalDesktopStore } from '@baobaobaiOS/sdk';
@@ -223,27 +220,7 @@ export const DesktopLayoutView: React.FC<DesktopLayoutViewProps> = ({ onEditLayo
                 onEditLayout?.(grid.rows, grid.cols);
               }}
             />
-            <ActionCard
-              icon={<UploadCloud size={24} />}
-              title="导出布局配置"
-              subtitle="生成备份代码分享给他人"
-              iconBg="bg-sky-100 text-sky-500"
-            />
-            <ActionCard
-              icon={<DownloadCloud size={24} />}
-              title="导入布局配置"
-              subtitle="读取 Base64 代码恢复布局"
-              iconBg="bg-emerald-100 text-emerald-500"
-            />
           </motion.section>
-
-          {/* 提示信息 */}
-          <motion.div variants={itemVariants} className="flex items-start gap-2 px-2 text-slate-400">
-            <AlertCircle size={16} className="shrink-0 mt-0.5" />
-            <p className="text-xs leading-relaxed">
-              布局管理允许你保存当前的图标排列和所有自定义组件。导入时会完全覆盖当前的桌面设置，请谨慎操作。
-            </p>
-          </motion.div>
 
         </motion.main>
       </motion.div>

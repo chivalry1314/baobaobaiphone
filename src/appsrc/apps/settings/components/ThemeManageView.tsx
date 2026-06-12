@@ -1,6 +1,6 @@
 import React, { useMemo, useRef, useState } from 'react';
 import { motion } from 'motion/react';
-import { ChevronLeft, Compass, Download, Image as ImageIcon, Palette, Sparkles, Trash2 } from 'lucide-react';
+import { Compass, Download, Image as ImageIcon, Palette, Sparkles, Trash2 } from 'lucide-react';
 import { useGlobalSettingsStore } from '@baobaobaiOS/sdk';
 
 import { exportCurrentThemePackage } from '../../../../core/theme/exportCurrentThemePackage';
@@ -129,135 +129,43 @@ export const ThemeManageView: React.FC<ThemeManageViewProps> = ({
         animate="show"
       >
         <motion.section variants={itemVariants} className="space-y-4">
-          <div
-            className="overflow-hidden rounded-[30px] p-5"
-            style={{
-              background:
-                'linear-gradient(135deg, color-mix(in srgb, var(--sys-surface-strong) 92%, white) 0%, color-mix(in srgb, var(--sys-surface) 86%, white) 100%)',
-              boxShadow: '0 18px 48px -30px var(--sys-shadow-color)',
-              border: '1px solid color-mix(in srgb, var(--sys-border) 78%, transparent)',
-            }}
-          >
-            <div className="flex items-start justify-between gap-4">
-              <div className="min-w-0">
-                <div
-                  className="inline-flex items-center gap-2 rounded-full px-3 py-1 text-[11px] font-semibold"
-                  style={{
-                    backgroundColor: 'var(--sys-accent-soft)',
-                    color: 'var(--sys-accent-muted)',
-                  }}
-                >
-                  <Sparkles size={13} />
-                  主题管理
-                </div>
-                <h2 className="mt-3 text-[24px] font-semibold tracking-tight" style={{ color: 'var(--sys-surface-text)' }}>
-                  当前系统外观
-                </h2>
-                <p className="mt-2 max-w-[320px] text-[13px] leading-6" style={{ color: 'var(--sys-muted-text)' }}>
-                  这里主要负责查看当前主题、恢复默认、手动改壁纸。想浏览更多主题，请前往应用市场的主题频道。
-                </p>
-              </div>
-              <button
-                type="button"
-                onClick={onBack}
-                className="grid h-11 w-11 shrink-0 place-items-center rounded-2xl"
-                style={{
-                  backgroundColor: 'color-mix(in srgb, var(--sys-surface) 88%, white)',
-                  color: 'var(--sys-muted-text)',
-                  boxShadow: '0 8px 22px -16px var(--sys-shadow-color)',
-                  border: '1px solid color-mix(in srgb, var(--sys-border) 56%, transparent)',
-                }}
-                aria-label="返回"
-              >
-                <ChevronLeft size={18} />
-              </button>
-            </div>
-
-            <div className="mt-5 grid grid-cols-2 gap-3">
-              <button
-                type="button"
-                onClick={onOpenThemeMarket}
-                className="flex items-center gap-3 rounded-[22px] px-4 py-4 text-left"
-                style={{
-                  backgroundColor: 'var(--sys-accent)',
-                  color: 'var(--sys-accent-text)',
-                  boxShadow: '0 16px 30px -22px var(--sys-shadow-color)',
-                }}
-              >
-                <div
-                  className="grid h-11 w-11 place-items-center rounded-2xl"
-                  style={{ backgroundColor: 'color-mix(in srgb, var(--sys-accent-text) 14%, transparent)' }}
-                >
-                  <Compass size={18} />
-                </div>
-                <div className="min-w-0">
-                  <div className="whitespace-nowrap text-[12px] font-semibold">前往主题市场</div>
-                  <div
-                    className="mt-0.5 text-[11px]"
-                    style={{ color: 'color-mix(in srgb, var(--sys-accent-text) 74%, transparent)' }}
-                  >
-                    应用市场 · 主题频道
-                  </div>
-                </div>
-              </button>
-
-              <button
-                type="button"
-                onClick={() => wallpaperInputRef.current?.click()}
-                className="flex items-center gap-3 rounded-[22px] px-4 py-4 text-left"
-                style={{
-                  backgroundColor: 'color-mix(in srgb, var(--sys-surface) 88%, white)',
-                  color: 'var(--sys-surface-text)',
-                  boxShadow: '0 16px 30px -24px var(--sys-shadow-color)',
-                  border: '1px solid color-mix(in srgb, var(--sys-border) 56%, transparent)',
-                }}
-              >
-                <div
-                  className="grid h-11 w-11 place-items-center rounded-2xl"
-                  style={{
-                    backgroundColor: 'var(--sys-accent-soft)',
-                    color: 'var(--sys-accent-muted)',
-                  }}
-                >
-                  <ImageIcon size={18} />
-                </div>
-                <div className="min-w-0">
-                  <div className="whitespace-nowrap text-[12px] font-semibold">手动更换壁纸</div>
-                  <div className="mt-0.5 text-[11px]" style={{ color: 'var(--sys-muted-text)' }}>会解除当前主题绑定</div>
-                </div>
-              </button>
-            </div>
-
-            <button
-              type="button"
-              onClick={() => void handleExportCurrentTheme()}
-              disabled={isExporting}
-              className="mt-3 flex w-full items-center gap-3 rounded-[22px] px-4 py-4 text-left disabled:cursor-not-allowed disabled:opacity-70"
+          <div className="space-y-1">
+            <div
+              className="inline-flex items-center gap-2 rounded-full px-3 py-1 text-[11px] font-semibold"
               style={{
-                backgroundColor: 'color-mix(in srgb, var(--sys-surface) 88%, white)',
-                color: 'var(--sys-surface-text)',
-                boxShadow: '0 16px 30px -24px var(--sys-shadow-color)',
-                border: '1px solid color-mix(in srgb, var(--sys-border) 56%, transparent)',
+                backgroundColor: 'var(--sys-accent-soft)',
+                color: 'var(--sys-accent-muted)',
               }}
             >
-              <div
-                className="grid h-11 w-11 shrink-0 place-items-center rounded-2xl"
-                style={{
-                  backgroundColor: 'var(--sys-accent-soft)',
-                  color: 'var(--sys-accent-muted)',
-                }}
-              >
-                <Download size={18} />
-              </div>
-              <div className="min-w-0">
-                <div className="whitespace-nowrap text-[12px] font-semibold">
-                  {isExporting ? '正在导出当前主题' : '导出当前系统主题'}
-                </div>
-                <div className="mt-0.5 text-[11px]" style={{ color: 'var(--sys-muted-text)' }}>
-                  导出当前生效的壁纸、字体、图标与主题 token
-                </div>
-              </div>
-            </button>
+              <Sparkles size={13} />
+              主题管理
+            </div>
+            <h2 className="text-[22px] font-semibold tracking-tight" style={{ color: 'var(--sys-surface-text)' }}>
+              当前系统外观
+            </h2>
+            <p className="text-[13px] leading-5" style={{ color: 'var(--sys-muted-text)' }}>
+              查看当前主题、恢复默认或手动改壁纸。
+            </p>
+          </div>
+
+          <div className="grid grid-cols-3 gap-2">
+            <ActionButton
+              icon={<Compass size={18} />}
+              label="主题市场"
+              onClick={onOpenThemeMarket}
+              primary
+            />
+            <ActionButton
+              icon={<ImageIcon size={18} />}
+              label="换壁纸"
+              onClick={() => wallpaperInputRef.current?.click()}
+            />
+            <ActionButton
+              icon={<Download size={18} />}
+              label={isExporting ? '导出中' : '导出主题'}
+              onClick={() => void handleExportCurrentTheme()}
+              disabled={isExporting}
+            />
           </div>
         </motion.section>
 
@@ -450,5 +358,47 @@ export const ThemeManageView: React.FC<ThemeManageViewProps> = ({
     </motion.div>
   );
 };
+
+interface ActionButtonProps {
+  icon: React.ReactNode;
+  label: string;
+  onClick?: () => void;
+  primary?: boolean;
+  disabled?: boolean;
+}
+
+const ActionButton: React.FC<ActionButtonProps> = ({ icon, label, onClick, primary, disabled }) => (
+  <button
+    type="button"
+    onClick={onClick}
+    disabled={disabled}
+    className="flex flex-col items-center justify-center gap-2 rounded-[20px] px-2 py-4 text-center transition-all active:scale-[0.97] disabled:cursor-not-allowed disabled:opacity-60"
+    style={{
+      backgroundColor: primary
+        ? 'var(--sys-accent)'
+        : 'color-mix(in srgb, var(--sys-surface) 92%, white)',
+      color: primary ? 'var(--sys-accent-text)' : 'var(--sys-surface-text)',
+      boxShadow: primary
+        ? '0 12px 24px -18px var(--sys-shadow-color)'
+        : '0 8px 20px -18px var(--sys-shadow-color)',
+      border: primary
+        ? 'none'
+        : '1px solid color-mix(in srgb, var(--sys-border) 56%, transparent)',
+    }}
+  >
+    <div
+      className="grid h-10 w-10 place-items-center rounded-xl"
+      style={{
+        backgroundColor: primary
+          ? 'color-mix(in srgb, var(--sys-accent-text) 14%, transparent)'
+          : 'var(--sys-accent-soft)',
+        color: primary ? 'var(--sys-accent-text)' : 'var(--sys-accent-muted)',
+      }}
+    >
+      {icon}
+    </div>
+    <span className="text-[11px] font-semibold whitespace-nowrap">{label}</span>
+  </button>
+);
 
 export default ThemeManageView;

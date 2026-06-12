@@ -2,7 +2,6 @@ import React, { useMemo, useRef, useState } from 'react';
 import { motion, AnimatePresence } from 'motion/react';
 import {
   Upload,
-  Download,
   RotateCcw,
   Smartphone,
   Share,
@@ -126,14 +125,6 @@ export const IconManageView: React.FC<IconManageViewProps> = () => {
     });
   };
 
-  const handleExport = () => {
-    console.log('导出配置');
-  };
-
-  const handleImport = () => {
-    console.log('导入配置');
-  };
-
   return (
     <AnimatePresence mode="wait">
       <motion.div
@@ -145,14 +136,8 @@ export const IconManageView: React.FC<IconManageViewProps> = () => {
       >
         {/* 顶部操作按钮 */}
         <div className="sticky top-0 z-20 bg-slate-50/80 backdrop-blur-xl pt-3 px-4 pb-2 border-b border-slate-200/50">
-          <div className="flex items-center justify-between gap-3">
-            <button onClick={handleExport} className="flex-1 flex items-center justify-center gap-1.5 py-2.5 rounded-full bg-white border border-slate-200 text-sm font-medium text-slate-600 hover:bg-slate-50 active:scale-95 transition-all shadow-sm">
-              <Upload size={16} className="text-slate-400" /> 导出配置
-            </button>
-            <button onClick={handleImport} className="flex-1 flex items-center justify-center gap-1.5 py-2.5 rounded-full bg-white border border-slate-200 text-sm font-medium text-slate-600 hover:bg-slate-50 active:scale-95 transition-all shadow-sm">
-              <Download size={16} className="text-slate-400" /> 导入配置
-            </button>
-            <button onClick={handleReset} className="flex-1 flex items-center justify-center gap-1.5 py-2.5 rounded-full bg-rose-50 border border-rose-100 text-sm font-medium text-rose-500 hover:bg-rose-100 active:scale-95 transition-all shadow-sm">
+          <div className="flex items-center justify-end">
+            <button onClick={handleReset} className="flex items-center justify-center gap-1.5 py-2.5 px-5 rounded-full bg-rose-50 border border-rose-100 text-sm font-medium text-rose-500 hover:bg-rose-100 active:scale-95 transition-all shadow-sm">
               <RotateCcw size={16} /> 重置所有
             </button>
           </div>

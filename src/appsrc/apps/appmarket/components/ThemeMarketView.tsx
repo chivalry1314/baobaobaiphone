@@ -2,7 +2,6 @@ import React, { useEffect, useMemo, useRef, useState } from 'react';
 import { useVirtualizer } from '@tanstack/react-virtual';
 import {
   AlertCircle,
-  Check,
   Download,
   ExternalLink,
   KeyRound,
@@ -10,7 +9,6 @@ import {
   Palette,
   RefreshCw,
   Sparkles,
-  Trash2,
   Upload,
 } from 'lucide-react';
 
@@ -954,16 +952,6 @@ export const ThemeMarketView: React.FC = () => {
                       {isUploaded ? '删除' : '移出主题库'}
                     </button>
                   </div>
-                </div>
-                <div
-                  className="grid h-9 w-9 place-items-center rounded-2xl"
-                  style={
-                    isUploaded
-                      ? { backgroundColor: 'var(--sys-danger-soft)', color: 'var(--sys-danger)' }
-                      : { backgroundColor: 'var(--sys-accent-soft)', color: 'var(--sys-accent-muted)' }
-                  }
-                >
-                  {isUploaded ? <Trash2 size={16} /> : <Check size={16} />}
                 </div>
               </div>
             );

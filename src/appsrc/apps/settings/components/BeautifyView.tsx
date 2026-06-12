@@ -7,8 +7,6 @@ import {
   Settings2,
   Palette,
   Type,
-  CloudUpload,
-  CloudDownload,
   Sparkles,
 } from "lucide-react";
 
@@ -115,22 +113,6 @@ export const BeautifyView: React.FC<BeautifySettingsProps> = ({
             </div>
           </motion.section>
 
-          {/* 模块 3：备份与恢复 */}
-          <motion.section variants={itemVariants} className="space-y-4 mt-2">
-            <div className="bg-white rounded-3xl shadow-[0_4px_20px_-4px_rgba(0,0,0,0.03)] overflow-hidden">
-              <SettingRow
-                icon={<CloudUpload />}
-                title="导出配置"
-                iconColor="text-slate-500"
-              />
-              <SettingRow
-                icon={<CloudDownload />}
-                title="导入配置"
-                iconColor="text-sky-500"
-                hasBorder={false}
-              />
-            </div>
-          </motion.section>
         </motion.main>
       </motion.div>
     </AnimatePresence>
