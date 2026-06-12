@@ -89,6 +89,7 @@ export interface WidgetEditorViewProps {
     cornerRadius: number;
     frosted: number;
     shadow: number;
+    backgroundOpacity?: number;
   };
   onSave?: (config: {
     name: string;
@@ -99,6 +100,7 @@ export interface WidgetEditorViewProps {
     cornerRadius: number;
     frosted: number;
     shadow: number;
+    backgroundOpacity: number;
   }) => void;
   onDelete?: () => void;
 }
@@ -124,6 +126,7 @@ export const WidgetEditorView: React.FC<WidgetEditorViewProps> = ({ widgetId, in
   const [cornerRadius, setCornerRadius] = useState<number>(initialConfig?.cornerRadius ?? 22);
   const [frosted, setFrosted] = useState<number>(initialConfig?.frosted ?? 8);
   const [shadow, setShadow] = useState<number>(initialConfig?.shadow ?? 12);
+  const [backgroundOpacity, setBackgroundOpacity] = useState<number>(initialConfig?.backgroundOpacity ?? 0);
   const [widgetCode, setWidgetCode] = useState<string>(
     initialConfig?.widgetCode || (templateId ? widgetTemplateCode[templateId] : '') || ''
   );
@@ -143,10 +146,18 @@ export const WidgetEditorView: React.FC<WidgetEditorViewProps> = ({ widgetId, in
     setCornerRadius(initialConfig?.cornerRadius ?? 22);
     setFrosted(initialConfig?.frosted ?? 8);
     setShadow(initialConfig?.shadow ?? 12);
+    setBackgroundOpacity(initialConfig?.backgroundOpacity ?? 0);
     setWidgetCode(initialConfig?.widgetCode || (templateId ? widgetTemplateCode[templateId] : '') || '');
   }, [initialConfig, templateId]);
 
   const previewTemplateId = templateId || initialConfig?.templateId || 'custom-code';
+  const supportsBackgroundOpacity = [
+    'listen-together',
+    'calendar-card',
+    'vinyl-record',
+    'clock-card',
+    'text-card',
+  ].includes(previewTemplateId);
   const canSave = widgetName.trim().length > 0 && (isEditing || widgetCode.trim().length > 0);
   const commitGridWInput = () => {
     const parsed = Number.parseInt(gridWInput, 10);
@@ -187,6 +198,7 @@ export const WidgetEditorView: React.FC<WidgetEditorViewProps> = ({ widgetId, in
               cornerRadius={cornerRadius}
               frosted={frosted}
               shadow={shadow}
+              backgroundOpacity={supportsBackgroundOpacity ? backgroundOpacity : 0}
               width={gridW}
               height={gridH}
             />
@@ -239,6 +251,23 @@ export const WidgetEditorView: React.FC<WidgetEditorViewProps> = ({ widgetId, in
             </div>
           </div>
 
+          {supportsBackgroundOpacity ? (
+            <div className="rounded-2xl border border-slate-100 bg-slate-50/80 px-3 py-3">
+              <div className="mb-2 flex items-center justify-between">
+                <label className="text-xs text-slate-500">内容填充</label>
+                <span className="text-xs font-semibold text-slate-500">{Math.round(backgroundOpacity * 100)}%</span>
+              </div>
+              <input
+                type="range"
+                min={0}
+                max={100}
+                value={Math.round(backgroundOpacity * 100)}
+                onChange={(event) => setBackgroundOpacity(Number(event.target.value) / 100)}
+                className="w-full accent-sky-500"
+              />
+            </div>
+          ) : null}
+
           <div>
             <div className="mb-2 flex items-center justify-between gap-3">
               <label className="block text-xs text-slate-400">组件代码 (支持原生HTML + CSS + JavaScript)</label>
@@ -288,6 +317,7 @@ export const WidgetEditorView: React.FC<WidgetEditorViewProps> = ({ widgetId, in
               cornerRadius,
               frosted,
               shadow,
+              backgroundOpacity: supportsBackgroundOpacity ? backgroundOpacity : 0,
             });
           }}
           disabled={!canSave}

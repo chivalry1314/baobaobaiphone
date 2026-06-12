@@ -24,6 +24,7 @@ export interface DesktopItemData {
   cornerRadius?: number;
   frosted?: number;
   shadow?: number;
+  backgroundOpacity?: number;
   [key: string]: unknown;
 }
 
@@ -49,6 +50,7 @@ export interface CustomWidgetDefinition {
   cornerRadius?: number;
   frosted?: number;
   shadow?: number;
+  backgroundOpacity?: number;
   data?: DesktopItemData;
 }
 

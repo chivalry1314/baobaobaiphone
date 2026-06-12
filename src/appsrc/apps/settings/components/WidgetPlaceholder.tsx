@@ -448,6 +448,8 @@ export interface WidgetPlaceholderProps {
   frosted?: number;
   /** 阴影大小 */
   shadow?: number;
+  /** 内容填充强度 */
+  backgroundOpacity?: number;
   /** 占据的网格宽度 */
   width?: number;
   /** 占据的网格高度 */
@@ -475,6 +477,7 @@ export const WidgetPlaceholder: React.FC<WidgetPlaceholderProps> = ({
   cornerRadius,
   frosted,
   shadow,
+  backgroundOpacity,
   width = 2,
   height = 2,
   templateId,
@@ -647,14 +650,35 @@ export const WidgetPlaceholder: React.FC<WidgetPlaceholderProps> = ({
   const resolvedRadius = cornerRadius ?? 24;
   const resolvedFrosted = frosted ?? 0;
   const resolvedShadow = shadow ?? 0;
+  const resolvedBackgroundOpacity = Math.max(0, Math.min(1, backgroundOpacity ?? 0));
   const shadowStyle = resolvedShadow > 0
     ? `0 ${Math.max(2, Math.round(resolvedShadow / 2))}px ${resolvedShadow}px -${Math.max(2, Math.round(resolvedShadow / 3))}px rgba(15, 23, 42, 0.35)`
     : 'none';
   const frostedOpacity = Math.min(0.6, resolvedFrosted / 40);
   const isWideVinyl = templateId === 'vinyl-record' && width > height;
+  const isComponentBackgroundTemplate =
+    templateId === 'listen-together' ||
+    templateId === 'calendar-card' ||
+    templateId === 'vinyl-record' ||
+    templateId === 'clock-card' ||
+    templateId === 'text-card';
   const isTransparentTemplate = templateId === 'calendar-card' || templateId === 'clock-card' || templateId === 'text-card';
   const isListenTogetherActive = dreamListenTogether?.status === 'active';
   const isListenTogetherPending = dreamListenTogether?.status === 'pending';
+  const contentFill = resolvedBackgroundOpacity;
+  const clockTextColor = `rgba(255, 255, 255, ${0.56 + contentFill * 0.44})`;
+  const clockTextShadow = `0 1px 0 rgba(255,255,255,${0.34 + contentFill * 0.26}), 0 2px 5px rgba(96,165,250,${0.14 + contentFill * 0.14}), 0 8px 18px rgba(15,23,42,${0.08 + contentFill * 0.1})`;
+  const calendarTextColor = `rgba(255, 255, 255, ${0.56 + contentFill * 0.44})`;
+  const calendarTextShadow = `0 1px 0 rgba(255,255,255,${0.28 + contentFill * 0.22}), 0 2px 5px rgba(96,165,250,${0.12 + contentFill * 0.12}), 0 6px 14px rgba(15,23,42,${0.08 + contentFill * 0.1})`;
+  const calendarTodayStyle: React.CSSProperties = {
+    backgroundColor: `rgba(255,255,255,${0.18 + contentFill * 0.5})`,
+    color: `rgba(255,255,255,${0.7 + contentFill * 0.28})`,
+    boxShadow: `inset 0 1px 0 rgba(255,255,255,${0.2 + contentFill * 0.32}), 0 4px 12px rgba(96,165,250,${0.1 + contentFill * 0.14})`,
+    textShadow: `0 1px 2px rgba(15,23,42,${0.18 + contentFill * 0.18})`,
+  };
+  const textCardContentColor = titleColor || '#ffffff';
+  const textCardContentOpacity = 0.56 + contentFill * 0.44;
+  const textCardContentShadow = `0 1px 0 rgba(255,255,255,${0.2 + contentFill * 0.18}), 0 3px 10px rgba(96,165,250,${0.12 + contentFill * 0.1})`;
   const listenTogetherCompanionName = dreamListenTogether?.companionName || '哥哥';
   const listenTogetherInviterName =
     wechatUserProfile.name?.trim() || dreamListenTogether?.inviterName?.trim() || '我';
@@ -957,17 +981,21 @@ window.addEventListener('message',function(event){
     if (templateId === 'glass-frame') {
       return (
         <div
-          className="w-full h-full overflow-hidden relative border border-white/35 bg-white/16 text-white"
+          className="w-full h-full overflow-hidden relative border border-white/35 text-white"
           style={{
             gridColumn: `span ${width}`,
             gridRow: `span ${height}`,
             borderRadius: resolvedRadius,
             boxShadow: shadowStyle,
+            backgroundColor: `rgba(255, 255, 255, ${0.16 * resolvedBackgroundOpacity})`,
             backdropFilter: 'blur(12px) saturate(170%)',
             WebkitBackdropFilter: 'blur(12px) saturate(170%)',
           }}
         >
-          <div className="absolute inset-0 bg-gradient-to-br from-white/24 via-white/6 to-white/14" />
+          <div
+            className="absolute inset-0 bg-gradient-to-br from-white/24 via-white/6 to-white/14"
+            style={{ opacity: resolvedBackgroundOpacity }}
+          />
         </div>
       );
     }
@@ -1044,26 +1072,35 @@ window.addEventListener('message',function(event){
     return (
       <div
         className={`w-full h-full overflow-hidden relative text-white ${
-          isTransparentTemplate ? '' : 'border border-white/35 bg-white/16'
+          isComponentBackgroundTemplate ? '' : 'border border-white/35'
         }`}
         style={{
           gridColumn: `span ${width}`,
           gridRow: `span ${height}`,
           borderRadius: resolvedRadius,
-          boxShadow: isTransparentTemplate ? 'none' : shadowStyle,
-          backdropFilter: isTransparentTemplate ? undefined : 'blur(12px) saturate(170%)',
-          WebkitBackdropFilter: isTransparentTemplate ? undefined : 'blur(12px) saturate(170%)',
+          boxShadow: isComponentBackgroundTemplate ? 'none' : shadowStyle,
+          backdropFilter: isComponentBackgroundTemplate ? undefined : 'blur(12px) saturate(170%)',
+          WebkitBackdropFilter: isComponentBackgroundTemplate ? undefined : 'blur(12px) saturate(170%)',
         }}
       >
         {backgroundImage ? (
           <img src={backgroundImage} alt={name} className="absolute inset-0 h-full w-full object-cover opacity-80" />
         ) : null}
-        {isTransparentTemplate ? null : (
-          <div className="absolute inset-0 bg-gradient-to-br from-white/24 via-white/6 to-white/14" />
+        {isComponentBackgroundTemplate ? null : (
+          <div
+            className="absolute inset-0 bg-gradient-to-br from-white/24 via-white/6 to-white/14"
+            style={{ opacity: resolvedBackgroundOpacity }}
+          />
         )}
-        <div className="relative z-10 flex h-full flex-col justify-between p-3">
+        <div className={`relative z-10 flex h-full flex-col justify-between ${isComponentBackgroundTemplate ? 'p-0' : 'p-3'}`}>
           {templateId === 'calendar-card' ? (
-            <div className="relative h-full p-3 font-serif italic text-white drop-shadow-[0_1px_2px_rgba(15,23,42,0.35)]">
+            <div
+              className="relative h-full p-3 font-serif italic"
+              style={{
+                color: calendarTextColor,
+                textShadow: calendarTextShadow,
+              }}
+            >
               <div className="relative flex h-full flex-col">
                 <div className="text-right text-[clamp(16px,6vw,30px)] font-semibold leading-none">{calendarDays.monthName}</div>
                 <div className="mt-3 grid flex-1 grid-cols-7 gap-1 text-center text-[clamp(9px,3vw,16px)] font-semibold">
@@ -1076,7 +1113,8 @@ window.addEventListener('message',function(event){
                   {calendarDays.days.map((day) => (
                     <span
                       key={day}
-                      className={day === calendarDays.today ? 'rounded bg-white/78 px-1 text-stone-500 shadow-sm' : 'opacity-90'}
+                      className={day === calendarDays.today ? 'rounded px-1 shadow-sm' : 'opacity-90'}
+                      style={day === calendarDays.today ? calendarTodayStyle : undefined}
                     >
                       {day}
                     </span>
@@ -1128,11 +1166,9 @@ window.addEventListener('message',function(event){
             </div>
           ) : templateId === 'listen-together' ? (
             <div
-              className="relative h-full w-full overflow-hidden rounded-[inherit] border border-white/70 bg-white/28 text-[#111827] shadow-[inset_0_1px_0_rgba(255,255,255,0.96),inset_0_-18px_38px_rgba(255,255,255,0.2),0_12px_30px_rgba(148,163,184,0.12)] backdrop-blur-2xl"
+              className="relative h-full w-full overflow-hidden rounded-[inherit] border border-white/25 text-[#111827]"
               onPointerDown={stopDesktopPointer}
             >
-              <div className="pointer-events-none absolute inset-0 rounded-[inherit] bg-[linear-gradient(135deg,rgba(255,255,255,0.72)_0%,rgba(255,255,255,0.08)_42%,rgba(255,255,255,0.34)_100%)]" />
-              <div className="pointer-events-none absolute -inset-3 rounded-[inherit] border border-white/35 blur-[6px]" />
               {dreamListenTogether ? (
                 <button
                   type="button"
@@ -1154,7 +1190,10 @@ window.addEventListener('message',function(event){
                   <span
                     key={index}
                     className="w-[clamp(2px,0.9vw,4px)] rounded-full bg-[#30323A] transition-[height] duration-200 ease-out"
-                    style={{ height: `${barHeight}px` }}
+                    style={{
+                      height: `${barHeight}px`,
+                      backgroundColor: `rgba(48,50,58,${0.44 + contentFill * 0.46})`,
+                    }}
                   />
                 ))}
               </div>
@@ -1204,14 +1243,23 @@ window.addEventListener('message',function(event){
               ) : null}
               <div className="absolute bottom-[11%] right-[6%] top-[18%] flex w-[48%] min-w-[136px] max-w-[260px] flex-col items-center justify-between">
                 <div className="flex min-h-0 w-full flex-1 flex-col items-center">
-                <div className="w-full shrink-0 truncate text-center text-[clamp(12px,4vw,20px)] font-black leading-tight">{dreamCurrentTrack?.title || musicTitle || '梦音乐'}</div>
-                <div className={`relative mt-1 w-full flex-1 overflow-hidden text-center text-[clamp(9px,2.6vw,13px)] leading-[1.28] text-[#6B7280] ${listenTogetherCanShowMultiLineLyrics ? 'flex min-h-[2.4em] items-center justify-center' : 'min-h-[1.3em]'}`}>
+                <div
+                  className="w-full shrink-0 truncate text-center text-[clamp(12px,4vw,20px)] font-black leading-tight"
+                  style={{ color: `rgba(17,24,39,${0.52 + contentFill * 0.4})` }}
+                >
+                  {dreamCurrentTrack?.title || musicTitle || '梦音乐'}
+                </div>
+                <div
+                  className={`relative mt-1 w-full flex-1 overflow-hidden text-center text-[clamp(9px,2.6vw,13px)] leading-[1.28] ${listenTogetherCanShowMultiLineLyrics ? 'flex min-h-[2.4em] items-center justify-center' : 'min-h-[1.3em]'}`}
+                  style={{ color: `rgba(107,114,128,${0.52 + contentFill * 0.34})` }}
+                >
                   <div key={listenTogetherLyricKey} className="w-full animate-[dream-lyric-swap_420ms_ease-out]">
                     <div className={listenTogetherCanShowMultiLineLyrics ? 'space-y-0.5 whitespace-normal break-words' : 'truncate whitespace-nowrap'}>
                       {listenTogetherLyricRows.map((line, index) => (
                         <div
                           key={`${index}-${line.text}`}
-                          className={line.active ? 'font-semibold text-[#6B7280]' : 'text-[#6B7280]/72'}
+                          className={line.active ? 'font-semibold' : ''}
+                          style={{ opacity: line.active ? 1 : 0.72 }}
                         >
                           {line.text}
                         </div>
@@ -1224,7 +1272,8 @@ window.addEventListener('message',function(event){
                   <button
                     type="button"
                     onClick={() => handleListenTogetherMusicAction('playPrev')}
-                    className="grid h-8 w-8 shrink-0 place-items-center rounded-full text-[#1F2937] active:bg-slate-200/70"
+                    className="grid h-8 w-8 shrink-0 place-items-center rounded-full active:bg-slate-200/70"
+                    style={{ color: `rgba(31,41,55,${0.5 + contentFill * 0.38})` }}
                     aria-label="上一首"
                   >
                     <SkipBack size={18} fill="currentColor" />
@@ -1232,7 +1281,8 @@ window.addEventListener('message',function(event){
                   <button
                     type="button"
                     onClick={() => handleListenTogetherMusicAction('togglePlayback')}
-                    className="grid h-10 w-10 shrink-0 place-items-center rounded-full bg-[#ECECF0] text-[#111827] shadow-[0_8px_18px_rgba(15,23,42,0.08)] active:scale-95"
+                    className="grid h-10 w-10 shrink-0 place-items-center rounded-full text-[#111827] shadow-[0_8px_18px_rgba(15,23,42,0.08)] active:scale-95"
+                    style={{ backgroundColor: `rgba(236,236,240,${0.3 + contentFill * 0.52})` }}
                     aria-label={dreamIsPlaying ? '暂停' : '播放'}
                   >
                     {dreamIsPlaying ? <Pause size={20} fill="currentColor" /> : <Play size={20} fill="currentColor" className="ml-0.5" />}
@@ -1240,7 +1290,8 @@ window.addEventListener('message',function(event){
                   <button
                     type="button"
                     onClick={() => handleListenTogetherMusicAction('playNext')}
-                    className="grid h-8 w-8 shrink-0 place-items-center rounded-full text-[#1F2937] active:bg-slate-200/70"
+                    className="grid h-8 w-8 shrink-0 place-items-center rounded-full active:bg-slate-200/70"
+                    style={{ color: `rgba(31,41,55,${0.5 + contentFill * 0.38})` }}
                     aria-label="下一首"
                   >
                     <SkipForward size={18} fill="currentColor" />
@@ -1261,11 +1312,19 @@ window.addEventListener('message',function(event){
               `}</style>
             </div>
           ) : templateId === 'clock-card' ? (
-            <div className="flex h-full flex-col items-center justify-center text-white/82">
+            <div
+              className="flex h-full flex-col items-center justify-center rounded-[inherit]"
+              style={{
+                color: clockTextColor,
+              }}
+            >
               <div className="text-[clamp(12px,5vw,22px)] font-semibold leading-none">
                 {now.toLocaleDateString('en-US', { weekday: 'short', month: 'short', day: 'numeric' })}
               </div>
-              <div className="mt-1 text-[clamp(38px,20vw,96px)] font-black leading-none tracking-normal drop-shadow-[0_2px_2px_rgba(15,23,42,0.14)]">
+              <div
+                className="mt-1 text-[clamp(38px,20vw,96px)] font-black leading-none tracking-normal"
+                style={{ textShadow: clockTextShadow }}
+              >
                 {now.toLocaleTimeString('zh-CN', { hour: '2-digit', minute: '2-digit', hour12: false })}
               </div>
             </div>
@@ -1305,19 +1364,20 @@ window.addEventListener('message',function(event){
               </div>
             )
           ) : templateId === 'text-card' ? (
-            <div className="flex h-full flex-col items-center justify-center gap-2 p-3 text-center" onPointerDown={stopDesktopPointer}>
+            <div className="relative flex h-full flex-col items-center justify-center gap-2 rounded-[inherit] p-3 text-center" onPointerDown={stopDesktopPointer}>
               {isEditing ? (
-                <>
+                <div className="relative z-10 contents">
                   <input
                     value={titleText || '184 天'}
                     onChange={(event) => onUpdateData?.({ titleText: event.target.value })}
-                    className="w-full bg-transparent text-center font-serif italic outline-none placeholder:text-white/50"
-                    style={{ color: titleColor || '#ffffff', fontSize: `${titleFontSize || 22}px` }}
+                    className="w-full bg-transparent text-center font-serif font-bold italic outline-none placeholder:text-white/50"
+                    style={{ color: textCardContentColor, opacity: textCardContentOpacity, fontSize: `${titleFontSize || 22}px`, textShadow: textCardContentShadow }}
                   />
                   <textarea
                     value={subtitle || '我们的纪念日\n2024.07.30'}
                     onChange={(event) => onUpdateData?.({ subtitle: event.target.value })}
-                    className="min-h-10 w-full resize-none bg-transparent text-center text-[12px] leading-5 text-white/85 outline-none"
+                    className="min-h-10 w-full resize-none bg-transparent text-center text-[12px] font-semibold leading-5 text-white outline-none"
+                    style={{ opacity: textCardContentOpacity, textShadow: textCardContentShadow }}
                   />
                   <div className="flex items-center justify-center gap-2">
                     <input
@@ -1335,19 +1395,19 @@ window.addEventListener('message',function(event){
                       className="w-20"
                     />
                   </div>
-                </>
+                </div>
               ) : (
-                <>
+                <div className="relative z-10 contents">
                   <div
-                    className="w-full whitespace-pre-wrap font-serif italic leading-tight"
-                    style={{ color: titleColor || '#ffffff', fontSize: `${titleFontSize || 22}px` }}
+                    className="w-full whitespace-pre-wrap font-serif font-bold italic leading-tight"
+                    style={{ color: textCardContentColor, opacity: textCardContentOpacity, fontSize: `${titleFontSize || 22}px`, textShadow: textCardContentShadow }}
                   >
                     {countdownDays === null ? titleText || '184 天' : `${countdownDays} 天`}
                   </div>
-                  <div className="whitespace-pre-wrap text-[12px] leading-5 text-white/85">
+                  <div className="whitespace-pre-wrap text-[12px] font-semibold leading-5 text-white" style={{ opacity: textCardContentOpacity, textShadow: textCardContentShadow }}>
                     {subtitle || '我们的纪念日\n2024.07.30'}
                   </div>
-                </>
+                </div>
               )}
             </div>
           ) : templateId === 'headline' ? (

@@ -299,6 +299,7 @@ export const SettingsApp: React.FC<SettingsAppProps> = ({ onClose, context }) =>
         cornerRadius: editingLibraryWidget.cornerRadius ?? 24,
         frosted: editingLibraryWidget.frosted ?? 8,
         shadow: editingLibraryWidget.shadow ?? 12,
+        backgroundOpacity: editingLibraryWidget.backgroundOpacity ?? 0,
       }
     : editingItem
     ? {
@@ -316,6 +317,7 @@ export const SettingsApp: React.FC<SettingsAppProps> = ({ onClose, context }) =>
         cornerRadius: editingItem.data?.cornerRadius ?? 24,
         frosted: editingItem.data?.frosted ?? 8,
         shadow: editingItem.data?.shadow ?? 12,
+        backgroundOpacity: typeof editingItem.data?.backgroundOpacity === 'number' ? editingItem.data.backgroundOpacity : 0,
       }
     : undefined;
 
@@ -435,6 +437,7 @@ export const SettingsApp: React.FC<SettingsAppProps> = ({ onClose, context }) =>
                   cornerRadius: config.cornerRadius,
                   frosted: config.frosted,
                   shadow: config.shadow,
+                  backgroundOpacity: config.backgroundOpacity,
                   data: {
                     name: config.name,
                     templateId: config.templateId || 'custom-code',
@@ -442,6 +445,7 @@ export const SettingsApp: React.FC<SettingsAppProps> = ({ onClose, context }) =>
                     cornerRadius: config.cornerRadius,
                     frosted: config.frosted,
                     shadow: config.shadow,
+                    backgroundOpacity: config.backgroundOpacity,
                   },
                 };
                 const isSameExistingLibraryWidget = (name: unknown, widgetCode: unknown) => (
@@ -492,6 +496,7 @@ export const SettingsApp: React.FC<SettingsAppProps> = ({ onClose, context }) =>
                           cornerRadius: config.cornerRadius,
                           frosted: config.frosted,
                           shadow: config.shadow,
+                          backgroundOpacity: config.backgroundOpacity,
                         },
                       };
                     }),
@@ -545,6 +550,7 @@ export const SettingsApp: React.FC<SettingsAppProps> = ({ onClose, context }) =>
                       cornerRadius: config.cornerRadius,
                       frosted: config.frosted,
                       shadow: config.shadow,
+                      backgroundOpacity: config.backgroundOpacity,
                     },
                   });
                 } else {
@@ -568,6 +574,7 @@ export const SettingsApp: React.FC<SettingsAppProps> = ({ onClose, context }) =>
                       cornerRadius: config.cornerRadius,
                       frosted: config.frosted,
                       shadow: config.shadow,
+                      backgroundOpacity: config.backgroundOpacity,
                     }
                   });
                 }

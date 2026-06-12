@@ -170,6 +170,7 @@ export interface DesktopItemData {
   cornerRadius?: number;
   frosted?: number;
   shadow?: number;
+  backgroundOpacity?: number;
   [key: string]: unknown;
 }
 
@@ -186,6 +187,20 @@ export interface DesktopItem {
   data?: DesktopItemData;
 }
 
+export interface CustomWidgetDefinition {
+  id: string;
+  name: string;
+  width: number;
+  height: number;
+  templateId: string;
+  widgetCode: string;
+  cornerRadius?: number;
+  frosted?: number;
+  shadow?: number;
+  backgroundOpacity?: number;
+  data?: DesktopItemData;
+}
+
 /** Desktop layout config shared with apps */
 export interface DesktopLayoutConfig {
   rows: number;
@@ -193,4 +208,5 @@ export interface DesktopLayoutConfig {
   pageCount: number;
   items: DesktopItem[];
   layoutMode?: 'auto' | 'custom';
+  customWidgets?: CustomWidgetDefinition[];
 }

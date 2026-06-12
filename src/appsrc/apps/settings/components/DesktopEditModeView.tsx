@@ -41,21 +41,21 @@ const managedWidgetTemplates: ManagedWidgetTemplate[] = [
     name: '一起听歌',
     defaultWidth: 4,
     defaultHeight: 3,
-    data: { name: '一起听歌', templateId: 'listen-together', subtitle: '双人音乐播放器', cornerRadius: 22, frosted: 6, shadow: 12 },
+    data: { name: '一起听歌', templateId: 'listen-together', subtitle: '双人音乐播放器', cornerRadius: 22, frosted: 6, shadow: 12, backgroundOpacity: 0 },
   },
   {
     id: 'ins-photo',
     name: 'ins照片',
     defaultWidth: 2,
     defaultHeight: 2,
-    data: { name: 'ins照片', templateId: 'ins-photo', subtitle: '点击上传照片', cornerRadius: 22, frosted: 8, shadow: 12 },
+    data: { name: 'ins照片', templateId: 'ins-photo', subtitle: '点击上传照片', cornerRadius: 22, frosted: 8, shadow: 12, backgroundOpacity: 0 },
   },
   {
     id: 'calendar-card',
     name: '日历',
     defaultWidth: 2,
     defaultHeight: 2,
-    data: { name: '日历', templateId: 'calendar-card', subtitle: 'February', cornerRadius: 22, frosted: 6, shadow: 12 },
+    data: { name: '日历', templateId: 'calendar-card', subtitle: 'February', cornerRadius: 22, frosted: 6, shadow: 12, backgroundOpacity: 0 },
   },
   {
     id: 'vinyl-record',
@@ -69,6 +69,7 @@ const managedWidgetTemplates: ManagedWidgetTemplate[] = [
       cornerRadius: 22,
       frosted: 6,
       shadow: 12,
+      backgroundOpacity: 0,
       musicPlaying: false,
       musicTitle: 'SCION',
       musicArtist: 'MANIA',
@@ -79,7 +80,7 @@ const managedWidgetTemplates: ManagedWidgetTemplate[] = [
     name: '时钟',
     defaultWidth: 4,
     defaultHeight: 1,
-    data: { name: '时钟', templateId: 'clock-card', subtitle: 'Thu Mar 26', cornerRadius: 18, frosted: 4, shadow: 8 },
+    data: { name: '时钟', templateId: 'clock-card', subtitle: 'Thu Mar 26', cornerRadius: 18, frosted: 4, shadow: 8, backgroundOpacity: 0 },
   },
   {
     id: 'text-card',
@@ -96,6 +97,7 @@ const managedWidgetTemplates: ManagedWidgetTemplate[] = [
       cornerRadius: 20,
       frosted: 8,
       shadow: 10,
+      backgroundOpacity: 0,
     },
   },
 ];
@@ -400,6 +402,32 @@ export const DesktopEditModeView: React.FC<DesktopEditModeViewProps> = ({ rows, 
     return handleUpdateItemPlacement(instanceId, selectedItem?.x ?? 0, selectedItem?.y ?? 0, page);
   };
 
+  const getWidgetBackgroundOpacity = (item: DesktopItem | null): number => {
+    if (!item || item.type !== 'widget') return 1;
+    const value = item.data?.backgroundOpacity;
+    return typeof value === 'number' ? Math.max(0, Math.min(1, value)) : 0;
+  };
+
+  const updateSelectedWidgetBackgroundOpacity = (value: number) => {
+    if (!selectedItem || selectedItem.type !== 'widget') return;
+    updateWidgetBackgroundOpacity(selectedItem, value);
+  };
+
+  const updateWidgetBackgroundOpacity = (item: DesktopItem, value: number) => {
+    if (item.type !== 'widget') return;
+    const nextOpacity = Math.max(0, Math.min(1, value));
+    const nextData = {
+      ...(item.data || {}),
+      backgroundOpacity: nextOpacity,
+    };
+    updateDesktopItem(item.instanceId, { data: nextData });
+    setSelectedItem((prev) => (
+      prev && prev.instanceId === item.instanceId
+        ? { ...prev, data: nextData }
+        : prev
+    ));
+  };
+
   const resetEditsFromItem = (item: DesktopItem) => {
     setEditRow(String(item.y + 1));
     setEditCol(String(item.x + 1));
@@ -634,7 +662,7 @@ export const DesktopEditModeView: React.FC<DesktopEditModeViewProps> = ({ rows, 
                     <button
                       type="button"
                       key={`${row}-${col}`}
-                      className={`group rounded-2xl border flex items-center justify-center cursor-pointer transition-all active:scale-[0.99] focus:outline-none focus-visible:ring-2 focus-visible:ring-sky-500/70 ${
+                      className={`group relative rounded-2xl border flex items-center justify-center cursor-pointer transition-all active:scale-[0.99] focus:outline-none focus-visible:ring-2 focus-visible:ring-sky-500/70 ${
                         isSelected
                           ? 'border-transparent bg-sky-50/80 ring-2 ring-sky-500/60 shadow-[0_10px_24px_-18px_rgba(2,132,199,0.6)]'
                           : isOccupied
@@ -674,21 +702,46 @@ export const DesktopEditModeView: React.FC<DesktopEditModeViewProps> = ({ rows, 
                           <span className="text-[9px] text-slate-600 mt-1 truncate max-w-full drop-shadow-[0_1px_0_rgba(255,255,255,0.9)]">{appDisplay.name}</span>
                         </div>
                       ) : widgetItem ? (
-                        <div className="flex h-full w-full items-center gap-2 px-2 py-2">
-                          <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-2xl bg-gradient-to-br from-amber-100 to-orange-100 shadow-sm ring-1 ring-amber-200/70">
-                            <span className="text-xs font-semibold text-amber-700">
-                              {(widgetItem.data?.name || widgetConfig?.name || '组件').charAt(0)}
-                            </span>
-                          </div>
-                          <div className="min-w-0 flex-1 text-left">
-                            <div className="truncate text-[10px] font-semibold text-slate-700 drop-shadow-[0_1px_0_rgba(255,255,255,0.9)]">
-                              {widgetItem.data?.name || widgetConfig?.name}
+                        <>
+                          <div className="flex h-full w-full items-center gap-2 px-2 py-2">
+                            <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-2xl bg-gradient-to-br from-amber-100 to-orange-100 shadow-sm ring-1 ring-amber-200/70">
+                              <span className="text-xs font-semibold text-amber-700">
+                                {(widgetItem.data?.name || widgetConfig?.name || '组件').charAt(0)}
+                              </span>
                             </div>
-                            <div className="mt-0.5 inline-flex rounded-full border border-white/80 bg-white/70 px-1.5 py-0.5 text-[9px] text-slate-500">
-                              {widgetItem.w}x{widgetItem.h}
+                            <div className="min-w-0 flex-1 text-left">
+                              <div className="truncate text-[10px] font-semibold text-slate-700 drop-shadow-[0_1px_0_rgba(255,255,255,0.9)]">
+                                {widgetItem.data?.name || widgetConfig?.name}
+                              </div>
+                              <div className="mt-0.5 inline-flex rounded-full border border-white/80 bg-white/70 px-1.5 py-0.5 text-[9px] text-slate-500">
+                                {widgetItem.w}x{widgetItem.h}
+                              </div>
                             </div>
                           </div>
-                        </div>
+                          {isSelected ? (
+                            <div
+                              className="absolute inset-x-2 bottom-1.5 rounded-full border border-white/80 bg-white/85 px-2 py-1 shadow-[0_8px_18px_-14px_rgba(15,23,42,0.55)] backdrop-blur"
+                              onClick={(event) => event.stopPropagation()}
+                              onPointerDown={(event) => event.stopPropagation()}
+                              onPointerMove={(event) => event.stopPropagation()}
+                              onPointerUp={(event) => event.stopPropagation()}
+                            >
+                              <div className="mb-0.5 flex items-center justify-between text-[8px] font-semibold text-slate-500">
+                                <span>内容</span>
+                                <span>{Math.round(getWidgetBackgroundOpacity(widgetItem) * 100)}%</span>
+                              </div>
+                              <input
+                                type="range"
+                                min={0}
+                                max={100}
+                                value={Math.round(getWidgetBackgroundOpacity(widgetItem) * 100)}
+                                onChange={(event) => updateWidgetBackgroundOpacity(widgetItem, Number(event.target.value) / 100)}
+                                className="block h-3 w-full accent-sky-500"
+                                aria-label="组件内容填充"
+                              />
+                            </div>
+                          ) : null}
+                        </>
                       ) : (
                         <span className="text-[11px] text-slate-400 font-medium">{row + 1},{col + 1}</span>
                       )}
@@ -868,52 +921,68 @@ export const DesktopEditModeView: React.FC<DesktopEditModeViewProps> = ({ rows, 
 
           {/* 选中项目设置 - 组件模式 */}
           {editMode === 'widget' && selectedItem && selectedItem.type === 'widget' ? (
-            <div className="flex items-center gap-3 mb-3">
-              <div className="flex-1">
-                <label className="text-[10px] text-slate-400 uppercase tracking-wide">行</label>
+            <div className="mb-3 space-y-3">
+              <div className="flex items-center gap-3">
+                <div className="flex-1">
+                  <label className="text-[10px] text-slate-400 uppercase tracking-wide">行</label>
+                  <input
+                    type="text"
+                    inputMode="numeric"
+                    pattern="[1-9]*"
+                    value={editRow}
+                    onChange={(e) => setEditRow(e.target.value.replace(/\D/g, ''))}
+                    className="w-full h-9 bg-white/80 border border-slate-200/80 rounded-xl text-center text-sm font-semibold text-slate-800 focus:outline-none focus-visible:ring-2 focus-visible:ring-sky-500/50"
+                  />
+                </div>
+                <div className="flex-1">
+                  <label className="text-[10px] text-slate-400 uppercase tracking-wide">列</label>
+                  <input
+                    type="text"
+                    inputMode="numeric"
+                    pattern="[1-9]*"
+                    value={editCol}
+                    onChange={(e) => setEditCol(e.target.value.replace(/\D/g, ''))}
+                    className="w-full h-9 bg-white/80 border border-slate-200/80 rounded-xl text-center text-sm font-semibold text-slate-800 focus:outline-none focus-visible:ring-2 focus-visible:ring-sky-500/50"
+                  />
+                </div>
+                <div className="flex-1">
+                  <label className="text-[10px] text-slate-400 uppercase tracking-wide">页</label>
+                  <input
+                    type="text"
+                    inputMode="numeric"
+                    pattern="[1-9]*"
+                    value={editPage}
+                    onChange={(e) => setEditPage(e.target.value.replace(/\D/g, ''))}
+                    className="w-full h-9 bg-white/80 border border-slate-200/80 rounded-xl text-center text-sm font-semibold text-slate-800 focus:outline-none focus-visible:ring-2 focus-visible:ring-sky-500/50"
+                  />
+                </div>
+                <button
+                  onClick={applyEditsForSelected}
+                  className="h-9 px-3 rounded-xl text-xs font-semibold bg-emerald-50 border border-emerald-200/70 text-emerald-700 hover:bg-emerald-100 transition-colors focus:outline-none focus-visible:ring-2 focus-visible:ring-emerald-500/40"
+                >
+                  <Check size={14} />
+                </button>
+                <button
+                  onClick={() => handleRemoveItem(selectedItem.instanceId)}
+                  className="h-9 px-3 bg-red-50 border border-red-200/70 text-red-600 rounded-xl text-xs font-semibold hover:bg-red-100 transition-colors focus:outline-none focus-visible:ring-2 focus-visible:ring-red-500/40"
+                >
+                  <Trash2 size={14} />
+                </button>
+              </div>
+              <div className="rounded-2xl border border-slate-200/70 bg-white/70 px-3 py-2.5 shadow-[0_10px_24px_-24px_rgba(15,23,42,0.5)]">
+                <div className="mb-2 flex items-center justify-between">
+                  <label className="text-[10px] font-semibold uppercase tracking-wide text-slate-400">内容填充</label>
+                  <span className="text-[11px] font-semibold text-slate-500">{Math.round(getWidgetBackgroundOpacity(selectedItem) * 100)}%</span>
+                </div>
                 <input
-                  type="text"
-                  inputMode="numeric"
-                  pattern="[1-9]*"
-                  value={editRow} // 改为受控值
-                  onChange={(e) => setEditRow(e.target.value.replace(/\D/g, ''))}
-                  className="w-full h-9 bg-white/80 border border-slate-200/80 rounded-xl text-center text-sm font-semibold text-slate-800 focus:outline-none focus-visible:ring-2 focus-visible:ring-sky-500/50"
+                  type="range"
+                  min={0}
+                  max={100}
+                  value={Math.round(getWidgetBackgroundOpacity(selectedItem) * 100)}
+                  onChange={(event) => updateSelectedWidgetBackgroundOpacity(Number(event.target.value) / 100)}
+                  className="w-full accent-sky-500"
                 />
               </div>
-              <div className="flex-1">
-                <label className="text-[10px] text-slate-400 uppercase tracking-wide">列</label>
-                <input
-                  type="text"
-                  inputMode="numeric"
-                  pattern="[1-9]*"
-                  value={editCol} // 改为受控值
-                  onChange={(e) => setEditCol(e.target.value.replace(/\D/g, ''))}
-                  className="w-full h-9 bg-white/80 border border-slate-200/80 rounded-xl text-center text-sm font-semibold text-slate-800 focus:outline-none focus-visible:ring-2 focus-visible:ring-sky-500/50"
-                />
-              </div>
-              <div className="flex-1">
-                <label className="text-[10px] text-slate-400 uppercase tracking-wide">页</label>
-                <input
-                  type="text"
-                  inputMode="numeric"
-                  pattern="[1-9]*"
-                  value={editPage}
-                  onChange={(e) => setEditPage(e.target.value.replace(/\D/g, ''))}
-                  className="w-full h-9 bg-white/80 border border-slate-200/80 rounded-xl text-center text-sm font-semibold text-slate-800 focus:outline-none focus-visible:ring-2 focus-visible:ring-sky-500/50"
-                />
-              </div>
-              <button
-                onClick={applyEditsForSelected}
-                className="h-9 px-3 rounded-xl text-xs font-semibold bg-emerald-50 border border-emerald-200/70 text-emerald-700 hover:bg-emerald-100 transition-colors focus:outline-none focus-visible:ring-2 focus-visible:ring-emerald-500/40"
-              >
-                <Check size={14} />
-              </button>
-              <button
-                onClick={() => handleRemoveItem(selectedItem.instanceId)}
-                className="h-9 px-3 bg-red-50 border border-red-200/70 text-red-600 rounded-xl text-xs font-semibold hover:bg-red-100 transition-colors focus:outline-none focus-visible:ring-2 focus-visible:ring-red-500/40"
-              >
-                <Trash2 size={14} />
-              </button>
             </div>
           ) : null}
 

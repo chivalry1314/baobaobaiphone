@@ -94,7 +94,7 @@ const builtInTemplateItems: WidgetItem[] = [
     previewTitle: '一起听歌播放组件',
     previewValue: '可控制上一首、播放暂停、下一首',
     templateId: 'listen-together',
-    data: { name: '一起听歌', subtitle: '双人音乐播放器', cornerRadius: 22, frosted: 6, shadow: 12 },
+    data: { name: '一起听歌', subtitle: '双人音乐播放器', cornerRadius: 22, frosted: 6, shadow: 12, backgroundOpacity: 0 },
     w: 4,
     h: 3,
   },
@@ -106,7 +106,7 @@ const builtInTemplateItems: WidgetItem[] = [
     previewTitle: '点击上传照片的照片框',
     previewValue: '',
     templateId: 'ins-photo',
-    data: { subtitle: '点击上传照片', cornerRadius: 22, frosted: 8, shadow: 12 },
+    data: { subtitle: '点击上传照片', cornerRadius: 22, frosted: 8, shadow: 12, backgroundOpacity: 0 },
     w: 2,
     h: 2,
   },
@@ -118,7 +118,7 @@ const builtInTemplateItems: WidgetItem[] = [
     previewTitle: '半透明日历组件',
     previewValue: '',
     templateId: 'calendar-card',
-    data: { subtitle: 'February', cornerRadius: 22, frosted: 6, shadow: 12 },
+    data: { subtitle: 'February', cornerRadius: 22, frosted: 6, shadow: 12, backgroundOpacity: 0 },
     w: 2,
     h: 2,
   },
@@ -130,7 +130,7 @@ const builtInTemplateItems: WidgetItem[] = [
     previewTitle: '复古唱片播放组件',
     previewValue: '',
     templateId: 'vinyl-record',
-    data: { subtitle: 'SCION MANIA', cornerRadius: 22, frosted: 6, shadow: 12, musicTitle: 'SCION', musicArtist: 'MANIA' },
+    data: { subtitle: 'SCION MANIA', cornerRadius: 22, frosted: 6, shadow: 12, backgroundOpacity: 0, musicTitle: 'SCION', musicArtist: 'MANIA' },
     w: 2,
     h: 2,
   },
@@ -142,7 +142,7 @@ const builtInTemplateItems: WidgetItem[] = [
     previewTitle: '大号时间显示',
     previewValue: '',
     templateId: 'clock-card',
-    data: { subtitle: 'Thu Mar 26', cornerRadius: 18, frosted: 4, shadow: 8 },
+    data: { subtitle: 'Thu Mar 26', cornerRadius: 18, frosted: 4, shadow: 8, backgroundOpacity: 0 },
     w: 4,
     h: 1,
   },
@@ -154,7 +154,7 @@ const builtInTemplateItems: WidgetItem[] = [
     previewTitle: '可编辑文字组件',
     previewValue: '',
     templateId: 'text-card',
-    data: { titleText: '184 天', subtitle: '我们的纪念日\n2024.07.30', titleColor: '#ffffff', titleFontSize: 22, cornerRadius: 20, frosted: 8, shadow: 10 },
+    data: { titleText: '184 天', subtitle: '我们的纪念日\n2024.07.30', titleColor: '#ffffff', titleFontSize: 22, cornerRadius: 20, frosted: 8, shadow: 10, backgroundOpacity: 0 },
     w: 2,
     h: 2,
   },
@@ -204,6 +204,7 @@ export const WidgetManageView: React.FC<WidgetManageViewProps> = ({ onNavigateTo
         cornerRadius: typeof item.data?.cornerRadius === 'number' ? item.data.cornerRadius : 24,
         frosted: typeof item.data?.frosted === 'number' ? item.data.frosted : 8,
         shadow: typeof item.data?.shadow === 'number' ? item.data.shadow : 12,
+        backgroundOpacity: typeof item.data?.backgroundOpacity === 'number' ? item.data.backgroundOpacity : 0,
         data: item.data,
       }));
     if (legacyWidgets.length > 0) {
@@ -231,6 +232,7 @@ export const WidgetManageView: React.FC<WidgetManageViewProps> = ({ onNavigateTo
         cornerRadius: widget.cornerRadius,
         frosted: widget.frosted,
         shadow: widget.shadow,
+        backgroundOpacity: widget.backgroundOpacity,
       },
       w: widget.width || 2,
       h: widget.height || 2,
@@ -285,6 +287,7 @@ export const WidgetManageView: React.FC<WidgetManageViewProps> = ({ onNavigateTo
             cornerRadius={typeof widget.data.cornerRadius === 'number' ? widget.data.cornerRadius : 22}
             frosted={typeof widget.data.frosted === 'number' ? widget.data.frosted : 8}
             shadow={typeof widget.data.shadow === 'number' ? widget.data.shadow : 10}
+            backgroundOpacity={typeof widget.data.backgroundOpacity === 'number' ? widget.data.backgroundOpacity : 0}
             width={widget.w}
             height={widget.h}
           />

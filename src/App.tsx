@@ -279,6 +279,14 @@ const desktopFrameWidgetTemplates = [
   { id: 'text-card', name: '文字', icon: Type, subtitle: '纪念日文字' },
 ];
 
+const desktopWidgetBackgroundOpacityTemplateIds = new Set([
+  'listen-together',
+  'calendar-card',
+  'vinyl-record',
+  'clock-card',
+  'text-card',
+]);
+
 const isRecord = (value: unknown): value is Record<string, unknown> =>
   typeof value === 'object' && value !== null && !Array.isArray(value);
 
@@ -1365,6 +1373,7 @@ export default function App() {
             cornerRadius: widget.cornerRadius,
             frosted: widget.frosted,
             shadow: widget.shadow,
+            backgroundOpacity: widget.backgroundOpacity,
           },
         }));
       savedWidgets.forEach((widget) => {
@@ -1631,6 +1640,7 @@ export default function App() {
         cornerRadius: 24,
         frosted: 10,
         shadow: 10,
+        backgroundOpacity: 0,
         titleColor: '#ffffff',
         titleFontSize: 24,
       },
@@ -1650,6 +1660,7 @@ export default function App() {
         cornerRadius: 22,
         frosted: 8,
         shadow: 12,
+        backgroundOpacity: 0,
       },
       'listen-together': {
         subtitle: '双人音乐播放器',
@@ -1657,6 +1668,7 @@ export default function App() {
         cornerRadius: 22,
         frosted: 6,
         shadow: 12,
+        backgroundOpacity: 0,
       },
       'calendar-card': {
         subtitle: 'February',
@@ -1664,6 +1676,7 @@ export default function App() {
         cornerRadius: 22,
         frosted: 6,
         shadow: 12,
+        backgroundOpacity: 0,
       },
       'vinyl-record': {
         subtitle: 'SCION MANIA',
@@ -1671,6 +1684,7 @@ export default function App() {
         cornerRadius: 22,
         frosted: 6,
         shadow: 12,
+        backgroundOpacity: 0,
         musicPlaying: false,
         musicTitle: 'SCION',
         musicArtist: 'MANIA',
@@ -1680,6 +1694,7 @@ export default function App() {
         cornerRadius: 18,
         frosted: 4,
         shadow: 8,
+        backgroundOpacity: 0,
       },
       'text-card': {
         titleText: '184 天',
@@ -1689,6 +1704,7 @@ export default function App() {
         cornerRadius: 20,
         frosted: 8,
         shadow: 10,
+        backgroundOpacity: 0,
       },
     };
     updateDesktopItem(instanceId, {
@@ -1700,6 +1716,21 @@ export default function App() {
       },
     });
     setActiveWidgetFrameMenuId(null);
+  }, [updateDesktopItem]);
+
+  const getDesktopWidgetBackgroundOpacity = useCallback((item: DesktopItem): number => {
+    const value = item.data?.backgroundOpacity;
+    return typeof value === 'number' ? clampNumber(value, 0, 1) : 0;
+  }, []);
+
+  const updateDesktopWidgetBackgroundOpacity = useCallback((item: DesktopItem, value: number) => {
+    const nextOpacity = clampNumber(value, 0, 1);
+    updateDesktopItem(item.instanceId, {
+      data: {
+        ...(item.data || {}),
+        backgroundOpacity: nextOpacity,
+      },
+    });
   }, [updateDesktopItem]);
 
   const convertDesktopWidgetFrameToCustom = useCallback((instanceId: string, widget: typeof customDesktopWidgets[number]) => {
@@ -2689,6 +2720,8 @@ export default function App() {
                     ? draggingDesktopWidget
                     : null;
                   const isWidgetFrameMenuOpen = activeWidgetFrameMenuId === widgetItem.instanceId;
+                  const widgetTemplateId = typeof widgetItem.data?.templateId === 'string' ? widgetItem.data.templateId : '';
+                  const canAdjustWidgetBackgroundOpacity = desktopWidgetBackgroundOpacityTemplateIds.has(widgetTemplateId);
                   
                   cells.push(
                     <div
@@ -2782,6 +2815,34 @@ export default function App() {
                             onPointerUp={endDesktopWidgetResize}
                             onPointerCancel={endDesktopWidgetResize}
                           />
+                          {canAdjustWidgetBackgroundOpacity ? (
+                            <div
+                              data-custom-widget-press-layer
+                              className="absolute bottom-1 left-1/2 z-30 w-[min(68%,168px)] -translate-x-1/2 px-0"
+                              onClick={(event) => event.stopPropagation()}
+                              onPointerDownCapture={(event) => event.stopPropagation()}
+                              onPointerMoveCapture={(event) => event.stopPropagation()}
+                              onPointerUpCapture={(event) => event.stopPropagation()}
+                              onPointerCancelCapture={(event) => event.stopPropagation()}
+                              onPointerDown={(event) => event.stopPropagation()}
+                              onPointerMove={(event) => event.stopPropagation()}
+                              onPointerUp={(event) => event.stopPropagation()}
+                              onPointerCancel={(event) => event.stopPropagation()}
+                            >
+                              <input
+                                type="range"
+                                min={0}
+                                max={100}
+                                value={Math.round(getDesktopWidgetBackgroundOpacity(widgetItem) * 100)}
+                                onChange={(event) => updateDesktopWidgetBackgroundOpacity(widgetItem, Number(event.target.value) / 100)}
+                                className="desktop-widget-fill-slider block w-full"
+                                style={{
+                                  '--desktop-widget-fill-slider-value': `${Math.round(getDesktopWidgetBackgroundOpacity(widgetItem) * 100)}%`,
+                                } as React.CSSProperties}
+                                aria-label="组件内容填充"
+                              />
+                            </div>
+                          ) : null}
                         </>
                       ) : null}
                       <div className="h-full w-full overflow-hidden rounded-2xl">
@@ -2802,6 +2863,7 @@ export default function App() {
                             cornerRadius={widgetItem.data?.cornerRadius}
                             frosted={widgetItem.data?.frosted}
                             shadow={widgetItem.data?.shadow}
+                            backgroundOpacity={typeof widgetItem.data?.backgroundOpacity === 'number' ? widgetItem.data.backgroundOpacity : 0}
                             templateId={typeof widgetItem.data?.templateId === 'string' ? widgetItem.data.templateId : undefined}
                             subtitle={typeof widgetItem.data?.subtitle === 'string' ? widgetItem.data.subtitle : undefined}
                             titleText={typeof widgetItem.data?.titleText === 'string' ? widgetItem.data.titleText : undefined}
@@ -3052,6 +3114,7 @@ export default function App() {
               cornerRadius={item.data?.cornerRadius}
               frosted={item.data?.frosted}
               shadow={item.data?.shadow}
+              backgroundOpacity={typeof item.data?.backgroundOpacity === 'number' ? item.data.backgroundOpacity : 0}
               templateId={typeof item.data?.templateId === 'string' ? item.data.templateId : undefined}
               subtitle={typeof item.data?.subtitle === 'string' ? item.data.subtitle : undefined}
               titleText={typeof item.data?.titleText === 'string' ? item.data.titleText : undefined}
