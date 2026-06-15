@@ -18,6 +18,7 @@ export interface Contact {
   personality?: string;
   background?: string;
   worldBookId?: string;
+  sourceCardId?: string;
   createdAt: number;
 }
 
@@ -66,6 +67,7 @@ export interface AddContactPayload {
   personality?: string;
   background?: string;
   worldBookId?: string;
+  sourceCardId?: string;
 }
 
 export interface AddCallRecordPayload {

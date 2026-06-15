@@ -451,9 +451,15 @@ export const OnlineWechatThemeMarketView: React.FC<OnlineWechatThemeMarketViewPr
       });
       const theme = await parseWechatThemePackage(file);
       const localThemeId = getRemoteThemeLocalId(item);
+      const cardTags = Array.isArray(item.card.tags) ? item.card.tags : [];
+      const creatorName = item.creator.nickname.trim() || item.creator.username.trim() || '';
       const installedTheme: WechatThemeDefinition = {
         ...theme,
         id: localThemeId,
+        name: theme.name.trim() || item.card.title.trim() || '未命名主题',
+        author: theme.author === 'Unknown' ? creatorName || 'Unknown' : theme.author,
+        description: theme.description.trim() || item.card.description.trim() || '微信主题包',
+        tags: theme.tags.length ? theme.tags : cardTags,
         source: 'online',
       };
       onInstallTheme?.(installedTheme);

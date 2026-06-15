@@ -15,6 +15,7 @@ import {
   ContactsTopBar,
   FavoritesView,
   MyCardsPage,
+  OnlineCharacterPersonaMarketView,
   PhoneCallView,
   PhoneRecordsView,
 } from './components';
@@ -173,6 +174,7 @@ export const ContactsApp: React.FC<ContactsAppProps> = ({ onClose, context }) =>
   const [activeTab, setActiveTab] = useState<ContactsBottomTab>(launchTab);
   const [selectedContactId, setSelectedContactId] = useState<string | null>(null);
   const [selectedMyCardId, setSelectedMyCardId] = useState<string | null>(null);
+  const [contactsViewMode, setContactsViewMode] = useState<'local' | 'online'>('local');
 
   const [showCallView, setShowCallView] = useState(false);
   const [activeCallContactId, setActiveCallContactId] = useState<string | null>(null);
@@ -453,7 +455,7 @@ export const ContactsApp: React.FC<ContactsAppProps> = ({ onClose, context }) =>
             activeTab={activeTab}
             onClose={onClose}
             onAddContact={() => setCurrentPage('addContact')}
-            showAddContactAction={!isInspectorContactRoleMode}
+            showAddContactAction={!isInspectorContactRoleMode && activeTab === 'contacts' && contactsViewMode === 'local'}
           />
 
           {activeTab === 'phone' && (
@@ -465,12 +467,43 @@ export const ContactsApp: React.FC<ContactsAppProps> = ({ onClose, context }) =>
             />
           )}
           {activeTab === 'contacts' && (
-            <ContactsListView
-              contacts={scopedContacts}
-              onOpenContact={openContactDetail}
-              onOpenMyCards={() => setCurrentPage('myCards')}
-              showMyCardsEntry={!isInspectorContactRoleMode}
-            />
+            <div className="flex min-h-0 flex-1 flex-col">
+              {!isInspectorContactRoleMode && (
+                <div className="mx-4 mb-3 grid grid-cols-2 gap-2 rounded-2xl bg-slate-100 p-1">
+                  <button
+                    onClick={() => setContactsViewMode('local')}
+                    className={`rounded-xl py-2 text-[13px] font-semibold transition ${
+                      contactsViewMode === 'local'
+                        ? 'bg-white text-slate-900 shadow-sm'
+                        : 'text-slate-500 hover:text-slate-700'
+                    }`}
+                  >
+                    本地联系人
+                  </button>
+                  <button
+                    onClick={() => setContactsViewMode('online')}
+                    className={`rounded-xl py-2 text-[13px] font-semibold transition ${
+                      contactsViewMode === 'online'
+                        ? 'bg-white text-slate-900 shadow-sm'
+                        : 'text-slate-500 hover:text-slate-700'
+                    }`}
+                  >
+                    在线角色人设
+                  </button>
+                </div>
+              )}
+
+              {contactsViewMode === 'online' && !isInspectorContactRoleMode ? (
+                <OnlineCharacterPersonaMarketView />
+              ) : (
+                <ContactsListView
+                  contacts={scopedContacts}
+                  onOpenContact={openContactDetail}
+                  onOpenMyCards={() => setCurrentPage('myCards')}
+                  showMyCardsEntry={!isInspectorContactRoleMode}
+                />
+              )}
+            </div>
           )}
           {activeTab === 'favorites' && (
             <FavoritesView

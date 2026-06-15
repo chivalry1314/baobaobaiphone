@@ -24,6 +24,7 @@ export const createContactSlice = ({
       personality: payload.personality,
       background: payload.background,
       worldBookId: payload.worldBookId,
+      sourceCardId: payload.sourceCardId,
       createdAt: Date.now(),
     });
 

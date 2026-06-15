@@ -105,13 +105,10 @@ const buildDataUrl = async (entry: JSZip.JSZipObject, mimeType: string): Promise
 
 const resolveInlineTheme = (descriptor: WechatThemePackageDescriptor): WechatThemeDefinition => {
   const normalized = normalizeDescriptor(descriptor);
-  const name = normalized.name?.trim();
-  if (!name) {
-    throw new Error('微信主题配置缺少 name 字段。');
-  }
+  const name = normalized.name?.trim() || '';
 
   return {
-    id: (normalized.id?.trim() || name).replace(/[^a-z0-9]+/gi, '-').replace(/^-+|-+$/g, '') || 'wechat-theme',
+    id: (normalized.id?.trim() || name || 'wechat-theme').replace(/[^a-z0-9]+/gi, '-').replace(/^-+|-+$/g, '') || 'wechat-theme',
     name,
     author: normalized.author?.trim() || 'Unknown',
     version: normalized.version?.trim() || '1.0.0',
@@ -148,10 +145,7 @@ const resolveZippedTheme = async (zip: JSZip, fileSize: number): Promise<WechatT
   );
   const manifestDir = dirname(manifestEntry.name);
 
-  const name = descriptor.name?.trim();
-  if (!name) {
-    throw new Error('微信主题配置缺少 name 字段。');
-  }
+  const name = descriptor.name?.trim() || '';
 
   const entryMap = new Map<string, JSZip.JSZipObject>();
   zipEntries.forEach((entry) => {

@@ -21,6 +21,7 @@ export const normalizeContact = (
   personality: normalizeText(payload.personality),
   background: normalizeText(payload.background),
   worldBookId: normalizeText(payload.worldBookId) || undefined,
+  sourceCardId: normalizeText(payload.sourceCardId) || undefined,
   createdAt: payload.createdAt ?? Date.now(),
 });
 

@@ -8,3 +8,4 @@ export { PhoneRecordsView } from './PhoneRecordsView';
 export { PhoneCallView } from './PhoneCallView';
 export { MyCardsPage } from './MyCardsPage';
 export { AddMyCardPage } from './AddMyCardPage';
+export { OnlineCharacterPersonaMarketView } from './OnlineCharacterPersonaMarketView';
