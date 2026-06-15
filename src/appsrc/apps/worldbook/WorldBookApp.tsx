@@ -4,12 +4,15 @@ import { ChevronLeft, Plus, Trash2, Edit2, Check, X, BookOpen, Globe, User, Grip
 import { WorldInfoEntry } from './types';
 import { useWorldBookStore } from './store';
 import { APP_OPEN_MOTION, APP_CLOSE_MOTION } from '../../../core/appOpenMotion';
+import { OnlineWorldBookMarketView } from './components/OnlineWorldBookMarketView';
 
 interface WorldBookAppProps {
   onClose: () => void;
 }
 
 const WORLD_BOOK_LONG_PRESS_MS = 450;
+
+type WorldBookViewMode = 'local' | 'online';
 
 interface WorldBookReorderItemProps {
   entry: WorldInfoEntry;
@@ -62,6 +65,7 @@ const WorldBookReorderItem: React.FC<WorldBookReorderItemProps> = ({ entry, sort
 
 export const WorldBookApp: React.FC<WorldBookAppProps> = ({ onClose }) => {
   const { worldBook, setWorldBook, addWorldEntry, updateWorldEntry, deleteWorldEntry } = useWorldBookStore();
+  const [viewMode, setViewMode] = useState<WorldBookViewMode>('local');
   const [editingEntry, setEditingEntry] = useState<WorldInfoEntry | null>(null);
   const [isAdding, setIsAdding] = useState(false);
   const [sortMode, setSortMode] = useState(false);
@@ -127,14 +131,49 @@ export const WorldBookApp: React.FC<WorldBookAppProps> = ({ onClose }) => {
           <span className="text-[17px]">返回</span>
         </button>
         <h1 className="text-[17px] font-semibold absolute left-1/2 -translate-x-1/2">世界书 (备忘录)</h1>
-        <button onClick={startNewEntry} className="text-[#007AFF]">
-          <Plus size={24} />
-        </button>
+        {viewMode === 'local' ? (
+          <button onClick={startNewEntry} className="text-[#007AFF]">
+            <Plus size={24} />
+          </button>
+        ) : (
+          <div className="w-6" />
+        )}
       </div>
 
       {/* Content */}
       <div className="flex-1 overflow-y-auto p-4 space-y-4 pb-20">
-        {worldBook.length === 0 ? (
+        <div className="rounded-2xl border border-gray-200 bg-white p-1.5 shadow-sm">
+          <div className="grid grid-cols-2 gap-1">
+            <button
+              type="button"
+              onClick={() => setViewMode('local')}
+              className={`flex items-center justify-center gap-2 rounded-xl py-3 text-[15px] font-semibold transition-all ${
+                viewMode === 'local'
+                  ? 'bg-blue-500 text-white shadow-sm'
+                  : 'text-gray-500 hover:bg-gray-50'
+              }`}
+            >
+              <BookOpen size={18} />
+              本地条目
+            </button>
+            <button
+              type="button"
+              onClick={() => setViewMode('online')}
+              className={`flex items-center justify-center gap-2 rounded-xl py-3 text-[15px] font-semibold transition-all ${
+                viewMode === 'online'
+                  ? 'bg-blue-500 text-white shadow-sm'
+                  : 'text-gray-500 hover:bg-gray-50'
+              }`}
+            >
+              <Globe size={18} />
+              在线世界书
+            </button>
+          </div>
+        </div>
+
+        {viewMode === 'online' ? (
+          <OnlineWorldBookMarketView />
+        ) : worldBook.length === 0 ? (
           <div className="flex flex-col items-center justify-center h-64 text-gray-400 space-y-2">
             <BookOpen size={48} strokeWidth={1} />
             <p className="text-[15px]">暂无世界书条目</p>
@@ -230,6 +269,7 @@ export const WorldBookApp: React.FC<WorldBookAppProps> = ({ onClose }) => {
           </>
         )}
       </div>
+
 
       {/* Edit Modal */}
       <AnimatePresence>

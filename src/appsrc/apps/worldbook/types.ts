@@ -9,4 +9,6 @@ export interface WorldInfoEntry {
   triggerMode: WorldEntryTriggerMode;
   insertionOrder: number;
   scope: 'global' | 'character';
+  /** Optional trace id used when this entry was installed from a remote share card. */
+  sourceCardId?: string;
 }
