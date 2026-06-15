@@ -423,8 +423,9 @@ export const OnlineWechatThemeMarketView: React.FC<OnlineWechatThemeMarketViewPr
       return;
     }
 
-    if (!item.wechatTheme.supported) {
-      window.alert('当前卡片下的微信主题还没有通过协议校验，暂时不能直接安装。');
+    const isKnownFormat = item.wechatTheme.format === 'json' || item.wechatTheme.format === 'zip';
+    if (!item.wechatTheme.supported && !isKnownFormat) {
+      window.alert('当前卡片下的微信主题格式未知，暂时不能直接安装。');
       return;
     }
 
