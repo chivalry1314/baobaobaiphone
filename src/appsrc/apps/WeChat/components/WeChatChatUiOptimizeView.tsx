@@ -1,4 +1,4 @@
-import React, { useMemo, useRef, useState } from 'react';
+import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import type { CSSProperties } from 'react';
 import {
   ChevronLeft,
@@ -14,13 +14,31 @@ import type {
   WeChatChatUiOptimizeViewProps,
   WeChatUiSettings,
 } from '../types';
+import { OnlineWechatThemeMarketView } from './OnlineWechatThemeMarketView';
+import {
+  getActiveWechatThemeId,
+  getInstalledWechatThemes,
+  removeInstalledWechatTheme,
+  setActiveWechatThemeId,
+  subscribeWechatThemeLibrary,
+  upsertInstalledWechatTheme,
+} from '../installedWechatThemeLibrary';
+import { createWechatThemePatch } from '../wechatThemeParser';
+import { createDefaultRoleScopedState } from '../store/defaults';
+import type { WechatThemeDefinition } from '../onlineThemeTypes';
 
 type OptimizeTab = 'background' | 'bubble' | 'source';
+type MainTab = 'local' | 'online';
 
 const TAB_ITEMS: { key: OptimizeTab; label: string }[] = [
   { key: 'background', label: '聊天背景' },
   { key: 'bubble', label: '气泡样式' },
   { key: 'source', label: '源码渲染' },
+];
+
+const MAIN_TAB_ITEMS: { key: MainTab; label: string }[] = [
+  { key: 'local', label: '本地设置' },
+  { key: 'online', label: '在线主题' },
 ];
 
 const BUBBLE_PRESETS: { key: WeChatBubblePreset; label: string; desc: string }[] = [
@@ -166,23 +184,38 @@ const ChatPreviewCard: React.FC<{
 };
 
 export const WeChatChatUiOptimizeView: React.FC<WeChatChatUiOptimizeViewProps> = ({ onBack }) => {
-  const { wechatUiSettings, updateWeChatUiSettings } = useWeChatStore();
+  const { wechatUiSettings, updateWeChatUiSettings, wechatSessions, updateWeChatSessionSettings } =
+    useWeChatStore();
+  const [activeMainTab, setActiveMainTab] = useState<MainTab>('local');
   const [activeTab, setActiveTab] = useState<OptimizeTab>('background');
+  const [installedThemeIds, setInstalledThemeIds] = useState<string[]>(() =>
+    getInstalledWechatThemes().map((theme) => theme.id)
+  );
+  const [activeThemeId, setActiveThemeId] = useState<string>(() => getActiveWechatThemeId());
   const backgroundInputRef = useRef<HTMLInputElement>(null);
   const sourceInputRef = useRef<HTMLInputElement>(null);
+
+  useEffect(() => {
+    const sync = () => {
+      setInstalledThemeIds(getInstalledWechatThemes().map((theme) => theme.id));
+      setActiveThemeId(getActiveWechatThemeId());
+    };
+    sync();
+    return subscribeWechatThemeLibrary(sync);
+  }, []);
 
   const updatePreset = <K extends 'selfBubblePreset' | 'peerBubblePreset'>(
     field: K,
     value: WeChatBubblePreset
   ) => {
-    updateWeChatUiSettings({ [field]: value } as Pick<WeChatUiSettings, K>);
+    applyLocalUiSettings({ [field]: value } as Pick<WeChatUiSettings, K>);
   };
 
   const handleBackgroundUpload = async (event: React.ChangeEvent<HTMLInputElement>) => {
     const file = event.target.files?.[0];
     if (!file) return;
     const compressed = await compressImageFile(file);
-    updateWeChatUiSettings({ chatBackgroundImage: compressed });
+    applyLocalUiSettings({ chatBackgroundImage: compressed });
     event.target.value = '';
   };
 
@@ -190,7 +223,7 @@ export const WeChatChatUiOptimizeView: React.FC<WeChatChatUiOptimizeViewProps> =
     const file = event.target.files?.[0];
     if (!file) return;
     const content = await file.text();
-    updateWeChatUiSettings({ customRendererSource: content });
+    applyLocalUiSettings({ customRendererSource: content });
     event.target.value = '';
   };
 
@@ -205,6 +238,97 @@ export const WeChatChatUiOptimizeView: React.FC<WeChatChatUiOptimizeViewProps> =
     }
     return style;
   }, [wechatUiSettings.chatBackgroundImage, wechatUiSettings.chatBackgroundOpacity]);
+
+  const applyThemeToAllSessions = useCallback(
+    (theme: WechatThemeDefinition) => {
+      const patch = {
+        selfBubblePreset: theme.selfBubblePreset,
+        peerBubblePreset: theme.peerBubblePreset,
+        selfBubbleColor: undefined,
+        customBubbleCss: '',
+        customBubbleStyleId: '',
+        ...(theme.chatBackgroundImage
+          ? { chatBackgroundImage: theme.chatBackgroundImage }
+          : { chatBackgroundImage: undefined }),
+      };
+      wechatSessions.forEach((session) => {
+        updateWeChatSessionSettings(session.id, patch);
+      });
+    },
+    [wechatSessions, updateWeChatSessionSettings]
+  );
+
+  const activeThemeName = useMemo(() => {
+    if (!activeThemeId) return '';
+    return getInstalledWechatThemes().find((theme) => theme.id === activeThemeId)?.name || '';
+  }, [activeThemeId]);
+
+  const deactivateActiveTheme = useCallback(() => {
+    if (!activeThemeId) return;
+    setActiveWechatThemeId('');
+    setActiveThemeId('');
+    const defaults = createDefaultRoleScopedState().wechatUiSettings;
+    const sessionPatch = {
+      selfBubblePreset: defaults.selfBubblePreset,
+      peerBubblePreset: defaults.peerBubblePreset,
+      selfBubbleColor: defaults.selfBubbleColor,
+      customBubbleCss: defaults.customBubbleCss,
+      customBubbleStyleId: defaults.customBubbleStyleId,
+      chatBackgroundImage: defaults.chatBackgroundImage,
+    };
+    wechatSessions.forEach((s) => updateWeChatSessionSettings(s.id, sessionPatch));
+  }, [activeThemeId, wechatSessions, updateWeChatSessionSettings]);
+
+  const applyLocalUiSettings = (settings: Partial<WeChatUiSettings>) => {
+    deactivateActiveTheme();
+    updateWeChatUiSettings(settings);
+  };
+
+  const handleInstallOnlineTheme = (theme: WechatThemeDefinition) => {
+    upsertInstalledWechatTheme(theme);
+    updateWeChatUiSettings(createWechatThemePatch(theme));
+    applyThemeToAllSessions(theme);
+    setActiveWechatThemeId(theme.id);
+    setActiveThemeId(theme.id);
+    setInstalledThemeIds(getInstalledWechatThemes().map((item) => item.id));
+    window.alert(`已下载安装并应用微信主题：${theme.name}`);
+  };
+
+  const handleApplyOnlineTheme = (themeId: string, themeName: string) => {
+    const theme = getInstalledWechatThemes().find((item) => item.id === themeId);
+    if (!theme) {
+      window.alert('主题未安装或已被移除');
+      return;
+    }
+    updateWeChatUiSettings(createWechatThemePatch(theme));
+    applyThemeToAllSessions(theme);
+    setActiveWechatThemeId(themeId);
+    setActiveThemeId(themeId);
+    window.alert(`已应用微信主题：${themeName}`);
+  };
+
+  const handleUninstallTheme = (themeId: string) => {
+    const wasActive = getActiveWechatThemeId() === themeId;
+    removeInstalledWechatTheme(themeId);
+
+    if (wasActive) {
+      const defaults = createDefaultRoleScopedState().wechatUiSettings;
+      updateWeChatUiSettings(defaults);
+      const sessionPatch = {
+        selfBubblePreset: defaults.selfBubblePreset,
+        peerBubblePreset: defaults.peerBubblePreset,
+        selfBubbleColor: defaults.selfBubbleColor,
+        customBubbleCss: defaults.customBubbleCss,
+        customBubbleStyleId: defaults.customBubbleStyleId,
+        chatBackgroundImage: defaults.chatBackgroundImage,
+      };
+      wechatSessions.forEach((s) => updateWeChatSessionSettings(s.id, sessionPatch));
+      setActiveThemeId('');
+      window.alert('已卸载当前微信主题，已恢复默认样式');
+    }
+
+    setInstalledThemeIds(getInstalledWechatThemes().map((item) => item.id));
+  };
 
   const sourcePreview = useMemo(() => {
     const config = parseWeChatUiRenderConfig(wechatUiSettings.customRendererSource);
@@ -245,13 +369,13 @@ export const WeChatChatUiOptimizeView: React.FC<WeChatChatUiOptimizeViewProps> =
 
       <div className="px-3 pt-3 shrink-0">
         <div className="rounded-xl bg-white border border-gray-200 p-1 flex">
-          {TAB_ITEMS.map((tab) => (
+          {MAIN_TAB_ITEMS.map((tab) => (
             <button
               key={tab.key}
               type="button"
-              onClick={() => setActiveTab(tab.key)}
+              onClick={() => setActiveMainTab(tab.key)}
               className={`flex-1 h-9 rounded-lg text-[14px] transition-colors ${
-                activeTab === tab.key
+                activeMainTab === tab.key
                   ? 'bg-[#07C160] text-white'
                   : 'text-gray-600 active:bg-gray-50'
               }`}
@@ -262,8 +386,29 @@ export const WeChatChatUiOptimizeView: React.FC<WeChatChatUiOptimizeViewProps> =
         </div>
       </div>
 
-      <div className="flex-1 overflow-y-auto p-3 pt-2">
-        {activeTab === 'background' ? (
+      {activeMainTab === 'local' ? (
+        <>
+          <div className="px-3 pt-3 shrink-0">
+            <div className="rounded-xl bg-white border border-gray-200 p-1 flex">
+              {TAB_ITEMS.map((tab) => (
+                <button
+                  key={tab.key}
+                  type="button"
+                  onClick={() => setActiveTab(tab.key)}
+                  className={`flex-1 h-9 rounded-lg text-[14px] transition-colors ${
+                    activeTab === tab.key
+                      ? 'bg-[#07C160] text-white'
+                      : 'text-gray-600 active:bg-gray-50'
+                  }`}
+                >
+                  {tab.label}
+                </button>
+              ))}
+            </div>
+          </div>
+
+          <div className="flex-1 overflow-y-auto p-3 pt-2">
+            {activeTab === 'background' ? (
           <div className="space-y-3">
             <ChatPreviewCard
               title="聊天背景预览"
@@ -285,7 +430,7 @@ export const WeChatChatUiOptimizeView: React.FC<WeChatChatUiOptimizeViewProps> =
                 </button>
                 <button
                   type="button"
-                  onClick={() => updateWeChatUiSettings({ chatBackgroundImage: '' })}
+                  onClick={() => applyLocalUiSettings({ chatBackgroundImage: '' })}
                   className="h-9 px-3 rounded-md border border-gray-200 text-gray-600 text-[13px] active:bg-gray-50"
                 >
                   清空背景
@@ -311,7 +456,7 @@ export const WeChatChatUiOptimizeView: React.FC<WeChatChatUiOptimizeViewProps> =
                   step={1}
                   value={Math.round(wechatUiSettings.chatBackgroundOpacity * 100)}
                   onChange={(event) =>
-                    updateWeChatUiSettings({
+                    applyLocalUiSettings({
                       chatBackgroundOpacity: Number(event.target.value) / 100,
                     })
                   }
@@ -395,7 +540,7 @@ export const WeChatChatUiOptimizeView: React.FC<WeChatChatUiOptimizeViewProps> =
                 <button
                   type="button"
                   onClick={() =>
-                    updateWeChatUiSettings({
+                    applyLocalUiSettings({
                       customRendererEnabled: !wechatUiSettings.customRendererEnabled,
                     })
                   }
@@ -426,7 +571,7 @@ export const WeChatChatUiOptimizeView: React.FC<WeChatChatUiOptimizeViewProps> =
                 <button
                   type="button"
                   onClick={() =>
-                    updateWeChatUiSettings({ customRendererSource: SOURCE_TEMPLATE })
+                    applyLocalUiSettings({ customRendererSource: SOURCE_TEMPLATE })
                   }
                   className="h-8 px-3 rounded-md border border-gray-200 text-gray-700 text-[12px] active:bg-gray-50 flex items-center gap-1"
                 >
@@ -435,7 +580,7 @@ export const WeChatChatUiOptimizeView: React.FC<WeChatChatUiOptimizeViewProps> =
                 <button
                   type="button"
                   onClick={() =>
-                    updateWeChatUiSettings({
+                    applyLocalUiSettings({
                       customRendererSource: '',
                       customRendererEnabled: false,
                     })
@@ -449,7 +594,7 @@ export const WeChatChatUiOptimizeView: React.FC<WeChatChatUiOptimizeViewProps> =
               <textarea
                 value={wechatUiSettings.customRendererSource}
                 onChange={(event) =>
-                  updateWeChatUiSettings({ customRendererSource: event.target.value })
+                  applyLocalUiSettings({ customRendererSource: event.target.value })
                 }
                 placeholder="粘贴 JSON 或 module.exports 源码..."
                 className="mt-2 w-full min-h-[200px] rounded-lg border border-gray-200 bg-[#0B1020] text-[#D8E2FF] font-mono text-[12px] leading-5 px-3 py-2 outline-none"
@@ -474,7 +619,20 @@ export const WeChatChatUiOptimizeView: React.FC<WeChatChatUiOptimizeViewProps> =
             </section>
           </div>
         ) : null}
-      </div>
+          </div>
+        </>
+      ) : (
+        <div className="flex-1 overflow-y-auto p-3 pt-2">
+          <OnlineWechatThemeMarketView
+            installedThemeIds={installedThemeIds}
+            activeThemeId={activeThemeId}
+            activeThemeName={activeThemeName}
+            onInstallTheme={handleInstallOnlineTheme}
+            onApplyTheme={handleApplyOnlineTheme}
+            onUninstallTheme={handleUninstallTheme}
+          />
+        </div>
+      )}
     </div>
   );
 };

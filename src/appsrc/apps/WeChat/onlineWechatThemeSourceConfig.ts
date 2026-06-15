@@ -1,0 +1,2 @@
+export const ONLINE_WECHAT_THEME_SOURCE_BASE_URL =
+  import.meta.env.VITE_ONLINE_WECHAT_THEME_SOURCE_BASE_URL || 'http://127.0.0.1:8080';

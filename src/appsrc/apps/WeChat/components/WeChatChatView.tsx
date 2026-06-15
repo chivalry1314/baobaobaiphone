@@ -30,6 +30,12 @@ import {
   decodeWeChatOnlineStickerToken,
   readWeChatCustomStickers,
 } from '../emojiStickers';
+import {
+  getActiveWechatThemeId,
+  getInstalledWechatThemes,
+  subscribeWechatThemeLibrary,
+} from '../installedWechatThemeLibrary';
+import { createWechatThemePatch } from '../wechatThemeParser';
 
 interface SpeechRecognitionAlternativeLike {
   transcript: string;
@@ -725,21 +731,51 @@ export const WeChatChatView: React.FC<WeChatChatViewProps> = ({
   const oocCorrectionInstructionsBySessionRef = useRef<Record<string, string[]>>({});
   const shouldFollowVisualViewport = useMemo(() => isIOSViewportDevice(), []);
 
+  const [activeWechatThemeId, setActiveWechatThemeId] = useState(() => getActiveWechatThemeId());
+  useEffect(() => {
+    const sync = () => setActiveWechatThemeId(getActiveWechatThemeId());
+    sync();
+    return subscribeWechatThemeLibrary(sync);
+  }, []);
+  const activeWechatTheme = useMemo(
+    () =>
+      activeWechatThemeId
+        ? getInstalledWechatThemes().find((theme) => theme.id === activeWechatThemeId) || null
+        : null,
+    [activeWechatThemeId]
+  );
+  const activeWechatThemePatch = useMemo(
+    () => (activeWechatTheme ? createWechatThemePatch(activeWechatTheme) : {}),
+    [activeWechatTheme]
+  );
+
   const character = wechatCharacters.find(c => c.id === characterId);
   const session = wechatSessions.find(s => s.characterId === characterId);
   const messages = session?.messages || [];
-  const sessionUiSettings = {
-    ...wechatUiSettings,
-    selfBubblePreset: session?.selfBubblePreset || wechatUiSettings.selfBubblePreset,
-    peerBubblePreset: session?.peerBubblePreset || wechatUiSettings.peerBubblePreset,
-    selfBubbleColor: session?.selfBubbleColor ?? wechatUiSettings.selfBubbleColor,
-    customBubbleCss: session?.customBubbleCss || '',
-    customBubbleStyleId: session?.customBubbleStyleId || '',
-    chatFontFamily: session?.chatFontFamily || '',
-    chatFontData: session?.chatFontData || '',
-    customBubbleStyles: session?.customBubbleStyles || [],
-    customChatFonts: session?.customChatFonts || [],
-  };
+  const sessionUiSettings = activeWechatTheme
+    ? {
+        ...wechatUiSettings,
+        ...activeWechatThemePatch,
+        selfBubbleColor: '',
+        customBubbleCss: '',
+        customBubbleStyleId: '',
+        chatFontFamily: session?.chatFontFamily || '',
+        chatFontData: session?.chatFontData || '',
+        customBubbleStyles: session?.customBubbleStyles || [],
+        customChatFonts: session?.customChatFonts || [],
+      }
+    : {
+        ...wechatUiSettings,
+        selfBubblePreset: session?.selfBubblePreset || wechatUiSettings.selfBubblePreset,
+        peerBubblePreset: session?.peerBubblePreset || wechatUiSettings.peerBubblePreset,
+        selfBubbleColor: session?.selfBubbleColor ?? wechatUiSettings.selfBubbleColor,
+        customBubbleCss: session?.customBubbleCss || '',
+        customBubbleStyleId: session?.customBubbleStyleId || '',
+        chatFontFamily: session?.chatFontFamily || '',
+        chatFontData: session?.chatFontData || '',
+        customBubbleStyles: session?.customBubbleStyles || [],
+        customChatFonts: session?.customChatFonts || [],
+      };
   const selectedCustomBubbleStyle = (sessionUiSettings.customBubbleStyles || []).find(
     (item) => item.id === sessionUiSettings.customBubbleStyleId
   ) || null;
@@ -801,28 +837,39 @@ export const WeChatChatView: React.FC<WeChatChatViewProps> = ({
 
     const backgroundOpacity = Math.max(
       0,
-      Math.min(1, wechatUiSettings.chatBackgroundOpacity ?? 1)
+      Math.min(
+        1,
+        activeWechatTheme?.chatBackgroundOpacity ?? wechatUiSettings.chatBackgroundOpacity ?? 1
+      )
     );
 
     const backgroundImage =
+      activeWechatTheme?.chatBackgroundImage ||
       session?.chatBackgroundImage ||
       customRenderConfig?.chatBackgroundImage ||
       wechatUiSettings.chatBackgroundImage;
     if (backgroundImage) {
       const backgroundUrl = JSON.stringify(backgroundImage);
-      baseStyle.backgroundImage = `linear-gradient(rgba(255,255,255,${
-        1 - backgroundOpacity
-      }), rgba(255,255,255,${1 - backgroundOpacity})), url(${backgroundUrl})`;
       baseStyle.backgroundSize = 'cover';
       baseStyle.backgroundPosition = 'center';
       baseStyle.backgroundRepeat = 'no-repeat';
       baseStyle.backgroundBlendMode = 'normal';
+
+      if (backgroundOpacity > 0) {
+        baseStyle.backgroundImage = `linear-gradient(rgba(255,255,255,${
+          1 - backgroundOpacity
+        }), rgba(255,255,255,${1 - backgroundOpacity})), url(${backgroundUrl})`;
+      } else {
+        baseStyle.backgroundImage = `url(${backgroundUrl})`;
+      }
     } else if (!baseStyle.backgroundColor) {
       baseStyle.backgroundColor = '#EDEDED';
     }
 
     return baseStyle;
   }, [
+    activeWechatTheme?.chatBackgroundImage,
+    activeWechatTheme?.chatBackgroundOpacity,
     customRenderConfig?.chatBackgroundImage,
     customRenderConfig?.chatBackgroundStyle,
     session?.chatBackgroundImage,
