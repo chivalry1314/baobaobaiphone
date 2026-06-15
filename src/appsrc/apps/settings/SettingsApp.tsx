@@ -388,7 +388,18 @@ export const SettingsApp: React.FC<SettingsAppProps> = ({ onClose, context }) =>
           transition={{ duration: 0.2 }}
           className="flex-1 min-h-0 flex flex-col overflow-hidden"
         >
-          {currentView === 'main' ? renderMainView() : currentView === 'api' ? renderApiView() : currentView === 'notifications' ? <PushNotificationView settings={settings} updateSettings={updateSettings} /> : currentView === 'beautify' ? <BeautifyView onNavigateToThemeManage={() => setCurrentView('themeManage')} onNavigateToIconManage={() => setCurrentView('iconManage')} onNavigateToFontManage={() => setCurrentView('fontManage')} onNavigateToWidgetManage={() => setCurrentView('widgetManage')} onNavigateToLayout={() => setCurrentView('layout')} /> : currentView === 'themeManage' ? <ThemeManageView onBack={() => setCurrentView('beautify')} onOpenThemeMarket={openThemeMarket} /> : currentView === 'iconManage' ? <IconManageView /> : currentView === 'fontManage' ? <FontManageView /> : currentView === 'widgetManage' ? <WidgetManageView onNavigateToEditor={(id) => { setWidgetEditorId(id); setWidgetEditorReturnTo('widgetManage'); setCurrentView('widgetEditor'); }} /> : currentView === 'widgetEditor' ? (
+          {currentView === 'main' ? renderMainView() : currentView === 'api' ? renderApiView() : currentView === 'notifications' ? <PushNotificationView settings={settings} updateSettings={updateSettings} /> : currentView === 'beautify' ? <BeautifyView onNavigateToThemeManage={() => setCurrentView('themeManage')} onNavigateToIconManage={() => setCurrentView('iconManage')} onNavigateToFontManage={() => setCurrentView('fontManage')} onNavigateToWidgetManage={() => setCurrentView('widgetManage')} onNavigateToLayout={() => setCurrentView('layout')} /> : currentView === 'themeManage' ? <ThemeManageView onBack={() => setCurrentView('beautify')} onOpenThemeMarket={openThemeMarket} /> : currentView === 'iconManage' ? <IconManageView /> : currentView === 'fontManage' ? <FontManageView /> : currentView === 'widgetManage' ? <WidgetManageView onNavigateToEditor={(id) => { setWidgetEditorId(id); setWidgetEditorReturnTo('widgetManage'); setCurrentView('widgetEditor'); }} onInstallOnlineWidget={(widget) => {
+                const currentWidgets = desktopLayout.customWidgets || [];
+                const existingIndex = currentWidgets.findIndex(
+                  (item) => item.id === widget.id || (item.widgetCode === widget.widgetCode && item.name === widget.name)
+                );
+                updateDesktopLayout({
+                  customWidgets:
+                    existingIndex >= 0
+                      ? currentWidgets.map((item, index) => (index === existingIndex ? { ...widget, id: item.id } : item))
+                      : [...currentWidgets, widget],
+                });
+              }} /> : currentView === 'widgetEditor' ? (
             <WidgetEditorView
               widgetId={widgetEditorId}
               initialConfig={initialWidgetConfig}

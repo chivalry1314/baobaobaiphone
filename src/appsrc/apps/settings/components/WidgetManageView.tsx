@@ -3,12 +3,15 @@ import React from 'react';
 import { motion, AnimatePresence } from 'motion/react';
 import { useGlobalDesktopStore } from '@baobaobaiOS/sdk';
 import { CUSTOM_WIDGET_LIBRARY_CHANGED_EVENT, readCustomWidgetLibrary } from '../../../../core/customWidgetLibrary';
+import type { CustomWidgetDefinition } from '../../../../core/stores/types';
 import { WidgetPlaceholder } from './WidgetPlaceholder';
+import { OnlineWidgetMarketView } from './OnlineWidgetMarketView';
 
 // ==================== 类型定义 ====================
 
 export interface WidgetManageViewProps {
   onNavigateToEditor: (widgetId?: string) => void;
+  onInstallOnlineWidget?: (widget: CustomWidgetDefinition) => void;
 }
 
 interface WidgetItem {
@@ -167,9 +170,17 @@ const getCustomWidgetDisplayName = (data: Record<string, any> | undefined): stri
 
 // ==================== 主组件 ====================
 
-export const WidgetManageView: React.FC<WidgetManageViewProps> = ({ onNavigateToEditor }) => {
+type WidgetSourceTab = 'local' | 'online';
+
+const WIDGET_SOURCE_TABS: Array<{ id: WidgetSourceTab; label: string; description: string }> = [
+  { id: 'local', label: '本地组件', description: '内置模板与自定义组件' },
+  { id: 'online', label: '在线组件', description: '来自分享平台的桌面组件' },
+];
+
+export const WidgetManageView: React.FC<WidgetManageViewProps> = ({ onNavigateToEditor, onInstallOnlineWidget }) => {
   const { desktopLayout, updateDesktopLayout } = useGlobalDesktopStore();
   const builtInWidgetItems = builtInTemplateItems;
+  const [activeSourceTab, setActiveSourceTab] = React.useState<WidgetSourceTab>('local');
   const [showSystemParams, setShowSystemParams] = React.useState(false);
   const [localCustomWidgets, setLocalCustomWidgets] = React.useState(() => readCustomWidgetLibrary());
   React.useEffect(() => {
@@ -262,6 +273,17 @@ export const WidgetManageView: React.FC<WidgetManageViewProps> = ({ onNavigateTo
       h: item.h || 2,
     }));
   const customWidgetItems = [...savedCustomWidgetItems, ...legacyDesktopWidgetItems];
+  const installedRemoteWidgetIds = React.useMemo(
+    () =>
+      (desktopLayout.customWidgets || [])
+        .filter((widget) => widget.id?.startsWith('remote-widget-'))
+        .map((widget) => widget.id),
+    [desktopLayout.customWidgets]
+  );
+
+  const handleInstallOnlineWidget = (widget: CustomWidgetDefinition) => {
+    onInstallOnlineWidget?.(widget);
+  };
 
   const renderWidgetCard = (widget: WidgetItem) => (
     <motion.div
@@ -391,32 +413,69 @@ export const WidgetManageView: React.FC<WidgetManageViewProps> = ({ onNavigateTo
             </div>
             </div>
           </motion.div>
+
+          <motion.div
+            variants={itemVariants}
+            className="mt-3 rounded-[1.5rem] border border-white/60 bg-white/70 p-2 shadow-[0_14px_36px_-28px_rgba(15,23,42,0.5)]"
+          >
+            <div className="grid grid-cols-2 gap-2 rounded-2xl bg-slate-100/80 p-1">
+              {WIDGET_SOURCE_TABS.map((tab) => {
+                const isActive = activeSourceTab === tab.id;
+                return (
+                  <button
+                    key={tab.id}
+                    type="button"
+                    onClick={() => setActiveSourceTab(tab.id)}
+                    className={`h-10 rounded-xl text-[13px] font-semibold transition ${
+                      isActive ? 'bg-white text-slate-900 shadow-sm' : 'text-slate-500'
+                    }`}
+                  >
+                    {tab.label}
+                  </button>
+                );
+              })}
+            </div>
+          </motion.div>
         </motion.header>
 
-        <motion.main 
-          className="px-5 grid grid-cols-2 gap-4 pb-6"
-          variants={containerVariants}
-          initial="hidden"
-          animate="show"
-        >
-          <div className="col-span-2 flex items-end justify-between px-1 pt-1">
-            <div className="text-sm font-semibold text-slate-700">内置组件</div>
-            <div className="text-xs text-slate-400">{builtInWidgetItems.length} 个</div>
-          </div>
-          <motion.button
-            type="button"
-            variants={itemVariants}
-            className="col-span-2 rounded-[1.5rem] border border-white/70 bg-white/78 p-4 text-left shadow-[0_16px_34px_-32px_rgba(15,23,42,0.55)] transition hover:-translate-y-0.5"
-            onClick={() => setShowSystemParams(true)}
+        {activeSourceTab === 'online' ? (
+          <motion.main
+            className="px-5 pb-6"
+            variants={containerVariants}
+            initial="hidden"
+            animate="show"
           >
-            <div className="text-[11px] uppercase tracking-[0.24em] text-slate-400">SYSTEM PARAMS</div>
-            <div className="mt-1 text-[15px] font-semibold text-slate-800">系统参数说明书</div>
-            <div className="mt-1 text-xs text-slate-500">查看日期、时间、音乐等可用参数</div>
-          </motion.button>
-          {builtInWidgetItems.map(renderWidgetCard)}
-          {customWidgetItems.map(renderWidgetCard)}
-          {renderAddWidgetCard()}
-        </motion.main>
+            <OnlineWidgetMarketView
+              installedWidgetIds={installedRemoteWidgetIds}
+              onInstallWidget={handleInstallOnlineWidget}
+            />
+          </motion.main>
+        ) : (
+          <motion.main
+            className="px-5 grid grid-cols-2 gap-4 pb-6"
+            variants={containerVariants}
+            initial="hidden"
+            animate="show"
+          >
+            <div className="col-span-2 flex items-end justify-between px-1 pt-1">
+              <div className="text-sm font-semibold text-slate-700">内置组件</div>
+              <div className="text-xs text-slate-400">{builtInWidgetItems.length} 个</div>
+            </div>
+            <motion.button
+              type="button"
+              variants={itemVariants}
+              className="col-span-2 rounded-[1.5rem] border border-white/70 bg-white/78 p-4 text-left shadow-[0_16px_34px_-32px_rgba(15,23,42,0.55)] transition hover:-translate-y-0.5"
+              onClick={() => setShowSystemParams(true)}
+            >
+              <div className="text-[11px] uppercase tracking-[0.24em] text-slate-400">SYSTEM PARAMS</div>
+              <div className="mt-1 text-[15px] font-semibold text-slate-800">系统参数说明书</div>
+              <div className="mt-1 text-xs text-slate-500">查看日期、时间、音乐等可用参数</div>
+            </motion.button>
+            {builtInWidgetItems.map(renderWidgetCard)}
+            {customWidgetItems.map(renderWidgetCard)}
+            {renderAddWidgetCard()}
+          </motion.main>
+        )}
           </>
         )}
       </motion.div>
