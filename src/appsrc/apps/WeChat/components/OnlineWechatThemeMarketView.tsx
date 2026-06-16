@@ -48,7 +48,7 @@ const mergeRemoteThemeItems = (
 };
 
 const getRemoteThemeLocalId = (item: RemoteWechatThemeItem): string =>
-  `wechat-theme-${item.wechatTheme.id || item.card.id}`;
+  `wechat-theme-${item.card.id}`;
 
 const getRemoteThemeDisplayName = (item: RemoteWechatThemeItem): string =>
   item.wechatTheme.name.trim() || item.card.title.trim() || '未命名主题';
