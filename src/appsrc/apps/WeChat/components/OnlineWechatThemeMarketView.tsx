@@ -9,6 +9,7 @@ import {
   PackageOpen,
   Palette,
   RefreshCw,
+  Sparkles,
   Trash2,
 } from 'lucide-react';
 
@@ -200,6 +201,32 @@ const RemoteWechatThemeCard: React.FC<{
           ))}
         </div>
 
+        {item.wechatTheme.features.length > 0 ? (
+          <div className="flex flex-wrap gap-2">
+            {item.wechatTheme.features.map((feature) => {
+              const featureLabels: Record<string, string> = {
+                bubble: '气泡',
+                background: '背景',
+                stickers: '表情包',
+                renderer: '渲染源码',
+              };
+              return (
+                <span
+                  key={`${item.card.id}-feature-${feature}`}
+                  className="inline-flex items-center gap-1 rounded-full px-2.5 py-1 text-[11px] font-medium"
+                  style={{
+                    backgroundColor: 'color-mix(in srgb, var(--sys-accent-soft) 80%, white)',
+                    color: 'var(--sys-accent-muted)',
+                  }}
+                >
+                  <Sparkles size={12} />
+                  {featureLabels[feature] || feature}
+                </span>
+              );
+            })}
+          </div>
+        ) : null}
+
         {requiresCode ? (
           <div
             className="rounded-[20px] p-4"
@@ -280,9 +307,9 @@ export interface OnlineWechatThemeMarketViewProps {
   installedThemeIds?: string[];
   activeThemeId?: string;
   activeThemeName?: string;
-  onInstallTheme?: (theme: WechatThemeDefinition) => void;
+  onInstallTheme?: (theme: WechatThemeDefinition) => void | Promise<void>;
   onApplyTheme?: (themeId: string, themeName: string) => void;
-  onUninstallTheme?: (themeId: string) => void;
+  onUninstallTheme?: (themeId: string) => void | Promise<void>;
 }
 
 export const OnlineWechatThemeMarketView: React.FC<OnlineWechatThemeMarketViewProps> = ({

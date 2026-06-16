@@ -28,7 +28,7 @@ import { Modals } from './WeChatChatModals';
 import {
   addWeChatCustomSticker,
   decodeWeChatOnlineStickerToken,
-  readWeChatCustomStickers,
+  getEnabledWeChatCustomStickers,
 } from '../emojiStickers';
 import {
   getActiveWechatThemeId,
@@ -539,7 +539,7 @@ const WECHAT_DEFAULT_EMOJI_TEXT_MAP: Record<string, string> = {
 };
 
 const getCustomStickerNameSet = (): Set<string> =>
-  new Set(readWeChatCustomStickers().map((sticker) => sticker.name).filter(Boolean));
+  new Set(getEnabledWeChatCustomStickers().map((sticker) => sticker.name).filter(Boolean));
 
 const normalizeAssistantEmojiText = (content: string): string => {
   const customStickerNames = getCustomStickerNameSet();
@@ -1865,7 +1865,7 @@ export const WeChatChatView: React.FC<WeChatChatViewProps> = ({
     if (!content) return [];
 
     const customStickerByName = new Map(
-      readWeChatCustomStickers().map((sticker) => [sticker.name, sticker])
+      getEnabledWeChatCustomStickers().map((sticker) => [sticker.name, sticker])
     );
     const parts = content.split(STICKER_TOKEN_PATTERN).filter(Boolean);
     const messages: Array<Omit<WeChatMessage, 'id' | 'timestamp'>> = [];
@@ -3032,7 +3032,7 @@ export const WeChatChatView: React.FC<WeChatChatViewProps> = ({
         reader.onerror = () => reject(reader.error);
         reader.readAsDataURL(file);
       });
-      addWeChatCustomSticker({
+      await addWeChatCustomSticker({
         name: name.trim() || file.name.replace(/\.[^.]+$/, '') || '表情',
         url: dataUrl,
       });
@@ -3130,16 +3130,20 @@ export const WeChatChatView: React.FC<WeChatChatViewProps> = ({
     });
   };
 
-  const handleAddStickerFromMessage = () => {
+  const handleAddStickerFromMessage = async () => {
     const target = messages.find((item) => item.id === menuState?.messageId);
     if (!target?.stickerUrl) return;
-    addWeChatCustomSticker({
-      name: target.stickerName || '表情',
-      url: target.stickerUrl,
-      online: /^https?:\/\//.test(target.stickerUrl),
-    });
+    try {
+      await addWeChatCustomSticker({
+        name: target.stickerName || '表情',
+        url: target.stickerUrl,
+        online: /^https?:\/\//.test(target.stickerUrl),
+      });
+      setToastMessage('已添加到表情');
+    } catch {
+      setToastMessage('添加失败');
+    }
     setMenuState(null);
-    setToastMessage('已添加到表情');
     setTimeout(() => setToastMessage(null), 1500);
   };
 

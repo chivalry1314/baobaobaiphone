@@ -1,5 +1,5 @@
 import React from 'react';
-import { Bot, Brain, ChevronLeft, ChevronRight, CircleOff, MessageSquare, Sparkles } from 'lucide-react';
+import { Bot, Brain, ChevronLeft, ChevronRight, CircleOff, MessageSquare, Smile, Sparkles } from 'lucide-react';
 import type { WeChatSettingsViewProps } from '../types';
 import { useWeChatStore } from '../store';
 
@@ -9,6 +9,7 @@ export const WeChatSettingsView: React.FC<WeChatSettingsViewProps> = ({
   onAiChatContextConfigClick,
   onMomentsSettingsClick,
   onAiMomentsConfigClick,
+  onStickerPackManageClick,
 }) => {
   const { wechatUiSettings, updateWeChatUiSettings } = useWeChatStore();
 
@@ -120,6 +121,12 @@ export const WeChatSettingsView: React.FC<WeChatSettingsViewProps> = ({
           title="AI朋友圈配置"
           subtitle="配置下拉刷新生成条数、是否包含图片"
           onClick={onAiMomentsConfigClick}
+        />
+        <Row
+          icon={Smile}
+          title="表情包管理"
+          subtitle="创建表情包并批量导入表情"
+          onClick={onStickerPackManageClick}
         />
       </div>
     </div>

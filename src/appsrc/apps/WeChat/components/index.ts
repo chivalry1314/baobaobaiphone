@@ -24,3 +24,4 @@ export * from './WeChatBillView';
 export * from './WeChatBalanceView';
 export * from './WeChatTopUpView';
 export * from './WeChatWithdrawView';
+export * from './WeChatStickerPackManageView';

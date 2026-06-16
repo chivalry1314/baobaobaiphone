@@ -26,6 +26,11 @@ import {
 import { createWechatThemePatch } from '../wechatThemeParser';
 import { createDefaultRoleScopedState } from '../store/defaults';
 import type { WechatThemeDefinition } from '../onlineThemeTypes';
+import {
+  addWeChatCustomStickers,
+  addWeChatStickerPack,
+  removeWeChatStickerPacksByThemeId,
+} from '../emojiStickers';
 
 type OptimizeTab = 'background' | 'bubble' | 'source';
 type MainTab = 'local' | 'online';
@@ -284,14 +289,41 @@ export const WeChatChatUiOptimizeView: React.FC<WeChatChatUiOptimizeViewProps> =
     updateWeChatUiSettings(settings);
   };
 
-  const handleInstallOnlineTheme = (theme: WechatThemeDefinition) => {
-    upsertInstalledWechatTheme(theme);
-    updateWeChatUiSettings(createWechatThemePatch(theme));
-    applyThemeToAllSessions(theme);
-    setActiveWechatThemeId(theme.id);
-    setActiveThemeId(theme.id);
+  const handleInstallOnlineTheme = async (theme: WechatThemeDefinition) => {
+    if (theme.stickerPacks?.length) {
+      try {
+        await removeWeChatStickerPacksByThemeId(theme.id);
+        for (const pack of theme.stickerPacks) {
+          const packId = `online-${theme.id}-${pack.id}`;
+          addWeChatStickerPack(pack.name, pack.cover, {
+            id: packId,
+            source: 'online',
+            themeId: theme.id,
+          });
+          if (pack.stickers.length) {
+            await addWeChatCustomStickers(
+              pack.stickers.map((sticker) => ({
+                name: sticker.name,
+                url: sticker.file,
+                packId,
+              }))
+            );
+          }
+        }
+      } catch (error) {
+        console.error('[在线主题] 挂载表情包失败:', error);
+      }
+    }
+
+    // 表情 data URL 已转存到本地表情库，主题库中不再保存，避免 localStorage 超限。
+    const themeWithoutStickers: WechatThemeDefinition = { ...theme, stickerPacks: [] };
+    upsertInstalledWechatTheme(themeWithoutStickers);
+    updateWeChatUiSettings(createWechatThemePatch(themeWithoutStickers));
+    applyThemeToAllSessions(themeWithoutStickers);
+    setActiveWechatThemeId(themeWithoutStickers.id);
+    setActiveThemeId(themeWithoutStickers.id);
     setInstalledThemeIds(getInstalledWechatThemes().map((item) => item.id));
-    window.alert(`已下载安装并应用微信主题：${theme.name}`);
+    window.alert(`已下载安装并应用微信主题：${themeWithoutStickers.name}`);
   };
 
   const handleApplyOnlineTheme = (themeId: string, themeName: string) => {

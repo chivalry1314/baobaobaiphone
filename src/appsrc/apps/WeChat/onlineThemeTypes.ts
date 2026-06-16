@@ -24,6 +24,19 @@ export interface RemoteWechatThemeAsset {
   downloadUrl: string;
 }
 
+export interface RemoteWechatThemeSticker {
+  id: string;
+  name: string;
+  file: string;
+}
+
+export interface RemoteWechatThemeStickerPack {
+  id: string;
+  name: string;
+  cover: string;
+  stickers: RemoteWechatThemeSticker[];
+}
+
 export interface RemoteWechatTheme {
   protocol: string;
   id: string;
@@ -39,6 +52,8 @@ export interface RemoteWechatTheme {
   selfBubblePreset: string;
   peerBubblePreset: string;
   rendererSource: string;
+  stickerPacks: RemoteWechatThemeStickerPack[];
+  features: string[];
   fileName: string;
   mimeType: string;
   size: number;
@@ -56,6 +71,19 @@ export interface RemoteWechatThemeItem {
   accessCodeStatus: 'none' | 'required' | 'expired' | 'exhausted';
 }
 
+export interface WechatThemePackageDescriptorSticker {
+  id: string;
+  name: string;
+  file: string;
+}
+
+export interface WechatThemePackageDescriptorStickerPack {
+  id: string;
+  name: string;
+  cover?: string;
+  stickers: WechatThemePackageDescriptorSticker[];
+}
+
 export interface WechatThemePackageDescriptor {
   id?: string;
   name?: string;
@@ -68,7 +96,22 @@ export interface WechatThemePackageDescriptor {
   selfBubblePreset?: string;
   peerBubblePreset?: string;
   rendererSource?: string;
+  stickerPacks?: WechatThemePackageDescriptorStickerPack[];
+  features?: string[];
 }
+
+export type WechatThemeDefinitionSticker = {
+  id: string;
+  name: string;
+  file: string;
+};
+
+export type WechatThemeDefinitionStickerPack = {
+  id: string;
+  name: string;
+  cover: string;
+  stickers: WechatThemeDefinitionSticker[];
+};
 
 export type WechatThemeDefinition = {
   id: string;
@@ -82,6 +125,8 @@ export type WechatThemeDefinition = {
   selfBubblePreset: 'wechat' | 'rounded' | 'glass' | 'outline';
   peerBubblePreset: 'wechat' | 'rounded' | 'glass' | 'outline';
   rendererSource: string;
+  stickerPacks: WechatThemeDefinitionStickerPack[];
+  features?: string[];
   source: 'online' | 'offline';
   importedAt: number;
 };

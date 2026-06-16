@@ -1,10 +1,14 @@
 import JSZip from 'jszip';
 
 import type { WeChatBubblePreset, WeChatUiSettings } from './types';
-import type { WechatThemeDefinition, WechatThemePackageDescriptor } from './onlineThemeTypes';
+import type {
+  WechatThemeDefinition,
+  WechatThemeDefinitionSticker,
+  WechatThemePackageDescriptor,
+} from './onlineThemeTypes';
 
 const MAX_THEME_PACKAGE_BYTES = 20 * 1024 * 1024;
-const MAX_THEME_PACKAGE_FILES = 50;
+const MAX_THEME_PACKAGE_FILES = 110;
 
 const IMAGE_MIME_BY_EXT: Record<string, string> = {
   '.png': 'image/png',
@@ -91,11 +95,25 @@ const normalizeBubblePreset = (value: string | undefined): WeChatBubblePreset =>
   return 'wechat';
 };
 
+const normalizeFeatures = (value: unknown): string[] => {
+  if (!Array.isArray(value)) return [];
+  const seen = new Set<string>();
+  const result: string[] = [];
+  value.forEach((item) => {
+    const feature = String(item).trim();
+    if (!feature || seen.has(feature)) return;
+    seen.add(feature);
+    result.push(feature);
+  });
+  return result;
+};
+
 const normalizeDescriptor = (input: WechatThemePackageDescriptor): WechatThemePackageDescriptor => ({
   ...input,
   tags: Array.isArray(input.tags)
     ? input.tags.map((tag) => String(tag).trim()).filter(Boolean)
     : [],
+  features: normalizeFeatures(input.features),
 });
 
 const buildDataUrl = async (entry: JSZip.JSZipObject, mimeType: string): Promise<string> => {
@@ -119,6 +137,8 @@ const resolveInlineTheme = (descriptor: WechatThemePackageDescriptor): WechatThe
     selfBubblePreset: normalizeBubblePreset(normalized.selfBubblePreset),
     peerBubblePreset: normalizeBubblePreset(normalized.peerBubblePreset),
     rendererSource: normalized.rendererSource?.trim() || '',
+    stickerPacks: [],
+    features: normalized.features,
     source: 'online',
     importedAt: Date.now(),
   };
@@ -183,6 +203,31 @@ const resolveZippedTheme = async (zip: JSZip, fileSize: number): Promise<WechatT
     chatBackgroundImage = await readAssetAsDataUrl(chatBackgroundImage);
   }
 
+  const stickerPacks: WechatThemeDefinition['stickerPacks'] = [];
+  for (const pack of descriptor.stickerPacks || []) {
+    const stickers: WechatThemeDefinitionSticker[] = [];
+    for (const sticker of pack.stickers) {
+      try {
+        const url = await readAssetAsDataUrl(sticker.file);
+        stickers.push({ id: sticker.id, name: sticker.name, file: url });
+      } catch {
+        // Skip missing sticker files to stay resilient.
+      }
+    }
+    if (stickers.length === 0) {
+      continue;
+    }
+    let cover = '';
+    if (pack.cover) {
+      try {
+        cover = await readAssetAsDataUrl(pack.cover);
+      } catch {
+        cover = '';
+      }
+    }
+    stickerPacks.push({ id: pack.id, name: pack.name, cover, stickers });
+  }
+
   return {
     id: (descriptor.id?.trim() || name).replace(/[^a-z0-9]+/gi, '-').replace(/^-+|-+$/g, '') || 'wechat-theme',
     name,
@@ -195,6 +240,8 @@ const resolveZippedTheme = async (zip: JSZip, fileSize: number): Promise<WechatT
     selfBubblePreset: normalizeBubblePreset(descriptor.selfBubblePreset),
     peerBubblePreset: normalizeBubblePreset(descriptor.peerBubblePreset),
     rendererSource: descriptor.rendererSource?.trim() || '',
+    stickerPacks,
+    features: descriptor.features,
     source: 'online',
     importedAt: Date.now(),
   };

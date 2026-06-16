@@ -3,12 +3,16 @@ import { motion, AnimatePresence } from 'motion/react';
 import {
   decodeWeChatOnlineStickerToken,
   encodeWeChatStickerToken,
-  readWeChatCustomStickers,
+  getEnabledWeChatCustomStickers,
+  getStickersByPackId,
+  readWeChatStickerPacks,
   removeWeChatCustomSticker,
+  type WeChatGifSticker,
+  type WeChatStickerPack,
   WECHAT_CUSTOM_STICKERS_CHANGED_EVENT,
+  WECHAT_STICKER_PACKS_CHANGED_EVENT,
   wechatDefaultGifStickers,
   wechatGifStickers,
-  type WeChatGifSticker,
 } from '../emojiStickers';
 import type { WeChatBubblePreset, WeChatCustomBubbleStyle, WeChatCustomFontStyle } from '../types';
 import {
@@ -160,7 +164,15 @@ export const WeChatChatInputBar: React.FC<WeChatChatInputBarProps> = ({
   const [gifSearchResults, setGifSearchResults] = React.useState<WeChatGifSticker[]>([]);
   const [isGifSearching, setIsGifSearching] = React.useState(false);
   const [gifSearchError, setGifSearchError] = React.useState('');
-  const [customStickers, setCustomStickers] = React.useState<WeChatGifSticker[]>(() => readWeChatCustomStickers());
+  const [customStickers, setCustomStickers] = React.useState<WeChatGifSticker[]>(() => getEnabledWeChatCustomStickers());
+  const [stickerPacks, setStickerPacks] = React.useState<WeChatStickerPack[]>(() => readWeChatStickerPacks());
+  const [selectedStickerPackId, setSelectedStickerPackId] = React.useState<string | 'ungrouped'>('ungrouped');
+
+  React.useEffect(() => {
+    if (selectedStickerPackId !== 'ungrouped' && !stickerPacks.some((pack) => pack.id === selectedStickerPackId)) {
+      setSelectedStickerPackId('ungrouped');
+    }
+  }, [stickerPacks, selectedStickerPackId]);
   const [isManagingCustomStickers, setIsManagingCustomStickers] = React.useState(false);
   const [pendingCustomStickerFile, setPendingCustomStickerFile] = React.useState<File | null>(null);
   const [customStickerNameInput, setCustomStickerNameInput] = React.useState('');
@@ -979,11 +991,14 @@ padding:${contentTop}px ${contentRight}px ${contentBottom}px ${contentLeft}px;
   }, [showEmojiPanel, showPlusMenu]);
 
   React.useEffect(() => {
-    const syncCustomStickers = () => setCustomStickers(readWeChatCustomStickers());
+    const syncCustomStickers = () => setCustomStickers(getEnabledWeChatCustomStickers());
+    const syncStickerPacks = () => setStickerPacks(readWeChatStickerPacks());
     window.addEventListener(WECHAT_CUSTOM_STICKERS_CHANGED_EVENT, syncCustomStickers);
+    window.addEventListener(WECHAT_STICKER_PACKS_CHANGED_EVENT, syncStickerPacks);
     window.addEventListener('storage', syncCustomStickers);
     return () => {
       window.removeEventListener(WECHAT_CUSTOM_STICKERS_CHANGED_EVENT, syncCustomStickers);
+      window.removeEventListener(WECHAT_STICKER_PACKS_CHANGED_EVENT, syncStickerPacks);
       window.removeEventListener('storage', syncCustomStickers);
     };
   }, []);
@@ -1937,18 +1952,64 @@ padding:${contentTop}px ${contentRight}px ${contentBottom}px ${contentLeft}px;
                   <div className="flex h-3 shrink-0 items-center justify-center border-t border-gray-200/80 bg-[#EDEDED]">
                     <span className="h-0.5 w-10 rounded-full bg-black/12" />
                   </div>
+                  <div className="flex h-12 shrink-0 items-center gap-2 overflow-x-auto border-b border-gray-200 bg-white px-4 [scrollbar-width:none]">
+                    <button
+                      type="button"
+                      onClick={() => setSelectedStickerPackId('ungrouped')}
+                      className={`flex shrink-0 items-center gap-1.5 rounded-full px-3 py-1.5 text-[13px] transition-colors ${
+                        selectedStickerPackId === 'ungrouped'
+                          ? 'bg-[#07C160] text-white'
+                          : 'bg-[#F1F5F9] text-gray-700 active:bg-gray-200'
+                      }`}
+                    >
+                      <Smile size={15} strokeWidth={1.8} />
+                      未分组
+                    </button>
+                    {stickerPacks.map((pack) => {
+                      const coverUrl = pack.coverUrl || customStickers.find((s) => s.packId === pack.id)?.url;
+                      const selected = selectedStickerPackId === pack.id;
+                      return (
+                        <button
+                          key={pack.id}
+                          type="button"
+                          onClick={() => setSelectedStickerPackId(pack.id)}
+                          className={`flex shrink-0 items-center gap-2 rounded-full px-3 py-1.5 text-[13px] transition-colors ${
+                            selected
+                              ? 'bg-[#07C160] text-white'
+                              : 'bg-[#F1F5F9] text-gray-700 active:bg-gray-200'
+                          }`}
+                        >
+                          <span className="flex h-5 w-5 overflow-hidden rounded-[4px] bg-white">
+                            {coverUrl ? (
+                              <img src={coverUrl} alt="" className="h-full w-full object-cover" loading="lazy" />
+                            ) : (
+                              <Smile size={14} strokeWidth={1.8} className="m-auto text-gray-400" />
+                            )}
+                          </span>
+                          <span className="max-w-[80px] truncate">{pack.name}</span>
+                        </button>
+                      );
+                    })}
+                  </div>
                   <div className="min-h-0 flex-1 overflow-y-auto px-5 pb-3 pt-4 [scrollbar-width:thin]">
-                    <div className="mb-4 text-[14px] text-[#6F6F6F]">添加的单个表情</div>
+                    <div className="mb-4 text-[14px] text-[#6F6F6F]">
+                      {selectedStickerPackId === 'ungrouped'
+                        ? '未分组表情'
+                        : stickerPacks.find((p) => p.id === selectedStickerPackId)?.name || '表情包'}
+                    </div>
                     <div className="grid grid-cols-4 gap-x-6 gap-y-5">
                       <button
                         type="button"
                         onClick={() => customStickerInputRef.current?.click()}
                         className="flex aspect-square items-center justify-center rounded-xl border border-dashed border-[#111] bg-transparent text-[#111] active:bg-black/5"
-                        aria-label="添加表情包"
+                        aria-label="添加表情"
                       >
                         <Plus size={34} strokeWidth={1.6} />
                       </button>
-                      {customStickers.map((sticker) => (
+                      {getStickersByPackId(
+                        selectedStickerPackId === 'ungrouped' ? undefined : selectedStickerPackId,
+                        customStickers
+                      ).map((sticker) => (
                         <div key={sticker.id} className="relative aspect-square">
                           <button
                             type="button"
@@ -1963,8 +2024,9 @@ padding:${contentTop}px ${contentRight}px ${contentBottom}px ${contentLeft}px;
                           {isManagingCustomStickers ? (
                             <button
                               type="button"
-                              onClick={() => {
-                                setCustomStickers(removeWeChatCustomSticker(sticker.id));
+                              onClick={async () => {
+                                await removeWeChatCustomSticker(sticker.id);
+                                setCustomStickers(getEnabledWeChatCustomStickers());
                               }}
                               className="absolute -right-2 -top-2 flex h-6 w-6 items-center justify-center rounded-full bg-black/65 text-white shadow"
                               aria-label={`删除${sticker.name}`}

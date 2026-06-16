@@ -298,7 +298,8 @@ export type WeChatView =
   | 'bill'
   | 'balance'
   | 'topUp'
-  | 'withdraw';
+  | 'withdraw'
+  | 'stickerPackManage';
 
 export interface WeChatAppProps {
   onClose: () => void;
@@ -362,6 +363,7 @@ export interface WeChatSettingsViewProps {
   onAiChatContextConfigClick: () => void;
   onMomentsSettingsClick: () => void;
   onAiMomentsConfigClick: () => void;
+  onStickerPackManageClick: () => void;
 }
 
 export interface WeChatChatUiOptimizeViewProps {

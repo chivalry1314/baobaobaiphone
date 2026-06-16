@@ -26,6 +26,7 @@ import {
   WeChatNewFriendsView,
   WeChatProfile,
   WeChatSettingsView,
+  WeChatStickerPackManageView,
   WeChatTabBar,
 } from './components';
 import type { WeChatAppProps, WeChatTab, WeChatView, WeChatVoiceCallUiState } from './types';
@@ -224,6 +225,10 @@ export const WeChatApp: React.FC<WeChatAppProps> = ({ onClose, context }) => {
       currentView === 'momentsSettings' ||
       currentView === 'aiMomentsConfig'
     ) {
+      setCurrentView('settings');
+      return;
+    }
+    if (currentView === 'stickerPackManage') {
       setCurrentView('settings');
       return;
     }
@@ -429,7 +434,12 @@ export const WeChatApp: React.FC<WeChatAppProps> = ({ onClose, context }) => {
             onAiChatContextConfigClick={() => setCurrentView('aiChatContextConfig')}
             onMomentsSettingsClick={() => setCurrentView('momentsSettings')}
             onAiMomentsConfigClick={() => setCurrentView('aiMomentsConfig')}
+            onStickerPackManageClick={() => setCurrentView('stickerPackManage')}
           />
+        )}
+
+        {currentView === 'stickerPackManage' && (
+          <WeChatStickerPackManageView key="sticker-pack-manage" onBack={handleBack} />
         )}
 
         {currentView === 'chatUiOptimize' && (
