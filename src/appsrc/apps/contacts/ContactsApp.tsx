@@ -149,7 +149,9 @@ export const ContactsApp: React.FC<ContactsAppProps> = ({ onClose, context }) =>
     [myCards]
   );
   const scopedCallRecords = useMemo<CallRecord[]>(() => {
-    if (!isInspectorContactRoleMode) return callRecords;
+    if (!isInspectorContactRoleMode) {
+      return callRecords.filter((record) => !record.inspectorGeneratedSourceContactId);
+    }
     if (!inspectorContactId) return [];
 
     return callRecords

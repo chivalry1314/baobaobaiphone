@@ -119,7 +119,7 @@ export const PhoneRecordsView: React.FC<PhoneRecordsViewProps> = ({
                     {isMissed ? <DirectionIcon size={16} className="text-slate-400" /> : null}
                   </div>
                   <div className="flex-1 min-w-0">
-                    <p className={`truncate ${record.inspectorGeneratedSourceContactId ? 'text-[17px] font-normal' : 'text-[18px] font-semibold'} ${isMissed ? 'text-[#D5433D]' : 'text-slate-900'}`}>
+                    <p className={`truncate text-[18px] font-bold ${isMissed ? 'text-[#D5433D]' : 'text-slate-900'}`}>
                       {displayName}
                     </p>
                     <p className="text-[14px] text-slate-500 truncate">{record.phone || '--'}</p>
@@ -204,7 +204,7 @@ export const PhoneRecordsView: React.FC<PhoneRecordsViewProps> = ({
                         )}
                       </div>
                       <div className="flex-1 min-w-0">
-                        <p className="text-[16px] font-semibold text-slate-900 truncate">{contact.name}</p>
+                    <p className="text-[16px] font-bold text-slate-900 truncate">{contact.name}</p>
                         <p className="text-[13px] text-slate-500 truncate">{contact.phone || '--'}</p>
                       </div>
                       <button
