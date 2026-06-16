@@ -831,11 +831,16 @@ export const WeChatChatView: React.FC<WeChatChatViewProps> = ({
 
   const chatModelSupportsVision = isLikelyVisionChatModel(settings.model || '');
   const customRenderConfig = useMemo(
-    () =>
-      wechatUiSettings.customRendererEnabled
-        ? parseWeChatUiRenderConfig(wechatUiSettings.customRendererSource)
-        : null,
-    [wechatUiSettings.customRendererEnabled, wechatUiSettings.customRendererSource]
+    () => {
+      if (!wechatUiSettings.customRendererEnabled) return null;
+      const config = parseWeChatUiRenderConfig(wechatUiSettings.customRendererSource);
+      if (!config || !session?.bubbleStyleOverride) return config;
+      const nextConfig = { ...config };
+      delete nextConfig.selfBubbleStyle;
+      delete nextConfig.peerBubbleStyle;
+      return nextConfig;
+    },
+    [session?.bubbleStyleOverride, wechatUiSettings.customRendererEnabled, wechatUiSettings.customRendererSource]
   );
   const chatBackgroundStyle = useMemo<CSSProperties>(() => {
     const baseStyle: CSSProperties = {};
@@ -3749,9 +3754,9 @@ export const WeChatChatView: React.FC<WeChatChatViewProps> = ({
           hasCustomChatFont={Boolean(sessionUiSettings.chatFontData)}
           customBubbleStyles={sessionUiSettings.customBubbleStyles || []}
           customChatFonts={sessionUiSettings.customChatFonts || []}
-          onSelectBubblePreset={(preset) => updateCurrentSessionUiSettings({ selfBubblePreset: preset, peerBubblePreset: preset, customBubbleCss: '', customBubbleStyleId: '' })}
-          onSelectBubbleColor={(color) => updateCurrentSessionUiSettings({ selfBubbleColor: color })}
-          onSelectCustomBubbleStyle={(id, css) => updateCurrentSessionUiSettings({ customBubbleStyleId: id, customBubbleCss: css })}
+          onSelectBubblePreset={(preset) => updateCurrentSessionUiSettings({ selfBubblePreset: preset, peerBubblePreset: preset, selfBubbleColor: sessionUiSettings.selfBubbleColor, customBubbleCss: '', customBubbleStyleId: '', bubbleStyleOverride: true })}
+          onSelectBubbleColor={(color) => updateCurrentSessionUiSettings({ selfBubbleColor: color, bubbleStyleOverride: true })}
+          onSelectCustomBubbleStyle={(id, css) => updateCurrentSessionUiSettings({ customBubbleStyleId: id, customBubbleCss: css, bubbleStyleOverride: true })}
           onAddCustomBubbleStyle={handleAddCustomBubbleStyle}
           onUpdateCustomBubbleStyle={handleUpdateCustomBubbleStyle}
           onDeleteCustomBubbleStyle={handleDeleteCustomBubbleStyle}

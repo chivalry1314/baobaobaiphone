@@ -252,6 +252,7 @@ export const WeChatChatUiOptimizeView: React.FC<WeChatChatUiOptimizeViewProps> =
         selfBubbleColor: undefined,
         customBubbleCss: '',
         customBubbleStyleId: '',
+        bubbleStyleOverride: false,
         ...(theme.chatBackgroundImage
           ? { chatBackgroundImage: theme.chatBackgroundImage }
           : { chatBackgroundImage: undefined }),

@@ -140,6 +140,7 @@ export interface WeChatSession {
   selfBubbleColor?: string;
   customBubbleCss?: string;
   customBubbleStyleId?: string;
+  bubbleStyleOverride?: boolean;
   chatFontFamily?: string;
   chatFontData?: string;
   customBubbleStyles?: WeChatCustomBubbleStyle[];
