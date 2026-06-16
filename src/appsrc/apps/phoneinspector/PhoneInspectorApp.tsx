@@ -133,7 +133,7 @@ export const PhoneInspectorApp: React.FC<PhoneInspectorAppProps> = ({ onClose })
     () =>
       INSPECTABLE_APP_IDS.map((appId) => getAppById(appId))
         .filter((item): item is NonNullable<typeof item> => Boolean(item))
-        .filter((app) => isSystemAppId(app.id) || installedAppIdSet.has(app.id))
+        .filter((app) => app.id === 'dailywords' || isSystemAppId(app.id) || installedAppIdSet.has(app.id))
         .map((app) => ({
           id: app.id,
           name: app.name,

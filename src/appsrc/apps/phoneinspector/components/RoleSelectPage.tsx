@@ -78,7 +78,7 @@ export const RoleSelectPage: React.FC<RoleSelectPageProps> = ({
                   )}
                 </div>
                 <div className="min-w-0 flex-1">
-                  <p className="truncate text-[16px] font-medium text-slate-900">{contact.name}</p>
+                  <p className="truncate text-[16px] font-bold text-slate-900">{contact.name}</p>
                   <p className="truncate text-[12px] text-slate-500">
                     {contact.role || contact.note || '通讯录联系人'}
                   </p>

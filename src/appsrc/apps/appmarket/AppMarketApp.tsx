@@ -101,7 +101,7 @@ export const AppMarketApp: React.FC<AppMarketAppProps> = ({ onClose, context }) 
   }, [context?.params]);
 
   const effectiveInstalledOnlineAppIds = useMemo(() => {
-    const installedSet = new Set(installedAppIds);
+    const installedSet = new Set<string>();
 
     items.forEach((item) => {
       if (item.type !== 'app') return;
@@ -110,7 +110,7 @@ export const AppMarketApp: React.FC<AppMarketAppProps> = ({ onClose, context }) 
     });
 
     return [...installedSet];
-  }, [installedAppIds, items, onlineAppIdSet]);
+  }, [items, onlineAppIdSet]);
 
   const handleInstallOnlineApp = useCallback(
     (appId: string) => {

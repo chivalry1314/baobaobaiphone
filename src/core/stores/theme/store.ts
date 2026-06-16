@@ -2,7 +2,7 @@ import { create } from 'zustand';
 import { persist } from 'zustand/middleware';
 
 import { upsertCustomWidgetLibraryItems } from '../../customWidgetLibrary';
-import type { DesktopItem, DesktopLayoutConfig } from '../types';
+import type { DesktopLayoutConfig } from '../types';
 import { defaultDesktopLayout, useDesktopCoreStore } from '../desktop/store';
 import { useSettingsCoreStore } from '../settings/store';
 import { defaultSettings } from '../settings/store';
@@ -27,90 +27,19 @@ const shallowEqualArrays = <T>(a: T[], b: T[]): boolean => {
   return true;
 };
 
-const cloneDesktopItem = (item: DesktopItem): DesktopItem => ({
-  ...item,
-  data: item.data ? { ...item.data } : undefined,
-});
-
 const cloneDesktopLayout = (layout: DesktopLayoutConfig): DesktopLayoutConfig => ({
   rows: layout.rows,
   cols: layout.cols,
   pageCount: layout.pageCount,
   layoutMode: layout.layoutMode,
-  items: (layout.items || []).map(cloneDesktopItem),
+  items: (layout.items || []).map((item) => ({
+    ...item,
+    data: item.data ? { ...item.data } : undefined,
+  })),
   customWidgets: (layout.customWidgets || []).map((widget) => ({
     ...widget,
     data: widget.data ? { ...widget.data } : undefined,
   })),
-});
-
-const getRequiredPageCount = (items: DesktopItem[]): number => (
-  items.reduce((maxPage, item) => Math.max(maxPage, item.page + 1), 1)
-);
-
-const makeUniqueInstanceId = (instanceId: string, usedIds: Set<string>): string => {
-  if (!usedIds.has(instanceId)) return instanceId;
-
-  let suffix = 2;
-  let nextId = `${instanceId}-${suffix}`;
-  while (usedIds.has(nextId)) {
-    suffix += 1;
-    nextId = `${instanceId}-${suffix}`;
-  }
-  return nextId;
-};
-
-const mergeThemeDesktopLayout = (
-  currentLayout: DesktopLayoutConfig,
-  themeLayout: DesktopLayoutConfig
-): DesktopLayoutConfig => {
-  const themeAppByComponentId = new Map(
-    (themeLayout.items || [])
-      .filter((item) => item.type === 'app')
-      .map((item) => [item.componentId, item])
-  );
-  const mergedApps = (currentLayout.items || [])
-    .filter((item) => item.type === 'app')
-    .map((item) => {
-      const themeApp = themeAppByComponentId.get(item.componentId);
-      if (!themeApp) return cloneDesktopItem(item);
-
-      return {
-        ...cloneDesktopItem(themeApp),
-        instanceId: item.instanceId,
-        componentId: item.componentId,
-        type: item.type,
-      };
-    });
-  const usedIds = new Set(mergedApps.map((item) => item.instanceId));
-  const themeWidgets = (themeLayout.items || [])
-    .filter((item) => item.type === 'widget')
-    .map((item) => {
-      const clonedItem = cloneDesktopItem(item);
-      clonedItem.instanceId = makeUniqueInstanceId(clonedItem.instanceId, usedIds);
-      usedIds.add(clonedItem.instanceId);
-      return clonedItem;
-    });
-  const items = [...mergedApps, ...themeWidgets];
-
-  return {
-    ...cloneDesktopLayout(themeLayout),
-    pageCount: Math.max(themeLayout.pageCount || 1, currentLayout.pageCount || 1, getRequiredPageCount(items)),
-    items,
-  };
-};
-
-const mergeThemeSettingsPatch = (
-  currentSettings: ThemeSettingsPatch,
-  themeSettingsPatch: ThemeSettingsPatch
-): ThemeSettingsPatch => ({
-  ...themeSettingsPatch,
-  customIcons: themeSettingsPatch.customIcons
-    ? {
-        ...(currentSettings.customIcons || {}),
-        ...themeSettingsPatch.customIcons,
-      }
-    : themeSettingsPatch.customIcons,
 });
 
 export interface ThemeStoreState {
@@ -332,14 +261,10 @@ export const useThemeStore = create<ThemeStoreState>()(
             ? cloneDesktopLayout(desktopStore.desktopLayout)
             : get().previousManualDesktopLayout || cloneDesktopLayout(desktopStore.desktopLayout);
 
-        settingsStore.updateSettings(
-          mergeThemeSettingsPatch(settingsStore.settings, theme.settingsPatch)
-        );
+        settingsStore.updateSettings(theme.settingsPatch);
         if (theme.desktopLayout) {
           upsertCustomWidgetLibraryItems(theme.desktopLayout.customWidgets || []);
-          desktopStore.updateDesktopLayout(
-            mergeThemeDesktopLayout(desktopStore.desktopLayout, theme.desktopLayout)
-          );
+          desktopStore.updateDesktopLayout(cloneDesktopLayout(theme.desktopLayout));
         }
         set((state) => ({
           activeThemeId: normalizedId,

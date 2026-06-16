@@ -108,6 +108,9 @@ const WECHAT_AUTO_REPLY_DELAY_MS = 1600;
 const WECHAT_FLOATING_BUBBLE_SIZE = 44;
 const WECHAT_FLOATING_BUBBLE_MARGIN = 10;
 const WECHAT_FLOATING_BUBBLE_DRAG_THRESHOLD = 6;
+const WECHAT_OOC_CORRECTION_EMPTY_PROMPT = '## OOC (Out-of-Character) 导演安全频道协议';
+const WECHAT_OOC_CORRECTION_SETUP_HINT =
+  '请先下载纸间魔法APP，在社交与陪伴-微信：纠正剧情中配置提示词。';
 const WECHAT_CONTEXT_CHAR_BUDGET = 28000;
 
 type WeChatAutoReplyRunner = (sessionId: string) => Promise<boolean | void> | boolean | void;
@@ -729,6 +732,10 @@ export const WeChatChatView: React.FC<WeChatChatViewProps> = ({
     moved: boolean;
   } | null>(null);
   const oocCorrectionInstructionsBySessionRef = useRef<Record<string, string[]>>({});
+  const shouldShowOocCorrectionSetupHint = useMemo(() => {
+    const renderedPrompt = renderPaperMagicText('wechat.chat.oocCorrection').trim();
+    return renderedPrompt === WECHAT_OOC_CORRECTION_EMPTY_PROMPT;
+  }, []);
   const shouldFollowVisualViewport = useMemo(() => isIOSViewportDevice(), []);
 
   const [activeWechatThemeId, setActiveWechatThemeId] = useState(() => getActiveWechatThemeId());
@@ -756,9 +763,11 @@ export const WeChatChatView: React.FC<WeChatChatViewProps> = ({
     ? {
         ...wechatUiSettings,
         ...activeWechatThemePatch,
-        selfBubbleColor: '',
-        customBubbleCss: '',
-        customBubbleStyleId: '',
+        selfBubblePreset: session?.selfBubblePreset || activeWechatThemePatch.selfBubblePreset || wechatUiSettings.selfBubblePreset,
+        peerBubblePreset: session?.peerBubblePreset || activeWechatThemePatch.peerBubblePreset || wechatUiSettings.peerBubblePreset,
+        selfBubbleColor: session?.selfBubbleColor ?? '',
+        customBubbleCss: session?.customBubbleCss || '',
+        customBubbleStyleId: session?.customBubbleStyleId || '',
         chatFontFamily: session?.chatFontFamily || '',
         chatFontData: session?.chatFontData || '',
         customBubbleStyles: session?.customBubbleStyles || [],
@@ -3770,7 +3779,7 @@ export const WeChatChatView: React.FC<WeChatChatViewProps> = ({
                   ),
                   top: Math.min(
                     floatingBubblePosition.y,
-                    Math.max(WECHAT_FLOATING_BUBBLE_MARGIN, (chatShellRef.current?.clientHeight || 640) - 190)
+                    Math.max(WECHAT_FLOATING_BUBBLE_MARGIN, (chatShellRef.current?.clientHeight || 640) - 238)
                   ),
                 }}
                 onPointerDown={(event) => event.stopPropagation()}
@@ -3788,6 +3797,11 @@ export const WeChatChatView: React.FC<WeChatChatViewProps> = ({
                     </button>
                   ) : null}
                 </div>
+                {shouldShowOocCorrectionSetupHint ? (
+                  <div className="mb-2 rounded-xl border border-amber-200 bg-amber-50/90 px-2.5 py-2 text-[11px] leading-4 text-amber-700">
+                    {WECHAT_OOC_CORRECTION_SETUP_HINT}
+                  </div>
+                ) : null}
                 <textarea
                   value={oocCorrectionInput}
                   onChange={(event) => setOocCorrectionInput(event.target.value)}

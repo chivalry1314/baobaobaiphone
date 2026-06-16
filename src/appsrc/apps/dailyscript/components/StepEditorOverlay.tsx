@@ -32,7 +32,7 @@ type ActionAppType = 'dailywords' | 'wechat' | 'lovespace' | 'dreammusic';
 const FIELD_FOCUS_TOP_PADDING = 56;
 
 const ACTION_APP_LABELS: Record<ActionAppType, string> = {
-  dailywords: '每日语',
+  dailywords: '日记心语',
   wechat: '微信',
   lovespace: '情侣空间',
   dreammusic: '梦音乐',
