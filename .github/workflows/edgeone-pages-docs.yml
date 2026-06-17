@@ -1,0 +1,102 @@
+name: EdgeOne Pages Docs
+
+on:
+  # 默认仅手动触发，避免与 EdgeOne Pages 原生 Git 自动部署冲突。
+  # 如需改用 GitHub Actions 自动部署，可取消下面 push 触发器的注释。
+  # push:
+  #   branches:
+  #     - main
+  #   paths:
+  #     - 'docs/**'
+  #     - '.github/workflows/edgeone-pages-docs.yml'
+  #     - 'package.json'
+  #     - 'package-lock.json'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: edgeone-pages-docs-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  deploy:
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    env:
+      EDGEONE_API_TOKEN: ${{ secrets.EDGEONE_API_TOKEN }}
+      EDGEONE_TOKEN: ${{ secrets.EDGEONE_TOKEN }}
+      EDGEONE_DOCS_PROJECT_NAME: ${{ vars.EDGEONE_DOCS_PROJECT_NAME }}
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: 22.x
+          cache: npm
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Build docs
+        run: |
+          set -euo pipefail
+          npm run docs:build
+          npm run docs:index
+
+      - name: Deploy to EdgeOne Pages (docs)
+        id: deploy
+        shell: bash
+        run: |
+          set -euo pipefail
+
+          TOKEN="${EDGEONE_API_TOKEN:-${EDGEONE_TOKEN:-}}"
+          if [ -z "${TOKEN}" ]; then
+            echo "::error::Missing secret EDGEONE_API_TOKEN or EDGEONE_TOKEN"
+            exit 1
+          fi
+
+          PROJECT_NAME="${EDGEONE_DOCS_PROJECT_NAME:-${GITHUB_REPOSITORY##*/}-docs}"
+          if [ -z "${PROJECT_NAME}" ]; then
+            echo "::error::Project name is empty. Set repo variable EDGEONE_DOCS_PROJECT_NAME."
+            exit 1
+          fi
+
+          echo "Deploying docs for project: ${PROJECT_NAME}"
+          DEPLOY_LOG="$(mktemp)"
+          set +e
+          npx --yes edgeone pages deploy ./docs/.vitepress/dist -n "${PROJECT_NAME}" -t "${TOKEN}" 2>&1 | tee "${DEPLOY_LOG}"
+          DEPLOY_EXIT_CODE=${PIPESTATUS[0]}
+          set -e
+          DEPLOY_OUTPUT="$(cat "${DEPLOY_LOG}")"
+
+          if [ "${DEPLOY_EXIT_CODE}" -ne 0 ]; then
+            echo "::error::EdgeOne deploy failed with exit code ${DEPLOY_EXIT_CODE}"
+            exit "${DEPLOY_EXIT_CODE}"
+          fi
+
+          DEPLOY_URL="$(echo "${DEPLOY_OUTPUT}" | sed -n 's/^.*EDGEONE_DEPLOY_URL: //p' | tail -n 1)"
+          PROJECT_ID="$(echo "${DEPLOY_OUTPUT}" | sed -n 's/^.*EDGEONE_PROJECT_ID: //p' | tail -n 1)"
+
+          if [ -n "${DEPLOY_URL}" ]; then
+            echo "deploy_url=${DEPLOY_URL}" >> "${GITHUB_OUTPUT}"
+          fi
+          if [ -n "${PROJECT_ID}" ]; then
+            echo "project_id=${PROJECT_ID}" >> "${GITHUB_OUTPUT}"
+          fi
+          echo "project_name=${PROJECT_NAME}" >> "${GITHUB_OUTPUT}"
+
+      - name: Write deployment summary
+        if: ${{ steps.deploy.outputs.deploy_url != '' }}
+        run: |
+          {
+            echo "## EdgeOne Pages Docs Deployment"
+            echo ""
+            echo "- Project: \`${{ steps.deploy.outputs.project_name }}\`"
+            echo "- Project ID: \`${{ steps.deploy.outputs.project_id }}\`"
+            echo "- URL: ${{ steps.deploy.outputs.deploy_url }}"
+            echo "- Commit: \`${{ github.sha }}\`"
+          } >> "${GITHUB_STEP_SUMMARY}"
