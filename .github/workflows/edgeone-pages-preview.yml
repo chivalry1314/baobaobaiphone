@@ -61,10 +61,14 @@ jobs:
             exit 1
           fi
 
-          PROJECT_NAME="${EDGEONE_PREVIEW_PROJECT_NAME:-${EDGEONE_PROJECT_NAME:-${GITHUB_REPOSITORY##*/}}}"
+          PROJECT_NAME="${EDGEONE_PREVIEW_PROJECT_NAME:-${GITHUB_REPOSITORY##*/}-preview-upload}"
           if [ -z "${PROJECT_NAME}" ]; then
-            echo "::error::Project name is empty. Set EDGEONE_PREVIEW_PROJECT_NAME or EDGEONE_PROJECT_NAME."
+            echo "::error::Project name is empty. Set EDGEONE_PREVIEW_PROJECT_NAME."
             exit 1
+          fi
+          if [ -z "${EDGEONE_PREVIEW_PROJECT_NAME:-}" ]; then
+            echo "::notice::EDGEONE_PREVIEW_PROJECT_NAME is not set. Using default preview project '${PROJECT_NAME}'."
+            echo "::notice::This preview project must have Provider 'Upload', not 'Github'."
           fi
 
           echo "Deploying preview for project: ${PROJECT_NAME}"
@@ -76,6 +80,10 @@ jobs:
           DEPLOY_OUTPUT="$(cat "${DEPLOY_LOG}")"
 
           if [ "${DEPLOY_EXIT_CODE}" -ne 0 ]; then
+            if echo "${DEPLOY_OUTPUT}" | grep -q "Provider 'Github'.*Only projects with Provider 'Upload' are supported"; then
+              echo "::error::Project '${PROJECT_NAME}' uses Provider 'Github'."
+              echo "::error::Set repository variable EDGEONE_PREVIEW_PROJECT_NAME to a Provider 'Upload' EdgeOne project."
+            fi
             echo "::error::EdgeOne deploy failed with exit code ${DEPLOY_EXIT_CODE}"
             exit "${DEPLOY_EXIT_CODE}"
           fi

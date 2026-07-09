@@ -17,10 +17,17 @@ Create one of these repository secrets:
 
 Create repository variables (Settings -> Secrets and variables -> Actions -> Variables):
 
-- `EDGEONE_PROJECT_NAME`: EdgeOne project name for production deploy.
-- `EDGEONE_PREVIEW_PROJECT_NAME`: EdgeOne project name for preview deploy.
+- `EDGEONE_PROJECT_NAME`: EdgeOne project name for production deploy (must be Provider `Upload` when using this workflow).
+- `EDGEONE_PREVIEW_PROJECT_NAME`: EdgeOne project name for preview deploy (must be Provider `Upload`).
 
-If variables are not set, workflows default to repository name.
+Preview workflow default project name (when `EDGEONE_PREVIEW_PROJECT_NAME` is not set):
+
+- `<repo-name>-preview-upload`
+
+Important:
+
+- Do not point preview workflow to a Git-connected project (Provider `Github`).
+- `edgeone pages deploy` only supports projects with Provider `Upload`.
 
 
 ## 3. Trigger Rules
