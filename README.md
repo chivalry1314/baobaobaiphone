@@ -6,13 +6,21 @@ baobaobaiphone 是一个基于 React + Vite 的移动端桌面式 Web 应用容�
 
 ## 功能概览
 
+### 核心系统能力
+
 - 桌面式应用容器：支持图标布局、分页、组件化桌面 widget。
-- 多应用生态：应用通过 manifest 自动注册，无需手动维护全局清单。
+- 多应用生态：应用通过 `src/appsrc/apps/<appId>/index.ts` manifest 自动注册，无需手动维护全局清单。
 - 应用市场：支持在线/离线（上传 HTML）运行时应用安装与启动。
+- 角色与身份系统：支持多身份切换、通讯录角色、`我的名片`，并在运行时为应用提供统一的角色上下文。
+- 每日剧本：按日期编排角色流程，支持跨应用动作触发（如自动发微信、写日记、完成打卡等）。
 - 系统任务调度：支持可配置的周期任务与执行日志。
 - 数据持久化：基于 IndexedDB（含 core store 与 app store）。
-- AI 能力接入：OpenAI 兼容接口、图片生成、语音能力、记忆总结。
+- AI 能力接入：OpenAI 兼容接口、Google Gemini、图片生成、语音能力、记忆总结与 AI 交互记录。
 - Web Push：支持浏览器订阅、服务端同步、测试推送和通知唤起应用。
+
+### 应用层能力
+
+- 通讯录、查手机、记忆中心、微信、情侣空间、日记心语、暖迹、梦音乐、天气、去逛街、开店吧、外卖、人设生成器、纸间魔法等应用，覆盖社交、生活、电商、AI 工具等场景。
 
 ## 技术栈
 
@@ -49,26 +57,34 @@ scripts/
 
 ## 内置应用目录
 
-当前应用位于 `src/appsrc/apps`（按目录名）：
+当前应用位于 `src/appsrc/apps`（按目录名），共 21 个：
 
-- `appmarket`
-- `contacts`
-- `dailyscript`
-- `dailywords`
-- `dreammusic`
-- `lovespace`
-- `memorycenter`
-- `phoneinspector`
-- `scheduler`
-- `seller`
-- `settings`
-- `shopping`
-- `storage`
-- `template`
-- `warmtrack`
-- `weather`
-- `WeChat`（manifest id 为 `wechat`）
-- `worldbook`
+### 系统应用
+
+- `appmarket`：应用市场 — 线上/离线应用安装与开发者上传平台。
+- `contacts`：通讯录 — 联系人与通话记录管理，支持多身份名片。
+- `dailyscript`：每日剧本 — 先选通讯录角色，再按日期设置当天要执行的剧本流程。
+- `memorycenter`：记忆中心 — 统一管理各个应用的 AI 交互记忆记录。
+- `phoneinspector`：查手机 — 选择通讯录角色后查看其手机视角。
+- `scheduler`：定时任务 — 配置系统自动任务，控制扫描频率与执行状态。
+- `settings`：设置 — 系统设置。
+- `storage`：文件管理 — 本地文件与存储管理。
+- `worldbook`：备忘录 — 笔记与知识库管理。
+
+### 市场应用
+
+- `dailywords`：日记心语 — 记录每天的心情和想法，支持按身份隔离与手动同步记忆中心。
+- `delivery`：外卖 — 外卖首页、店铺列表、店铺详情、下单页和店铺管理页。
+- `dreammusic`：梦音乐 — 支持网易云歌单分享导入，并尝试直链播放。
+- `lovespace`：情侣空间 — 从通讯录添加多位关系，在首页查看绑定天数与心动值。
+- `papermagic`：纸间魔法 — 定制化提示词管理。
+- `personagenerator`：人设生成器 — 从聊天记录或文件生成通讯录、备忘录和记忆中心。
+- `seller`：开店吧 — 店铺数据、订单与商品管理。
+- `shopping`：去逛街 — 商品浏览、下单和订单管理。
+- `template`：模板 — 组件样式和交互模板示例。
+- `warmtrack`：暖迹 — 记录经期状态、症状和每日健康信息。
+- `weather`：天气 — 查看实时天气和未来预报。
+- `WeChat`：微信（manifest id 为 `wechat`）— 即时通讯应用，可进行聊天、通讯录管理、朋友圈与个人资料操作。
 
 ## 快速开始
 
